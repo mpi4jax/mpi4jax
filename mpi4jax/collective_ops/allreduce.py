@@ -33,31 +33,23 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD):
 
 #  this function executes the primitive, when not under any transformation
 def mpi_allreduce_impl(x, op, comm):
+    # TODO: make this support gpus (use cupy?)
+    inpt = _np.asarray(x)
     out = _np.zeros_like(x)
-    ptr_in = x.block_until_ready().device_buffer.unsafe_buffer_pointer()
-    ptr_out = out.__array_interface__["data"][0]
 
     # rebuild comm and op
     _op = MPIOp_from_ptr(op)
     _comm = MPIComm_from_ptr(comm)
 
-    # The above is faster.
-    # This below should work more often, but might copy.
-    # Depending on future changes in jaxlib, we might have to switch to
-    # this below.
-    # see Google/jax #2123 and #1009
-    # _x = jax.xla._force(x.block_until_ready())
-    # ptr = _x.device_buffer.unsafe_buffer_pointer()
+    _comm.Allreduce(inpt, out, op=_op)
 
-    # using native numpy because jax's numpy does not have ctypeslib
-    data_pointer = _np.ctypeslib.ndpointer(out.dtype, shape=out.shape)
+    res = jnp.array(out, dtype=x.dtype)
 
-    # wrap jax data into a standard numpy array which is handled by MPI
-    arr_in = data_pointer(ptr_in).contents
-    arr_out = data_pointer(ptr_out).contents
-    _comm.Allreduce(arr_in, arr_out, op=_op)
+    # put the result on the correct device if needed
+    if not (res.device_buffer.device() == x.device_buffer.device()):
+        res = jax.device_put(res, device=x.device_buffer.device())
 
-    return jnp.array(out, dtype=x.dtype)
+    return res
 
 
 #  This function compiles the operation
