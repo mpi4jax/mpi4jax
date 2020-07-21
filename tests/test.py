@@ -8,9 +8,12 @@ $ mpirun -n <nproc> python test.py
 
 import jax
 import jax.numpy as np
-from mpi4jax import Allreduce
 
 from mpi4py import MPI
+print(MPI.get_vendor())
+
+from mpi4jax import Allreduce
+
 
 rank = MPI.COMM_WORLD.Get_rank()
 size = MPI.COMM_WORLD.Get_size()
