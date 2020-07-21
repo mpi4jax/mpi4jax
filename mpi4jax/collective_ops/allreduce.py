@@ -30,11 +30,12 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD):
 
     return mpi_allreduce_p.bind(x, op=op_ptr, comm=comm_ptr)
 
+
 #  this function executes the primitive, when not under any transformation
 def mpi_allreduce_impl(x, op, comm):
     out = _np.zeros_like(x)
-    ptr_in  = x.block_until_ready().device_buffer.unsafe_buffer_pointer()
-    ptr_out = out.__array_interface__['data'][0]
+    ptr_in = x.block_until_ready().device_buffer.unsafe_buffer_pointer()
+    ptr_out = out.__array_interface__["data"][0]
 
     # rebuild comm and op
     _op = MPIOp_from_ptr(op)
@@ -98,7 +99,7 @@ def mpi_allreduce_abstract_eval(xs, op, comm):
 
 # This function binds the batched transformation.
 def mpi_allreduce_batching(in_args, batch_axes, **kwargs):
-    x, = in_args
+    (x,) = in_args
     res = mpi_allreduce_p.bind(x, **kwargs)
     return res, batch_axes[0]
 

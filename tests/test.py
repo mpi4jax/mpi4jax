@@ -19,18 +19,23 @@ size = MPI.COMM_WORLD.Get_size()
 def test_nojit(a):
     return Allreduce(a, op=MPI.SUM)
 
+
 @jax.jit
 def test_jit(a):
     return Allreduce(a, op=MPI.SUM)
 
+
 def test_vmap_nojit(a):
     return jax.vmap(test_nojit, in_axes=0)(a)
+
 
 def test_vmap_jit(a):
     return jax.jit(jax.vmap(test_nojit, in_axes=0))(a)
 
+
 def test_grad_sum_nojit(a):
     return jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM).sum())(arr)
+
 
 def test_grad_sum_jit(a):
     return jax.jit(jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM).sum()))(arr)
