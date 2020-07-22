@@ -38,4 +38,4 @@ jobs:
       - name: mpirun test with pytest
         run: |
           cd tests
-          mpirun -np 2 pytest .
+          mpirun -v -np 2 pytest .
