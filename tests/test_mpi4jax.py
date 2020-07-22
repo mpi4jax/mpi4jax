@@ -8,6 +8,7 @@ $ mpirun -n <nproc> python test.py
 
 import jax
 import jax.numpy as np
+import pytest
 
 from mpi4py import MPI
 
@@ -53,3 +54,6 @@ def test_allreduce():
     assert np.array_equal(res, arr.sum() * size)
     assert np.array_equal(grad, np.ones(arr.shape))
     assert np.array_equal(_arr, arr)
+
+    with pytest.raises(NotImplementedError):
+        jax.jit(jax.value_and_grad(lambda x: Allreduce(x, op=MPI.MIN).sum()))(arr)

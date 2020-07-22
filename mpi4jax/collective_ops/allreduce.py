@@ -25,10 +25,7 @@ mpi_allreduce_p = Primitive("sum_inplace_mpi")  # Create the primitive
 
 # This function applies the primitive to an AST
 def Allreduce(x, op, comm=_MPI.COMM_WORLD):
-    op_ptr = to_mpi_ptr(op)
-    comm_ptr = to_mpi_ptr(comm)
-
-    return mpi_allreduce_p.bind(x, op=op_ptr, comm=comm_ptr)
+    return mpi_allreduce_p.bind(x, op=op, comm=comm)
 
 
 #  this function executes the primitive, when not under any transformation
@@ -37,11 +34,7 @@ def mpi_allreduce_impl(x, op, comm):
     inpt = _np.asarray(x)
     out = _np.zeros_like(x)
 
-    # rebuild comm and op
-    _op = MPIOp_from_ptr(op)
-    _comm = MPIComm_from_ptr(comm)
-
-    _comm.Allreduce(inpt, out, op=_op)
+    comm.Allreduce(inpt, out, op=op)
 
     res = jnp.array(out, dtype=x.dtype)
 
@@ -76,8 +69,8 @@ def mpi_allreduce_xla_encode(c, x, op, comm):
         operands=(
             _nitems,
             x,
-            _constant_u64_scalar(c, op),
-            _constant_u64_scalar(c, comm),
+            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
         ),
         shape=sh,
@@ -92,14 +85,22 @@ def mpi_allreduce_abstract_eval(xs, op, comm):
 # This function binds the batched transformation.
 def mpi_allreduce_batching(in_args, batch_axes, **kwargs):
     (x,) = in_args
-    res = mpi_allreduce_p.bind(x, **kwargs)
+    res = Allreduce(x, **kwargs)
     return res, batch_axes[0]
 
 
-def mpi_allreduce_value_and_jvp(in_args, tan_args, **kwargs):
+def mpi_allreduce_value_and_jvp(in_args, tan_args, op, **kwargs):
     (x,) = in_args
-    (x_tan,) = tan_args
-    res = mpi_allreduce_p.bind(x, **kwargs)
+    res = Allreduce(x, op=op, **kwargs)
+
+    # Identify the correct adjoint
+    if op == _MPI.SUM:
+        (x_tan,) = tan_args
+    else:
+        raise NotImplementedError(
+            "The adjoint of allreduce for {} operation is not defined".format(op)
+        )
+
     jvp = x_tan
     return (res, jvp)
 
