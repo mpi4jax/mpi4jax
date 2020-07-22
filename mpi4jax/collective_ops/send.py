@@ -31,6 +31,7 @@ def mpi_send_impl(x, dest, tag, comm):
     # TODO: make this support gpus (use cupy?)
     inpt = _np.asarray(x)
     comm.Send(inpt, dest=dest, tag=tag)
+    return inpt
 
 
 #  This function compiles the operation
@@ -46,7 +47,6 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
         nitems *= el
 
     _nitems = _constant_s32_scalar(c, nitems)
-
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.array_shape(dtype, dims)
@@ -67,7 +67,7 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_send_abstract_eval(xs, op, comm):
+def mpi_send_abstract_eval(xs, dest, tag, comm):
     return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
 
 

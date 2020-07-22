@@ -48,7 +48,6 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
         nitems *= el
 
     _nitems = _constant_s32_scalar(c, nitems)
-
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.array_shape(dtype, dims)
@@ -59,7 +58,6 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
             b"mpi_recv_ignore_status",
             operands=(
                 _nitems,
-                x,
                 _constant_s32_scalar(c, source),
                 _constant_s32_scalar(c, tag),
                 _constant_u64_scalar(c, to_mpi_ptr(comm)),
@@ -68,24 +66,24 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
             shape=sh,
         )
 
+    status_addr = _np.uint64(_MPI._addressof(status))
     return _ops.CustomCall(
         c,
         b"mpi_recv",
         operands=(
             _nitems,
-            x,
             _constant_s32_scalar(c, source),
             _constant_s32_scalar(c, tag),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
-            _constant_u64_scalar(c, to_mpi_ptr(status)),
+            _constant_u64_scalar(c, status_addr),
         ),
         shape=sh,
     )
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_recv_abstract_eval(xs, op, comm):
+def mpi_recv_abstract_eval(xs, source, tag, comm, status):
     return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
 
 
