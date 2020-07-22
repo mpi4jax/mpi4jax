@@ -34,7 +34,7 @@ jobs:
       - name: Single-execution test with pytest
         run: |
           cd tests 
-          pytest test.py
+          pytest .
       - name: mpirun test with pytest
         run: |
-          mpirun -np 2 pytest test.py
+          mpirun -np 2 pytest .
