@@ -31,6 +31,10 @@ jobs:
           pip install pytest numpy jax jaxlib mpi4py
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -v .
-      - name: Test with pytest
+      - name: Single-execution test with pytest
         run: |
-          cd tests && mpirun -np 2 pytest test.py
+          cd tests 
+          pytest test.py
+      - name: mpirun test with pytest
+        run: |
+          mpirun -np 2 pytest test.py
