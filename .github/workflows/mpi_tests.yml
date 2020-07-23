@@ -33,18 +33,6 @@ jobs:
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: |
           sh ./conf/travis-install-mpi.sh mpich
-      - name: Print some information
-        run: |
-          echo "$PATH"
-          ls $HOME/mpich
-          ls $HOME/mpich/bin
-          echo "$(which mpicc)"
-          echo "$(readlink $(which mpicc))"
-          echo "$(mpicc --version)"
-          echo "$(mpicc --showme:compile)"
-          echo "$(mpicc --showme:link)"
-          echo "$(which mpirun)"
-          echo "$(mpirun --version)"
       - name: Cache pip installed packages
         id: pip-cache
         uses: actions/cache@v2
