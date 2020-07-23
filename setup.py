@@ -10,7 +10,7 @@ def mpi_info(cmd):
     cmd_compile = " ".join([config["mpicc"], "-show"])
     out_stream = os.popen(cmd_compile)
     flags = out_stream.read().strip()
-    flags = flags.replace(',', ' ').split()
+    flags = flags.replace(",", " ").split()
 
     if cmd == "compile":
         startwith = "-I"
