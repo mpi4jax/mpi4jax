@@ -40,44 +40,46 @@ case "$os" in
                 sudo apt-get install -y gfortran mpich2 libmpich2-3 libmpich2-dev
                 ;;
             mpich|mpich3)
-                sudo apt-get install -y gfortran hwloc ccache
-                sudo /usr/sbin/update-ccache-symlinks
-                export PATH="/usr/lib/ccache:$PATH"
-                wget http://www.mpich.org/static/downloads/3.2.1/$MPICHVER.tar.gz
-                tar -zxf $MPICHVER.tar.gz
-                cd $MPICHVER
-                sh ./configure --prefix=$HOME/mpich --enable-shared > /dev/null
-                make -j 
-                sudo make install 
-                MPICACHEDIR="$HOME/mpich"
-                export PATH="$HOME/mpich/bin:$PATH"
-                export LD_LIBRARY_PATH="$HOME/mpich/lib:$LD_LIBRARY_PATH"
-                export C_INCLUDE_PATH="$HOME/mpich/:$C_INCLUDE_PATH"
-                export CPLUS_INCLUDE_PATH="$HOME/mpich/:$CPLUS_INCLUDE_PATH"
-                echo "::set-env name=PATH::$PATH"
-                echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
-                echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
-                echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
+                sudo apt-get install -y -q mpich libmpich-dev
+                #sudo apt-get install -y gfortran hwloc ccache
+                #sudo /usr/sbin/update-ccache-symlinks
+                #export PATH="/usr/lib/ccache:$PATH"
+                #wget http://www.mpich.org/static/downloads/3.2.1/$MPICHVER.tar.gz
+                #tar -zxf $MPICHVER.tar.gz
+                #cd $MPICHVER
+                #sh ./configure --prefix=$HOME/mpich --enable-shared > /dev/null
+                #make -j 
+                #sudo make install 
+                #MPICACHEDIR="$HOME/mpich"
+                #export PATH="$HOME/mpich/bin:$PATH"
+                #export LD_LIBRARY_PATH="$HOME/mpich/lib:$LD_LIBRARY_PATH"
+                #export C_INCLUDE_PATH="$HOME/mpich/:$C_INCLUDE_PATH"
+                #export CPLUS_INCLUDE_PATH="$HOME/mpich/:$CPLUS_INCLUDE_PATH"
+                #echo "::set-env name=PATH::$PATH"
+                #echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
+                #echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
+                #echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
                 ;;
             openmpi)
-                sudo apt-get install -y gfortran ccache
-                sudo /usr/sbin/update-ccache-symlinks
-                export PATH="/usr/lib/ccache:$PATH"
-                wget --no-check-certificate https://www.open-mpi.org/software/ompi/v3.0/downloads/$OMPIVER.tar.gz
-                tar -zxf $OMPIVER.tar.gz
-                cd $OMPIVER
-                sh ./configure --prefix=$HOME/openmpi > /dev/null
-                make -j 
-                sudo make install 
-                MPICACHEDIR="$HOME/openmpi"
-                export PATH="$HOME/openmpi/bin:$PATH"
-                export LD_LIBRARY_PATH="$HOME/openmpi/lib:$LD_LIBRARY_PATH"
-                export C_INCLUDE_PATH="$HOME/openmpi/:$C_INCLUDE_PATH"
-                export CPLUS_INCLUDE_PATH="$HOME/openmpi/:$CPLUS_INCLUDE_PATH"
-                echo "::set-env name=PATH::$PATH"
-                echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
-                echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
-                echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
+                sudo apt-get install -y -q openmpi-bin libopenmpi-dev
+                #sudo apt-get install -y gfortran ccache
+                #sudo /usr/sbin/update-ccache-symlinks
+                #export PATH="/usr/lib/ccache:$PATH"
+                #wget --no-check-certificate https://www.open-mpi.org/software/ompi/v3.0/downloads/$OMPIVER.tar.gz
+                #tar -zxf $OMPIVER.tar.gz
+                #cd $OMPIVER
+                #sh ./configure --prefix=$HOME/openmpi > /dev/null
+                #make -j 
+                #sudo make install 
+                #MPICACHEDIR="$HOME/openmpi"
+                #export PATH="$HOME/openmpi/bin:$PATH"
+                #export LD_LIBRARY_PATH="$HOME/openmpi/lib:$LD_LIBRARY_PATH"
+                #export C_INCLUDE_PATH="$HOME/openmpi/:$C_INCLUDE_PATH"
+                #export CPLUS_INCLUDE_PATH="$HOME/openmpi/:$CPLUS_INCLUDE_PATH"
+                #echo "::set-env name=PATH::$PATH"
+                #echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
+                #echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
+                #echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
                 ;;
             intelmpi)
                 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/15553/l_mpi_$IMPIVER.tgz
