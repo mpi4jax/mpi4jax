@@ -46,7 +46,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.pip-cache-lookup.outputs.dir }}
-          key: ${{ runner.os }}-${{ runner.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
           #restore-keys: |
           #  ${{ runner.os }}-${{ runner.python-version }}-pip-
       - name: Pip install python dependencies
