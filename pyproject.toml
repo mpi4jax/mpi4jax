@@ -17,6 +17,17 @@ exclude = '''
 )/
 '''
 
+# Requirements
+[dependencies]
+Click = "^7.0"
+numpy = ">=1.16"
+jax = ">=0.1.40"
+mpi4py = ">=3.0.1"
+
+[dev-dependencies]
+black = { version = "^18.3-alpha.0", python = "^3.6" }
+pytest = ">= 5"
 
 [build-system]
 requires = ["setuptools>=18.0", "wheel", "cython>=0.21", "mpi4py>=3.0.1"]
+build-backend = "setuptools.build_meta"
