@@ -41,14 +41,17 @@ jobs:
       - name: Print some information
         run: |
           echo "$(which mpicc)"
+          echo "$(mpicc --version)"
           echo "$(mpicc --showme:compile)"
           echo "$(mpicc --showme:link)"
+          echo "$(which mpirun)"
+          echo "$(mpirun --version)"
       - name: Cache pip installed packages
         id: pip-cache
         uses: actions/cache@v2
         with:
           path: ${{ steps.pip-cache-lookup.outputs.dir }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-python${{ runner.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Pip install python dependencies
