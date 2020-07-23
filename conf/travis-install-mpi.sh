@@ -10,6 +10,7 @@ os=`uname`
 OMPIVER=openmpi-3.0.0
 MPICHVER=mpich-3.2.1
 IMPIVER=2019.4.243
+MPICACHEDIR=""
 case "$os" in
     Darwin)
         brew update
@@ -38,10 +39,28 @@ case "$os" in
                 sudo apt-get install -y gfortran mpich2 libmpich2-3 libmpich2-dev
                 ;;
             mpich|mpich3)
-                sudo apt-get install -y -q mpich libmpich-dev
+                sudo apt-get install -y gfortran hwloc ccache
+                sudo /usr/sbin/update-ccache-symlinks
+                export PATH="/usr/lib/ccache:$PATH"
+                wget http://www.mpich.org/static/downloads/3.2.1/$MPICHVER.tar.gz
+                tar -zxf $MPICHVER.tar.gz
+                cd $MPICHVER
+                sh ./configure --prefix=$HOME/mpich --enable-shared > /dev/null
+                make -j > /dev/null
+                sudo make install > /dev/null
+                MPICACHEDIR="$HOME/mpich"
                 ;;
             openmpi)
-                sudo apt-get install -y -q openmpi-bin libopenmpi-dev
+                sudo apt-get install -y gfortran ccache
+                sudo /usr/sbin/update-ccache-symlinks
+                export PATH="/usr/lib/ccache:$PATH"
+                wget --no-check-certificate https://www.open-mpi.org/software/ompi/v3.0/downloads/$OMPIVER.tar.gz
+                tar -zxf $OMPIVER.tar.gz
+                cd $OMPIVER
+                sh ./configure --prefix=$HOME/openmpi > /dev/null
+                make -j > /dev/null
+                sudo make install > /dev/null
+                MPICACHEDIR="$HOME/openmpi"
                 ;;
             intelmpi)
                 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/15553/l_mpi_$IMPIVER.tgz
