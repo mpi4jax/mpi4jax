@@ -46,9 +46,10 @@ case "$os" in
                 tar -zxf $MPICHVER.tar.gz
                 cd $MPICHVER
                 sh ./configure --prefix=$HOME/mpich --enable-shared > /dev/null
-                make -j > /dev/null
-                sudo make install > /dev/null
+                make -j 
+                sudo make install 
                 MPICACHEDIR="$HOME/mpich"
+                export PATH="$HOME/mpich/bin:$PATH"
                 ;;
             openmpi)
                 sudo apt-get install -y gfortran ccache
@@ -58,9 +59,10 @@ case "$os" in
                 tar -zxf $OMPIVER.tar.gz
                 cd $OMPIVER
                 sh ./configure --prefix=$HOME/openmpi > /dev/null
-                make -j > /dev/null
-                sudo make install > /dev/null
+                make -j 
+                sudo make install 
                 MPICACHEDIR="$HOME/openmpi"
+                export PATH="$HOME/openmpi/bin:$PATH"
                 ;;
             intelmpi)
                 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/15553/l_mpi_$IMPIVER.tgz
