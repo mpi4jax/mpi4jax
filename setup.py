@@ -34,8 +34,8 @@ setup(
             libraries=mpi_info("libs"),
         ),
     ],
-    setup_requires=["numpy>=1.16", "setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
+    setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
     python_requires=">=3.6",
-    install_requires=["jax"],
+    install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest"]},
 )
