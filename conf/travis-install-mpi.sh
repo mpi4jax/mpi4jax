@@ -54,7 +54,6 @@ case "$os" in
                 export LD_LIBRARY_PATH="$HOME/mpich/lib:$LD_LIBRARY_PATH"
                 export C_INCLUDE_PATH="$HOME/mpich/"
                 export MPIPATHDIR="$HOME/mpich/bin"
-                add-path HOME/mpich/bin
                 ;;
             openmpi)
                 sudo apt-get install -y gfortran ccache
