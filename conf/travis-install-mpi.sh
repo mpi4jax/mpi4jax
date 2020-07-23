@@ -52,10 +52,12 @@ case "$os" in
                 MPICACHEDIR="$HOME/mpich"
                 export PATH="$HOME/mpich/bin:$PATH"
                 export LD_LIBRARY_PATH="$HOME/mpich/lib:$LD_LIBRARY_PATH"
-                export C_INCLUDE_PATH="$HOME/mpich/"
-                export MPIPATHDIR="$HOME/mpich/bin"
+                export C_INCLUDE_PATH="$HOME/mpich/:$C_INCLUDE_PATH"
+                export CPLUS_INCLUDE_PATH="$HOME/mpich/:$CPLUS_INCLUDE_PATH"
                 echo "::set-env name=PATH::$PATH"
-                echo $(mpicc --showme:compile)
+                echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
+                echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
+                echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
                 ;;
             openmpi)
                 sudo apt-get install -y gfortran ccache
@@ -70,9 +72,12 @@ case "$os" in
                 MPICACHEDIR="$HOME/openmpi"
                 export PATH="$HOME/openmpi/bin:$PATH"
                 export LD_LIBRARY_PATH="$HOME/openmpi/lib:$LD_LIBRARY_PATH"
-                export MPIPATHDIR="$HOME/openmpi/bin"
+                export C_INCLUDE_PATH="$HOME/openmpi/:$C_INCLUDE_PATH"
+                export CPLUS_INCLUDE_PATH="$HOME/openmpi/:$CPLUS_INCLUDE_PATH"
                 echo "::set-env name=PATH::$PATH"
-                echo $(mpicc --showme:compile)
+                echo "::set-env name=LD_LIBRARY_PATH::$LD_LIBRARY_PATH"
+                echo "::set-env name=C_INCLUDE_PATH::$C_INCLUDE_PATH"
+                echo "::set-env name=CPLUS_INCLUDE_PATH::$CPLUS_INCLUDE_PATH"
                 ;;
             intelmpi)
                 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/15553/l_mpi_$IMPIVER.tgz
