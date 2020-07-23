@@ -29,18 +29,13 @@ jobs:
         id: pip-cache-lookup
         run: |
           echo "::set-output name=dir::$(pip cache dir)"
-      - name: Cache MPI installation
-        id: cache-mpi
-        uses: actions/cache@v2
-        with:
-          path: ~/mpich
-          key: ${{ runner.os }}-mpi
       - name: Install MPI
-        if: steps.cache-mpi.outputs.cache-hit != 'true'
+        #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: sh ./conf/travis-install-mpi.sh mpich
       - name: Print some information
         run: |
           echo "$(which mpicc)"
+          echo "$(readlink $(which mpicc))"
           echo "$(mpicc --version)"
           echo "$(mpicc --showme:compile)"
           echo "$(mpicc --showme:link)"
@@ -51,9 +46,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ steps.pip-cache-lookup.outputs.dir }}
-          key: ${{ runner.os }}-python${{ runner.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          key: ${{ runner.os }}-${{ runner.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
+          #restore-keys: |
+          #  ${{ runner.os }}-${{ runner.python-version }}-pip-
       - name: Pip install python dependencies
         if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
