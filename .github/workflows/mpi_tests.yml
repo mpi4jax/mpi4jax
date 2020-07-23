@@ -31,7 +31,9 @@ jobs:
           echo "::set-output name=dir::$(pip cache dir)"
       - name: Install MPI
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
-        run: sh ./conf/travis-install-mpi.sh mpich
+        run: |
+          sh ./conf/travis-install-mpi.sh mpich
+          echo echo "::add-path::$MPIPATHDIR"
       - name: Print some information
         run: |
           echo "$PATH"
