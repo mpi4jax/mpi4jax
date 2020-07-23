@@ -33,7 +33,7 @@ jobs:
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: |
           sh ./conf/travis-install-mpi.sh mpich
-          echo echo "::add-path::$MPIPATHDIR"
+          echo "::add-path::$MPIPATHDIR"
       - name: Print some information
         run: |
           echo "$PATH"
