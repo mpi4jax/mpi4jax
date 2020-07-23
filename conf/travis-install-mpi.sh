@@ -11,6 +11,7 @@ OMPIVER=openmpi-3.0.0
 MPICHVER=mpich-3.2.1
 IMPIVER=2019.4.243
 MPICACHEDIR=""
+MPIPATHDIR=""
 case "$os" in
     Darwin)
         brew update
@@ -50,6 +51,10 @@ case "$os" in
                 sudo make install 
                 MPICACHEDIR="$HOME/mpich"
                 export PATH="$HOME/mpich/bin:$PATH"
+                export LD_LIBRARY_PATH="$HOME/mpich/lib:$LD_LIBRARY_PATH"
+                export C_INCLUDE_PATH="$HOME/mpich/"
+                export MPIPATHDIR="$HOME/mpich/bin"
+                add-path HOME/mpich/bin
                 ;;
             openmpi)
                 sudo apt-get install -y gfortran ccache
@@ -63,6 +68,8 @@ case "$os" in
                 sudo make install 
                 MPICACHEDIR="$HOME/openmpi"
                 export PATH="$HOME/openmpi/bin:$PATH"
+                export LD_LIBRARY_PATH="$HOME/openmpi/lib:$LD_LIBRARY_PATH"
+                export MPIPATHDIR="$HOME/openmpi/bin"
                 ;;
             intelmpi)
                 wget http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/15553/l_mpi_$IMPIVER.tgz
