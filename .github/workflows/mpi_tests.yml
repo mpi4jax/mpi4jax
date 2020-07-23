@@ -10,6 +10,8 @@ jobs:
       matrix:
         python-version: [3.6, 3.7, 3.8]
         os: [ubuntu-latest, macos-latest]
+    env:
+       MPICH_INTERFACE_HOSTNAME: localhost
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -38,4 +40,4 @@ jobs:
       - name: mpirun test with pytest
         run: |
           cd tests
-          mpirun -v -np 2 pytest .
+          mpirun -host localhost:2 -v -np 2 pytest .
