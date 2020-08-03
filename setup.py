@@ -31,7 +31,7 @@ setup(
     version="0.1",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
-    long_description="""Jax-mpi provides integration among jax and MPI, so that 
+    long_description="""Jax-mpi provides integration among jax and MPI, so that
     code containing MPI calls can be correctly jit-compiled through jax.""",
     url="https://github.com/PhilipVinc/mpi4jax",
     license="MIT",
@@ -52,6 +52,7 @@ setup(
     ],
     setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
     python_requires=">=3.6",
+    # TODO: Change to jax>=0.1.76 as soon as a release is available
     install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest"]},
 )
