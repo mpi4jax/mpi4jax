@@ -3,13 +3,48 @@
 
 cimport mpi4py.MPI as MPI
 cimport mpi4py.libmpi as libmpi
-from mpi4py.libmpi cimport MPI_Comm, MPI_Op, MPI_Datatype, MPI_Status, MPI_STATUS_IGNORE, MPI_Type_size
+from mpi4py.libmpi cimport (
+    MPI_Comm,
+    MPI_Op,
+    MPI_Datatype,
+    MPI_Status,
+    MPI_STATUS_IGNORE,
+    MPI_SUCCESS,
+)
 
 from cpython.pycapsule cimport PyCapsule_New
 
 from libc.stdio cimport printf
 from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t
-from libc.string cimport memcpy
+
+# -----------------------------------------------------------------------------
+# Error checking
+# From https://github.com/mpi4py/mpi4py/blob/3285cf9a06ed1916966a9e2a0af05defe1c3a40e/src/mpi4py/MPI/atimport.pxi
+
+
+cdef extern from "Python.h":
+    void PyErr_SetObject(object, object)
+    void *PyExc_RuntimeError
+    void *PyExc_NotImplementedError
+
+
+cdef object MPIException = <object>PyExc_RuntimeError
+
+
+cdef int PyMPI_Raise(int ierr) except -1 with gil:
+    if (<void*>MPIException) != NULL:
+        PyErr_SetObject(MPIException, <long>ierr)
+    else:
+        PyErr_SetObject(<object>PyExc_RuntimeError, <long>ierr)
+    return 0
+
+
+cdef inline int CHKERR(int ierr) nogil except -1:
+    if ierr == MPI_SUCCESS: return 0
+    PyMPI_Raise(ierr)
+    return -1
+
+# -----------------------------------------------------------------------------
 
 
 cdef void mpi_send(int* out_ptr, void** data_ptr) nogil:
@@ -21,7 +56,7 @@ cdef void mpi_send(int* out_ptr, void** data_ptr) nogil:
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[5]))[0])
 
     # MPI Call
-    libmpi.MPI_Send(data_ptr[1], nitems, dtype, destination, tag, comm)
+    CHKERR(libmpi.MPI_Send(data_ptr[1], nitems, dtype, destination, tag, comm))
 
     out_ptr[0] = 0
 
@@ -36,7 +71,7 @@ cdef void mpi_recv(void* out_ptr, void** data_ptr) nogil:
     cdef MPI_Status* status = <MPI_Status*>((<uint64_t*>(data_ptr[5]))[0])
 
     # MPI Call
-    libmpi.MPI_Recv(out_ptr, nitems, dtype, source, tag, comm, status)
+    CHKERR(libmpi.MPI_Recv(out_ptr, nitems, dtype, source, tag, comm, status))
 
 
 cdef void mpi_recv_ignore_status(void* out_ptr, void** data_ptr) nogil:
@@ -49,7 +84,7 @@ cdef void mpi_recv_ignore_status(void* out_ptr, void** data_ptr) nogil:
     cdef MPI_Status* status = MPI_STATUS_IGNORE
 
     # MPI Call
-    libmpi.MPI_Recv(out_ptr, nitems, dtype, source, tag, comm, status)
+    CHKERR(libmpi.MPI_Recv(out_ptr, nitems, dtype, source, tag, comm, status))
 
 
 cdef void mpi_allreduce(void* out_ptr, void** data_ptr) nogil:
@@ -60,7 +95,7 @@ cdef void mpi_allreduce(void* out_ptr, void** data_ptr) nogil:
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
 
     # MPI Call
-    libmpi.MPI_Allreduce(data_ptr[1], out_ptr, nitems, dtype, op, comm)
+    CHKERR(libmpi.MPI_Allreduce(data_ptr[1], out_ptr, nitems, dtype, op, comm))
 
 
 cpu_custom_call_targets = {}
