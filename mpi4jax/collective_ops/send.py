@@ -5,7 +5,7 @@ from mpi4py import MPI as _MPI
 from jax import abstract_arrays
 from jax.core import Primitive
 from jax.lib import xla_client
-from jax.interpreters import xla, ad, batching
+from jax.interpreters import xla, batching
 
 from ..utils import (
     to_mpi_ptr,
@@ -83,28 +83,10 @@ def mpi_send_batching(in_args, batch_axes, **kwargs):
     return res, batch_axes[0]
 
 
-def mpi_send_value_and_jvp(in_args, tan_args, op, **kwargs):
-    (x,) = in_args
-    res = Send(x, op=op, **kwargs)
-
-    # Identify the correct adjoint
-    if op == _MPI.SUM:
-        (x_tan,) = tan_args
-    else:
-        raise NotImplementedError(
-            "The adjoint of send for {} operation is not defined".format(
-                op)
-        )
-
-    jvp = x_tan
-    return (res, jvp)
-
-
 mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
 batching.primitive_batchers[mpi_send_p] = mpi_send_batching
-ad.primitive_jvps[mpi_send_p] = mpi_send_value_and_jvp
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode

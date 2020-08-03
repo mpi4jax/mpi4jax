@@ -76,6 +76,7 @@ def mpi_allreduce_xla_encode(c, x, op, comm):
             _constant_u64_scalar(c, _dtype_ptr),
         ),
         shape=sh,
+        has_side_effect=True,
     )
 
 
