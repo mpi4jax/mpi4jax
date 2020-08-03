@@ -16,6 +16,8 @@ from ..utils import (
     dtype_ptr,
 )
 
+from ..warn import warn_missing_omnistaging
+
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
 
@@ -37,6 +39,8 @@ def mpi_recv_impl(x, source, tag, comm, status):
 
 #  This function compiles the operation
 def mpi_recv_xla_encode(c, x, source, tag, comm, status):
+    warn_missing_omnistaging()
+
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
@@ -64,6 +68,7 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
                 _constant_u64_scalar(c, _dtype_ptr),
             ),
             shape=sh,
+            has_side_effect=True,
         )
 
     status_addr = _np.uint64(_MPI._addressof(status))
@@ -79,6 +84,7 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
             _constant_u64_scalar(c, status_addr),
         ),
         shape=sh,
+        has_side_effect=True,
     )
 
 

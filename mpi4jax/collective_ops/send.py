@@ -16,12 +16,14 @@ from ..utils import (
     dtype_ptr,
 )
 
+from ..warn import warn_missing_omnistaging
+
+
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
 
+
 # This function applies the primitive to an AST
-
-
 def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD):
     return mpi_send_p.bind(x, dest=dest, tag=tag, comm=comm)
 
@@ -31,11 +33,13 @@ def mpi_send_impl(x, dest, tag, comm):
     # TODO: make this support gpus (use cupy?)
     inpt = _np.asarray(x)
     comm.Send(inpt, dest=dest, tag=tag)
-    return inpt
+    return 0
 
 
 #  This function compiles the operation
 def mpi_send_xla_encode(c, x, dest, tag, comm):
+    warn_missing_omnistaging()
+
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
@@ -49,7 +53,7 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
     _nitems = _constant_s32_scalar(c, nitems)
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.array_shape(dtype, dims)
+    sh = xla_client.Shape.array_shape(_np.dtype('intc'), (1,))
 
     return _ops.CustomCall(
         c,
@@ -63,12 +67,13 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
             _constant_u64_scalar(c, _dtype_ptr),
         ),
         shape=sh,
+        has_side_effect=True,
     )
 
 
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, dest, tag, comm):
-    return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
+    return abstract_arrays.ShapedArray((1,), _np.dtype('intc'))
 
 
 # This function binds the batched transformation.

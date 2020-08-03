@@ -1,4 +1,4 @@
-import mpi4jax.cython
+import mpi4jax.cython  # noqa: F401
 
 __all__ = ["Allreduce", "Send", "Recv"]
 

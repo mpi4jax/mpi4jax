@@ -1,9 +1,8 @@
 import numpy as _np
-import ctypes
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays
+from jax import abstract_arrays, device_put
 from jax import numpy as jnp
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -11,8 +10,6 @@ from jax.interpreters import xla, ad, batching
 
 from ..utils import (
     to_mpi_ptr,
-    MPIComm_from_ptr,
-    MPIOp_from_ptr,
     _unpack_builder,
     _ops,
     _constant_s32_scalar,
@@ -20,8 +17,11 @@ from ..utils import (
     dtype_ptr,
 )
 
+from ..warn import warn_missing_omnistaging
+
 # The Jax primitive
 mpi_allreduce_p = Primitive("sum_inplace_mpi")  # Create the primitive
+
 
 # This function applies the primitive to an AST
 def Allreduce(x, op, comm=_MPI.COMM_WORLD):
@@ -40,13 +40,15 @@ def mpi_allreduce_impl(x, op, comm):
 
     # put the result on the correct device if needed
     if not (res.device_buffer.device() == x.device_buffer.device()):
-        res = jax.device_put(res, device=x.device_buffer.device())
+        res = device_put(res, device=x.device_buffer.device())
 
     return res
 
 
 #  This function compiles the operation
 def mpi_allreduce_xla_encode(c, x, op, comm):
+    warn_missing_omnistaging()
+
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()

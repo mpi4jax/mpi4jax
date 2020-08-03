@@ -12,7 +12,7 @@ from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t
 from libc.string cimport memcpy
 
 
-cdef void mpi_send(void* out_ptr, void** data_ptr) nogil:
+cdef void mpi_send(int* out_ptr, void** data_ptr) nogil:
     #decode inputs
     cdef int32_t nitems = (<int32_t*>(data_ptr[0]))[0]
     cdef int32_t destination = (<int32_t*>(data_ptr[2]))[0]
@@ -23,9 +23,7 @@ cdef void mpi_send(void* out_ptr, void** data_ptr) nogil:
     # MPI Call
     libmpi.MPI_Send(data_ptr[1], nitems, dtype, destination, tag, comm)
 
-    cdef int dtype_size
-    MPI_Type_size(dtype, &dtype_size)
-    memcpy(out_ptr, data_ptr[1], nitems * dtype_size)
+    out_ptr[0] = 0
 
 
 cdef void mpi_recv(void* out_ptr, void** data_ptr) nogil:
