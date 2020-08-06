@@ -2,7 +2,8 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays
+import jax.numpy as jnp
+from jax import abstract_arrays, device_put
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, batching
@@ -21,9 +22,8 @@ from ..warn import warn_missing_omnistaging
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
 
+
 # This function applies the primitive to an AST
-
-
 def Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD,
          status=None):
     return mpi_recv_p.bind(x, source=source, tag=tag, comm=comm, status=status)
@@ -32,9 +32,16 @@ def Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD,
 #  this function executes the primitive, when not under any transformation
 def mpi_recv_impl(x, source, tag, comm, status):
     # TODO: make this support gpus (use cupy?)
-    inpt = _np.empty_like(x)
-    comm.Recv(inpt, source=source, tag=tag, status=status)
-    return inpt
+    out = _np.empty_like(x)
+    comm.Recv(out, source=source, tag=tag, status=status)
+
+    res = jnp.array(out, dtype=x.dtype)
+
+    # put the result on the correct device if needed
+    if not (res.device_buffer.device() == x.device_buffer.device()):
+        res = device_put(res, device=x.device_buffer.device())
+
+    return res
 
 
 #  This function compiles the operation
