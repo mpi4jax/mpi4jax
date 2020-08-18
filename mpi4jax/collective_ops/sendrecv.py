@@ -4,6 +4,7 @@ from mpi4py import MPI as _MPI
 
 import jax.numpy as jnp
 from jax import abstract_arrays, device_put
+from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, batching
@@ -24,15 +25,18 @@ mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Sendrecv(sendbuf, recvbuf, source, dest, sendtag=_MPI.ANY_TAG, recvtag=_MPI.ANY_TAG,
-             comm=_MPI.COMM_WORLD, status=None):
-    return mpi_sendrecv_p.bind(sendbuf, recvbuf, source=source, dest=dest,
+def Sendrecv(sendbuf, recvbuf, source, dest, sendtag=0, recvtag=_MPI.ANY_TAG,
+             comm=_MPI.COMM_WORLD, status=None, token=None):
+    if token is None:
+        token = create_token(sendbuf)
+
+    return mpi_sendrecv_p.bind(sendbuf, recvbuf, token, source=source, dest=dest,
                                sendtag=sendtag, recvtag=recvtag,
                                comm=comm, status=status)
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(sendbuf, recvbuf, source, dest, sendtag, recvtag, comm, status):
+def mpi_sendrecv_impl(sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status):
     # TODO: make this support gpus (use cupy?)
     inarr = _np.asarray(sendbuf)
     outarr = _np.empty_like(recvbuf)
@@ -49,11 +53,14 @@ def mpi_sendrecv_impl(sendbuf, recvbuf, source, dest, sendtag, recvtag, comm, st
     if not (res.device_buffer.device() == recvbuf.device_buffer.device()):
         res = device_put(res, device=recvbuf.device_buffer.device())
 
-    return res
+    return res, token
 
 
 #  This function compiles the operation
-def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, source, dest, sendtag, recvtag, comm, status):
+def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag,
+                            comm, status):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+
     warn_missing_omnistaging()
 
     c = _unpack_builder(c)
@@ -82,53 +89,47 @@ def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, source, dest, sendtag, recvtag,
     _send_nitems = _constant_s32_scalar(c, send_nitems)
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
-    sh = xla_client.Shape.array_shape(recv_dtype, recv_dims)
+    sh = xla_client.Shape.tuple_shape([
+        xla_client.Shape.array_shape(recv_dtype, recv_dims),
+        xla_client.Shape.token_shape(),
+    ])
 
     if status is None:
-        return _ops.CustomCall(
-            c,
-            b"mpi_sendrecv_ignore_status",
-            operands=(
-                _send_nitems,
-                sendbuf,
-                _constant_s32_scalar(c, dest),
-                _constant_s32_scalar(c, sendtag),
-                _constant_u64_scalar(c, _send_dtype_ptr),
-                _recv_nitems,
-                _constant_s32_scalar(c, source),
-                _constant_s32_scalar(c, recvtag),
-                _constant_u64_scalar(c, _recv_dtype_ptr),
-                _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            ),
-            shape=sh,
-            has_side_effect=True,
-        )
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = _MPI._addressof(status)
 
-    status_addr = _np.uint64(_MPI._addressof(status))
+    operands = (
+        _send_nitems,
+        sendbuf,
+        _constant_s32_scalar(c, dest),
+        _constant_s32_scalar(c, sendtag),
+        _constant_u64_scalar(c, _send_dtype_ptr),
+        _recv_nitems,
+        _constant_s32_scalar(c, source),
+        _constant_s32_scalar(c, recvtag),
+        _constant_u64_scalar(c, _recv_dtype_ptr),
+        _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        _constant_u64_scalar(c, _status),
+        token,
+    )
+
     return _ops.CustomCall(
         c,
         b"mpi_sendrecv",
-        operands=(
-            _send_nitems,
-            sendbuf,
-            _constant_s32_scalar(c, dest),
-            _constant_s32_scalar(c, sendtag),
-            _constant_u64_scalar(c, _send_dtype_ptr),
-            _recv_nitems,
-            _constant_s32_scalar(c, source),
-            _constant_s32_scalar(c, recvtag),
-            _constant_u64_scalar(c, _recv_dtype_ptr),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, status_addr),
-        ),
+        operands=operands,
         shape=sh,
         has_side_effect=True,
     )
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_sendrecv_abstract_eval(sendbuf, recvbuf, source, dest, sendtag, recvtag, comm, status):
-    return abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype)
+def mpi_sendrecv_abstract_eval(sendbuf, recvbuf, token, source, dest, sendtag, recvtag,
+                               comm, status):
+    return (
+        abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
+        abstract_arrays.abstract_token,
+    )
 
 
 # This function binds the batched transformation.
@@ -138,6 +139,7 @@ def mpi_sendrecv_batching(in_args, batch_axes, **kwargs):
     return res, batch_axes[0]
 
 
+mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
 

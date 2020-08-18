@@ -3,6 +3,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays
+from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, batching
@@ -24,20 +25,24 @@ mpi_send_p = Primitive("send_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD):
-    return mpi_send_p.bind(x, dest=dest, tag=tag, comm=comm)
+def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
+    if token is None:
+        token = create_token(x)
+
+    out = mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
+    return out
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_send_impl(x, dest, tag, comm):
+def mpi_send_impl(x, token, dest, tag, comm):
     # TODO: make this support gpus (use cupy?)
     inpt = _np.asarray(x)
     comm.Send(inpt, dest=dest, tag=tag)
-    return 0
+    return token
 
 
 #  This function compiles the operation
-def mpi_send_xla_encode(c, x, dest, tag, comm):
+def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     warn_missing_omnistaging()
 
     c = _unpack_builder(c)
@@ -53,9 +58,12 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
     _nitems = _constant_s32_scalar(c, nitems)
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.array_shape(_np.dtype('intc'), (1,))
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([
+        xla_client.Shape.token_shape()
+    ])
 
-    return _ops.CustomCall(
+    out = _ops.CustomCall(
         c,
         b"mpi_send",
         operands=(
@@ -65,15 +73,18 @@ def mpi_send_xla_encode(c, x, dest, tag, comm):
             _constant_s32_scalar(c, tag),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
+            token,
         ),
         shape=sh,
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
+
 
 # This function evaluates only the shapes during AST construction
-def mpi_send_abstract_eval(xs, dest, tag, comm):
-    return abstract_arrays.ShapedArray((1,), _np.dtype('intc'))
+def mpi_send_abstract_eval(xs, token, dest, tag, comm):
+    return abstract_arrays.abstract_token
 
 
 # This function binds the batched transformation.
@@ -83,6 +94,7 @@ def mpi_send_batching(in_args, batch_axes, **kwargs):
     return res, batch_axes[0]
 
 
+# mpi_send_p.multiple_results = True
 mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 

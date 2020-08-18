@@ -4,6 +4,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, device_put
 from jax import numpy as jnp
+from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, ad, batching
@@ -24,12 +25,15 @@ mpi_allreduce_p = Primitive("sum_inplace_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Allreduce(x, op, comm=_MPI.COMM_WORLD):
-    return mpi_allreduce_p.bind(x, op=op, comm=comm)
+def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
+    if token is None:
+        token = create_token(x)
+
+    return mpi_allreduce_p.bind(x, token, op=op, comm=comm)
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_allreduce_impl(x, op, comm):
+def mpi_allreduce_impl(x, token, op, comm):
     # TODO: make this support gpus (use cupy?)
     inpt = _np.asarray(x)
     out = _np.zeros_like(x)
@@ -42,11 +46,11 @@ def mpi_allreduce_impl(x, op, comm):
     if not (res.device_buffer.device() == x.device_buffer.device()):
         res = device_put(res, device=x.device_buffer.device())
 
-    return res
+    return res, token
 
 
 #  This function compiles the operation
-def mpi_allreduce_xla_encode(c, x, op, comm):
+def mpi_allreduce_xla_encode(c, x, token, op, comm):
     warn_missing_omnistaging()
 
     c = _unpack_builder(c)
@@ -63,7 +67,10 @@ def mpi_allreduce_xla_encode(c, x, op, comm):
 
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.array_shape(dtype, dims)
+    sh = xla_client.Shape.tuple_shape([
+        xla_client.Shape.array_shape(dtype, dims),
+        xla_client.Shape.token_shape()
+    ])
 
     return _ops.CustomCall(
         c,
@@ -74,6 +81,7 @@ def mpi_allreduce_xla_encode(c, x, op, comm):
             _constant_u64_scalar(c, to_mpi_ptr(op)),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
+            token,
         ),
         shape=sh,
         has_side_effect=True,
@@ -81,8 +89,11 @@ def mpi_allreduce_xla_encode(c, x, op, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_allreduce_abstract_eval(xs, op, comm):
-    return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
+def mpi_allreduce_abstract_eval(xs, token, op, comm):
+    return (
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.abstract_token,
+    )
 
 
 # This function binds the batched transformation.
@@ -108,6 +119,7 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, **kwargs):
     return (res, jvp)
 
 
+mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
 

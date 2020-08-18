@@ -4,6 +4,7 @@ from mpi4py import MPI as _MPI
 
 import jax.numpy as jnp
 from jax import abstract_arrays, device_put
+from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, batching
@@ -25,12 +26,16 @@ mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
 
 # This function applies the primitive to an AST
 def Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD,
-         status=None):
-    return mpi_recv_p.bind(x, source=source, tag=tag, comm=comm, status=status)
+         status=None, token=None):
+    if token is None:
+        token = create_token(x)
+
+    out = mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
+    return out
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_recv_impl(x, source, tag, comm, status):
+def mpi_recv_impl(x, token, source, tag, comm, status):
     # TODO: make this support gpus (use cupy?)
     out = _np.empty_like(x)
     comm.Recv(out, source=source, tag=tag, status=status)
@@ -41,11 +46,13 @@ def mpi_recv_impl(x, source, tag, comm, status):
     if not (res.device_buffer.device() == x.device_buffer.device()):
         res = device_put(res, device=x.device_buffer.device())
 
-    return res
+    return res, token
 
 
 #  This function compiles the operation
-def mpi_recv_xla_encode(c, x, source, tag, comm, status):
+def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+
     warn_missing_omnistaging()
 
     c = _unpack_builder(c)
@@ -61,43 +68,43 @@ def mpi_recv_xla_encode(c, x, source, tag, comm, status):
     _nitems = _constant_s32_scalar(c, nitems)
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.array_shape(dtype, dims)
+    sh = xla_client.Shape.tuple_shape([
+        xla_client.Shape.array_shape(dtype, dims),
+        xla_client.Shape.token_shape(),
+    ])
 
     if status is None:
-        return _ops.CustomCall(
-            c,
-            b"mpi_recv_ignore_status",
-            operands=(
-                _nitems,
-                _constant_s32_scalar(c, source),
-                _constant_s32_scalar(c, tag),
-                _constant_u64_scalar(c, to_mpi_ptr(comm)),
-                _constant_u64_scalar(c, _dtype_ptr),
-            ),
-            shape=sh,
-            has_side_effect=True,
-        )
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = _MPI._addressof(status)
 
-    status_addr = _np.uint64(_MPI._addressof(status))
-    return _ops.CustomCall(
+    operands = (
+        _nitems,
+        _constant_s32_scalar(c, source),
+        _constant_s32_scalar(c, tag),
+        _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        _constant_u64_scalar(c, _dtype_ptr),
+        _constant_u64_scalar(c, _status),
+        token,
+    )
+
+    out = _ops.CustomCall(
         c,
         b"mpi_recv",
-        operands=(
-            _nitems,
-            _constant_s32_scalar(c, source),
-            _constant_s32_scalar(c, tag),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, _dtype_ptr),
-            _constant_u64_scalar(c, status_addr),
-        ),
+        operands=operands,
         shape=sh,
         has_side_effect=True,
     )
 
+    return out
+
 
 # This function evaluates only the shapes during AST construction
-def mpi_recv_abstract_eval(xs, source, tag, comm, status):
-    return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
+def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
+    return (
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.abstract_token
+    )
 
 
 # This function binds the batched transformation.
@@ -107,6 +114,7 @@ def mpi_recv_batching(in_args, batch_axes, **kwargs):
     return res, batch_axes[0]
 
 
+mpi_recv_p.multiple_results = True
 mpi_recv_p.def_impl(mpi_recv_impl)
 mpi_recv_p.def_abstract_eval(mpi_recv_abstract_eval)
 
