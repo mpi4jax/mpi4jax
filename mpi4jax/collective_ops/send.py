@@ -59,9 +59,7 @@ def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     _dtype_ptr = dtype_ptr(dtype)
 
     # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([
-        xla_client.Shape.token_shape()
-    ])
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
     out = _ops.CustomCall(
         c,

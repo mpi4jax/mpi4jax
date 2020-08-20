@@ -25,26 +25,49 @@ mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Sendrecv(sendbuf, recvbuf, source, dest, sendtag=0, recvtag=_MPI.ANY_TAG,
-             comm=_MPI.COMM_WORLD, status=None, token=None):
+def Sendrecv(
+    sendbuf,
+    recvbuf,
+    source,
+    dest,
+    sendtag=0,
+    recvtag=_MPI.ANY_TAG,
+    comm=_MPI.COMM_WORLD,
+    status=None,
+    token=None,
+):
     if token is None:
         token = create_token(sendbuf)
 
-    return mpi_sendrecv_p.bind(sendbuf, recvbuf, token, source=source, dest=dest,
-                               sendtag=sendtag, recvtag=recvtag,
-                               comm=comm, status=status)
+    return mpi_sendrecv_p.bind(
+        sendbuf,
+        recvbuf,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+    )
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status):
+def mpi_sendrecv_impl(
+    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
     # TODO: make this support gpus (use cupy?)
     inarr = _np.asarray(sendbuf)
     outarr = _np.empty_like(recvbuf)
 
     comm.Sendrecv(
-        sendbuf=inarr, dest=dest, sendtag=sendtag,
-        recvbuf=outarr, source=source, recvtag=recvtag,
-        status=status
+        sendbuf=inarr,
+        dest=dest,
+        sendtag=sendtag,
+        recvbuf=outarr,
+        source=source,
+        recvtag=recvtag,
+        status=status,
     )
 
     res = jnp.array(outarr, dtype=recvbuf.dtype)
@@ -57,8 +80,9 @@ def mpi_sendrecv_impl(sendbuf, recvbuf, token, source, dest, sendtag, recvtag, c
 
 
 #  This function compiles the operation
-def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag,
-                            comm, status):
+def mpi_sendrecv_xla_encode(
+    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
@@ -89,10 +113,12 @@ def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, token, source, dest, sendtag, r
     _send_nitems = _constant_s32_scalar(c, send_nitems)
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
-    sh = xla_client.Shape.tuple_shape([
-        xla_client.Shape.array_shape(recv_dtype, recv_dims),
-        xla_client.Shape.token_shape(),
-    ])
+    sh = xla_client.Shape.tuple_shape(
+        [
+            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.token_shape(),
+        ]
+    )
 
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
@@ -115,17 +141,14 @@ def mpi_sendrecv_xla_encode(c, sendbuf, recvbuf, token, source, dest, sendtag, r
     )
 
     return _ops.CustomCall(
-        c,
-        b"mpi_sendrecv",
-        operands=operands,
-        shape=sh,
-        has_side_effect=True,
+        c, b"mpi_sendrecv", operands=operands, shape=sh, has_side_effect=True,
     )
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_sendrecv_abstract_eval(sendbuf, recvbuf, token, source, dest, sendtag, recvtag,
-                               comm, status):
+def mpi_sendrecv_abstract_eval(
+    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
     return (
         abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
         abstract_arrays.abstract_token,

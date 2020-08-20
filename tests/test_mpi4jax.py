@@ -11,6 +11,7 @@ import pytest
 import jax
 import jax.config
 import jax.numpy as jnp
+
 jax.config.enable_omnistaging()
 
 from mpi4py import MPI  # noqa: E402
@@ -109,7 +110,9 @@ def test_send_recv_status():
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res, token = jax.jit(lambda x: Recv(x, source=proc, tag=proc, status=status))(arr)
+            res, token = jax.jit(
+                lambda x: Recv(x, source=proc, tag=proc, status=status)
+            )(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
             assert status.Get_source() == proc
@@ -142,7 +145,9 @@ def test_sendrecv_jit():
 
     other = 1 - rank
 
-    res, token = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other))(arr, arr)
+    res, token = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other))(
+        arr, arr
+    )
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)

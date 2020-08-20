@@ -25,8 +25,14 @@ mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD,
-         status=None, token=None):
+def Recv(
+    x,
+    source=_MPI.ANY_SOURCE,
+    tag=_MPI.ANY_TAG,
+    comm=_MPI.COMM_WORLD,
+    status=None,
+    token=None,
+):
     if token is None:
         token = create_token(x)
 
@@ -68,10 +74,9 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     _nitems = _constant_s32_scalar(c, nitems)
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.tuple_shape([
-        xla_client.Shape.array_shape(dtype, dims),
-        xla_client.Shape.token_shape(),
-    ])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape(),]
+    )
 
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
@@ -89,11 +94,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     )
 
     out = _ops.CustomCall(
-        c,
-        b"mpi_recv",
-        operands=operands,
-        shape=sh,
-        has_side_effect=True,
+        c, b"mpi_recv", operands=operands, shape=sh, has_side_effect=True,
     )
 
     return out
@@ -103,7 +104,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
 def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token
+        abstract_arrays.abstract_token,
     )
 
 

@@ -67,10 +67,9 @@ def mpi_allreduce_xla_encode(c, x, token, op, comm):
 
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.tuple_shape([
-        xla_client.Shape.array_shape(dtype, dims),
-        xla_client.Shape.token_shape()
-    ])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
 
     return _ops.CustomCall(
         c,
