@@ -7,7 +7,7 @@ from jax import abstract_arrays, device_put
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
-from jax.interpreters import xla, batching
+from jax.interpreters import xla
 
 from ..utils import (
     to_mpi_ptr,
@@ -132,18 +132,9 @@ def mpi_sendrecv_abstract_eval(sendbuf, recvbuf, token, source, dest, sendtag, r
     )
 
 
-# This function binds the batched transformation.
-def mpi_sendrecv_batching(in_args, batch_axes, **kwargs):
-    (x,) = in_args
-    res = Sendrecv(x, **kwargs)
-    return res, batch_axes[0]
-
-
 mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
-
-batching.primitive_batchers[mpi_sendrecv_p] = mpi_sendrecv_batching
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode

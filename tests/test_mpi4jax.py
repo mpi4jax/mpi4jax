@@ -34,32 +34,16 @@ def test_allreduce():
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
+
+def test_allreduce_jit():
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
     res, token = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
-
-    # res, token = jax.vmap(lambda x: Allreduce(x, op=MPI.SUM), in_axes=0)(arr)
-    # assert jnp.array_equal(res, arr * size)
-    # assert jnp.array_equal(_arr, arr)
-
-    # res, token = jax.jit(jax.vmap(lambda x: Allreduce(x, op=MPI.SUM), in_axes=0))(arr)
-    # assert jnp.array_equal(res, arr * size)
-    # assert jnp.array_equal(_arr, arr)
-
-    # res, grad = jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM).sum())(arr)
-    # assert jnp.array_equal(res, arr.sum() * size)
-    # assert jnp.array_equal(grad, jnp.ones(arr.shape))
-    # assert jnp.array_equal(_arr, arr)
-
-    # res, grad = jax.jit(jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM).sum()))(
-    #     arr
-    # )
-    # assert jnp.array_equal(res, arr.sum() * size)
-    # assert jnp.array_equal(grad, jnp.ones(arr.shape))
-    # assert jnp.array_equal(_arr, arr)
-
-    with pytest.raises(NotImplementedError):
-        jax.jit(jax.value_and_grad(lambda x: Allreduce(x, op=MPI.MIN).sum()))(arr)
 
 
 def test_send_recv():
@@ -114,39 +98,6 @@ def test_send_recv_deadlock():
     arr = jnp.ones(10) * rank
     arr = deadlock(arr)
     assert jnp.array_equal(arr, jnp.ones_like(arr) * (1 - rank))
-
-# def test_send_recv_vmap():
-#     from mpi4jax import Send, Recv
-
-#     arr = jnp.ones((3, 2)) * rank
-#     _arr = arr.copy()
-
-#     if rank == 0:
-#         for proc in range(1, size):
-#             res, token = jax.vmap(lambda x: Recv(x, source=proc, tag=proc), in_axes=0)(arr)
-#             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
-#             assert jnp.array_equal(_arr, arr)
-#     else:
-#         res, token = jax.vmap(lambda x: Send(x, 0, tag=rank), in_axes=0)(arr)
-#         assert res, token == 0
-#         assert jnp.array_equal(_arr, arr)
-
-
-# def test_send_recv_jit_vmap():
-#     from mpi4jax import Send, Recv
-
-#     arr = jnp.ones((3, 2)) * rank
-#     _arr = arr.copy()
-
-#     if rank == 0:
-#         for proc in range(1, size):
-#             res, token = jax.jit(jax.vmap(lambda x: Recv(x, source=proc, tag=proc), in_axes=0))(arr)
-#             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
-#             assert jnp.array_equal(_arr, arr)
-#     else:
-#         res, token = jax.jit(jax.vmap(lambda x: Send(x, 0, tag=rank), in_axes=0))(arr)
-#         assert res, token == 0
-#         assert jnp.array_equal(_arr, arr)
 
 
 def test_send_recv_status():

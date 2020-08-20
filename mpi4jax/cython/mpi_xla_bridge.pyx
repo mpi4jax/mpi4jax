@@ -105,7 +105,7 @@ cdef void mpi_sendrecv(void** out_ptr, void** data_ptr) nogil:
         MPI_Comm_rank(comm, &rank)
         with gil:
             print(
-                f"r{rank} | MPI_Sendrecv <-{source} (tag {recvtag}) / ->{dest} (tag {sendtag}) "
+                f"r{rank} | MPI_Sendrecv <- {source} (tag {recvtag}) / -> {dest} (tag {sendtag}) "
                 f"with token {<uint64_t>token:x}"
             )
 
@@ -132,7 +132,7 @@ cdef void mpi_allreduce(void** out_ptr, void** data_ptr) nogil:
     if PRINT_DEBUG:
         MPI_Comm_rank(comm, &rank)
         with gil:
-            print(f"r{rank} | MPI_Allreduce")
+            print(f"r{rank} | MPI_Allreduce with token {<uint64_t>token:x}")
 
     # MPI Call
     libmpi.MPI_Allreduce(data_ptr[1], out_ptr[0], nitems, dtype, op, comm)
