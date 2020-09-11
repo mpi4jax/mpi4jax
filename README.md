@@ -29,6 +29,16 @@ b = mpi4jax.Allreduce(a, op=MPI.SUM, comm=comm)
 b_jit = jax.jit(lambda x: mpi4jax.Allreduce(x, op=MPI.SUM, comm=comm))(a)
 ```
 
+## Debugging
+
+You can set the environment variable `MPI4JAX_DEBUG` to `1` to enable debug logging every time an MPI primitive is called from within a jitted function. You will then see messages like this:
+
+```bash
+$ MPI4JAX_DEBUG=1 mpirun -n 2 python send_recv.py
+r0 | MPI_Send -> 1 with tag 0 and token 7fd7abc5f5c0
+r1 | MPI_Recv <- 0 with tag -1 and token 7f9af7419ac0
+```
+
 ## Contributors
 - Filippo Vicentini @PhilipVinc
 - Dion Häfner @dionhaefner
