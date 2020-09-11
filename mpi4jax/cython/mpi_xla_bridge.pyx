@@ -17,7 +17,10 @@ from mpi4py.libmpi cimport (
 )
 
 
-# Make MPI_STATUS_IGNORE accessible from Python
+# MPI_STATUS_IGNORE is not exposed to Python by mpi4py, so we
+# export its memory address as Python int here.
+# This can then be passed to all functions that expect
+# MPI_Status* instead of a pointer to a real status object.
 MPI_STATUS_IGNORE_ADDR = int(<uint64_t>MPI_STATUS_IGNORE)
 
 
