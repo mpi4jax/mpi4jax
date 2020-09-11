@@ -79,7 +79,7 @@ def test_send_recv_jit():
         assert jnp.array_equal(_arr, arr)
 
 
-@pytest.mark.skipif(rank > 1, reason="Runs only on rank 0 and 1")
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_send_recv_deadlock():
     from mpi4jax import Send, Recv
 
@@ -121,7 +121,7 @@ def test_send_recv_status():
         assert jnp.array_equal(_arr, arr)
 
 
-@pytest.mark.skipif(rank > 1, reason="Runs only on rank 0 and 1")
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv():
     from mpi4jax import Sendrecv
 
@@ -136,7 +136,7 @@ def test_sendrecv():
     assert jnp.array_equal(_arr, arr)
 
 
-@pytest.mark.skipif(rank > 1, reason="Runs only on rank 0 and 1")
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_jit():
     from mpi4jax import Sendrecv
 
