@@ -182,4 +182,4 @@ def test_debug_logging_enabled(capsys, monkeypatch):
         set_logging(False)
 
     captured = capsys.readouterr()
-    assert captured.out == f"r{rank} | MPI_Allreduce\n"
+    assert captured.out.startswith(f"r{rank} | MPI_Allreduce with token")

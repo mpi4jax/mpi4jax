@@ -55,7 +55,6 @@ setup(
     ),
     setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
     python_requires=">=3.6",
-    # TODO: Change to jax>=0.1.76 as soon as a release is available
-    install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
+    install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest"]},
 )

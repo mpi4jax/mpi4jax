@@ -1,5 +1,4 @@
-# cython: language_level=2
-# distutils: language = c++
+# cython: language_level=3
 
 from cpython.pycapsule cimport PyCapsule_New
 
