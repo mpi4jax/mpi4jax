@@ -47,6 +47,28 @@ def test_allreduce_jit():
     assert jnp.array_equal(_arr, arr)
 
 
+def test_allreduce_scalar():
+    from mpi4jax import Allreduce
+
+    arr = 1
+    _arr = 1
+
+    res, token = Allreduce(arr, op=MPI.SUM)
+    assert jnp.array_equal(res, arr * size)
+    assert jnp.array_equal(_arr, arr)
+
+
+def test_allreduce_scalar_jit():
+    from mpi4jax import Allreduce
+
+    arr = 1
+    _arr = 1
+
+    res, token = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
+    assert jnp.array_equal(res, arr * size)
+    assert jnp.array_equal(_arr, arr)
+
+
 def test_send_recv():
     from mpi4jax import Send, Recv
 
