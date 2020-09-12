@@ -46,11 +46,13 @@ def mpi_recv_impl(x, token, source, tag, comm, status):
     out = _np.empty_like(x)
     comm.Recv(out, source=source, tag=tag, status=status)
 
-    res = jnp.array(out, dtype=x.dtype)
+    res = jnp.array(out, dtype=out.dtype)
 
-    # put the result on the correct device if needed
-    if not (res.device_buffer.device() == x.device_buffer.device()):
-        res = device_put(res, device=x.device_buffer.device())
+    # if it's a jax array and not a standard python array
+    if hasattr(x, "device_buffer"):
+        # put the result on the correct device if needed
+        if not (res.device_buffer.device() == x.device_buffer.device()):
+            res = device_put(res, device=x.device_buffer.device())
 
     return res, token
 
@@ -67,11 +69,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    nitems = dims[0]
-    for el in dims[1:]:
-        nitems *= el
-
-    _nitems = _constant_s32_scalar(c, nitems)
+    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(

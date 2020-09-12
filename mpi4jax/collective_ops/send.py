@@ -51,11 +51,7 @@ def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    nitems = dims[0]
-    for el in dims[1:]:
-        nitems *= el
-
-    _nitems = _constant_s32_scalar(c, nitems)
+    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
     _dtype_ptr = dtype_ptr(dtype)
 
     # ensure void** out type

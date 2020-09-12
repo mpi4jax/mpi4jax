@@ -85,6 +85,38 @@ def test_send_recv():
         assert jnp.array_equal(_arr, arr)
 
 
+def test_send_recv_scalar():
+    from mpi4jax import Send, Recv
+
+    arr = 1 * rank
+    _arr = 1 * rank
+
+    if rank == 0:
+        for proc in range(1, size):
+            res, token = Recv(arr, source=proc, tag=proc)
+            assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
+            assert jnp.array_equal(_arr, arr)
+    else:
+        Send(arr, 0, tag=rank)
+        assert jnp.array_equal(_arr, arr)
+
+
+def test_send_recv_scalar_jit():
+    from mpi4jax import Send, Recv
+
+    arr = 1 * rank
+    _arr = 1 * rank
+
+    if rank == 0:
+        for proc in range(1, size):
+            res, token = jax.jit(lambda x: Recv(x, source=proc, tag=proc))(arr)
+            assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
+            assert jnp.array_equal(_arr, arr)
+    else:
+        jax.jit(lambda x: Send(x, 0, tag=rank))(arr)
+        assert jnp.array_equal(_arr, arr)
+
+
 def test_send_recv_jit():
     from mpi4jax import Send, Recv
 
