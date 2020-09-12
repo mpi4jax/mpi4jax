@@ -3,10 +3,7 @@ import ctypes
 
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax import abstract_arrays
 from jax.lib import xla_client
-from jax.interpreters import xla
 
 _ops = xla_client.ops
 

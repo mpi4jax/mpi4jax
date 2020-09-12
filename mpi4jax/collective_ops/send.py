@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, device_put
-from jax import numpy as jnp
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -20,37 +19,30 @@ from ..utils import (
 
 from ..warn import warn_missing_omnistaging
 
+
 # The Jax primitive
-mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
+mpi_send_p = Primitive("send_mpi")  # Create the primitive
 
 
 # This function applies the primitive to an AST
-def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
+def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
-    return mpi_allreduce_p.bind(x, token, op=op, comm=comm)
+    out = mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
+    return out
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_allreduce_impl(x, token, op, comm):
+def mpi_send_impl(x, token, dest, tag, comm):
     # TODO: make this support gpus (use cupy?)
     inpt = _np.asarray(x)
-    out = _np.zeros_like(x)
-
-    comm.Allreduce(inpt, out, op=op)
-
-    res = jnp.array(out, dtype=x.dtype)
-
-    # put the result on the correct device if needed
-    if not (res.device_buffer.device() == x.device_buffer.device()):
-        res = device_put(res, device=x.device_buffer.device())
-
-    return res, token
+    comm.Send(inpt, dest=dest, tag=tag)
+    return token
 
 
 #  This function compiles the operation
-def mpi_allreduce_xla_encode(c, x, token, op, comm):
+def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     warn_missing_omnistaging()
 
     c = _unpack_builder(c)
@@ -64,20 +56,19 @@ def mpi_allreduce_xla_encode(c, x, token, op, comm):
         nitems *= el
 
     _nitems = _constant_s32_scalar(c, nitems)
-
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
-    return _ops.CustomCall(
+    out = _ops.CustomCall(
         c,
-        b"mpi_allreduce",
+        b"mpi_send",
         operands=(
             _nitems,
             x,
-            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_s32_scalar(c, dest),
+            _constant_s32_scalar(c, tag),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
             token,
@@ -86,18 +77,17 @@ def mpi_allreduce_xla_encode(c, x, token, op, comm):
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
+
 
 # This function evaluates only the shapes during AST construction
-def mpi_allreduce_abstract_eval(xs, token, op, comm):
-    return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
-    )
+def mpi_send_abstract_eval(xs, token, dest, tag, comm):
+    return abstract_arrays.abstract_token
 
 
-mpi_allreduce_p.multiple_results = True
-mpi_allreduce_p.def_impl(mpi_allreduce_impl)
-mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
+# mpi_send_p.multiple_results = True
+mpi_send_p.def_impl(mpi_send_impl)
+mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode
+xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode
