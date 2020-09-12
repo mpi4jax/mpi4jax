@@ -70,11 +70,19 @@ def mpi_sendrecv_impl(
         status=status,
     )
 
-    res = jnp.array(outarr, dtype=recvbuf.dtype)
+    if hasattr(recvbuf, "dtype"):
+        dt = recvbuf.dtype
+    else:
+        # probably a scalar
+        dt = _np.dtype(type(recvbuf))
 
-    # put the result on the correct device if needed
-    if not (res.device_buffer.device() == recvbuf.device_buffer.device()):
-        res = device_put(res, device=recvbuf.device_buffer.device())
+    res = jnp.array(outarr, dtype=dt)
+
+    # if it's a jax array and not a standard python array
+    if hasattr(recvbuf, "device_buffer"):
+        # put the result on the correct device if needed
+        if not (res.device_buffer.device() == recvbuf.device_buffer.device()):
+            res = device_put(res, device=recvbuf.device_buffer.device())
 
     return res, token
 
@@ -94,11 +102,7 @@ def mpi_sendrecv_xla_encode(
     recv_dims = recv_shape.dimensions()
 
     # compute total number of elements in array
-    recv_nitems = recv_dims[0]
-    for el in recv_dims[1:]:
-        recv_nitems *= el
-
-    _recv_nitems = _constant_s32_scalar(c, recv_nitems)
+    _recv_nitems = _constant_s32_scalar(c, _np.prod(recv_dims, dtype=int))
     _recv_dtype_ptr = dtype_ptr(recv_dtype)
 
     send_shape = c.GetShape(sendbuf)
@@ -106,11 +110,7 @@ def mpi_sendrecv_xla_encode(
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    send_nitems = send_dims[0]
-    for el in send_dims[1:]:
-        send_nitems *= el
-
-    _send_nitems = _constant_s32_scalar(c, send_nitems)
+    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(

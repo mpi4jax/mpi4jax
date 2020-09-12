@@ -191,11 +191,43 @@ def test_sendrecv():
 
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_scalar():
+    from mpi4jax import Sendrecv
+
+    arr = 1 * rank
+    _arr = arr
+
+    other = 1 - rank
+
+    res, token = Sendrecv(arr, arr, source=other, dest=other)
+
+    assert jnp.array_equal(res, jnp.ones_like(arr) * other)
+    assert jnp.array_equal(_arr, arr)
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_jit():
     from mpi4jax import Sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
+
+    other = 1 - rank
+
+    res, token = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other))(
+        arr, arr
+    )
+
+    assert jnp.array_equal(res, jnp.ones_like(arr) * other)
+    assert jnp.array_equal(_arr, arr)
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_scalar_jit():
+    from mpi4jax import Sendrecv
+
+    arr = 1 * rank
+    _arr = arr
 
     other = 1 - rank
 
