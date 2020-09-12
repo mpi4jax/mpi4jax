@@ -1,12 +1,12 @@
 # mpi4jax
-![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg)
+![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg) [![Conda Recipe](https://img.shields.io/badge/recipe-mpi4jax-green.svg)](https://anaconda.org/conda-forge/mpi4jax)
 
 MPI plugin for JAX, allowing MPI operations to be inserted in jitted blocks.
 
-## Installation
-
+# Installation
+You can Install `mpi4jax` through pip (see below) or conda (click on the badge)
 ```python
-pip install mpi4jax
+pip install mpi4jax # Pip
 ```
 
 ## Supported operations
