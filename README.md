@@ -4,8 +4,9 @@
 MPI plugin for JAX, allowing MPI operations to be inserted in jitted blocks and be traced through by AD.
 
 # Installation
+You can Install `mpi4jax` through pip (see below) or conda (click on the badge)
 ```python
-pip install mpi4jax
+pip install mpi4jax # Pip
 ```
 
 # Supported operations
