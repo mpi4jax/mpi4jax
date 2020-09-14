@@ -29,7 +29,7 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     """
     Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None)
 
-    Sends the input`x` to the target rank `dest` using the communicator `comm` 
+    Sends the input`x` to the target rank `dest` using the communicator `comm`
     which defaults to the  world comunicator, with the `tag`.
     An optional token can be passed, which is used to force jax to execute
     MPI operations in the correct order.
@@ -44,7 +44,7 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
         token: token to force a sequential order in the operations (default=None)
 
     Returns:
-        new_token: a new, modified token, that depends on this operation. 
+        new_token: a new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)

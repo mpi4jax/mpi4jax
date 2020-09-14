@@ -247,7 +247,8 @@ def test_abort_on_error(tmp_path):
     import subprocess
     from textwrap import dedent
 
-    test_script = dedent("""
+    test_script = dedent(
+        """
         import jax
         jax.config.enable_omnistaging()
         import jax.numpy as jnp
@@ -266,15 +267,19 @@ def test_abort_on_error(tmp_path):
         # sleep so the process doesn't exit before running the function
         import time
         time.sleep(1)
-    """)
+    """
+    )
 
     test_file = tmp_path / "abort.py"
     test_file.write_text(test_script)
 
     proc = subprocess.run(
         [sys.executable, test_file],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        bufsize=0, timeout=10, universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        timeout=10,
+        universal_newlines=True,
         # passing a mostly empty env seems to be the only way to
         # force MPI to initialize again
         env=dict(PATH=os.environ["PATH"]),

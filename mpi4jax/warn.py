@@ -5,9 +5,9 @@ omnistaging_warning_enabled = True
 
 def disable_omnistaging_warning():
     """
-	Disables the warning raised when jax omnistaging is disabled.
+    Disables the warning raised when jax omnistaging is disabled.
 
-	"""
+    """
     global omnistaging_warning_enabled
     omnistaging_warning_enabled = False
 

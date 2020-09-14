@@ -141,7 +141,11 @@ def mpi_sendrecv_xla_encode(
     )
 
     return _ops.CustomCall(
-        c, b"mpi_sendrecv", operands=operands, shape=sh, has_side_effect=True,
+        c,
+        b"mpi_sendrecv",
+        operands=operands,
+        shape=sh,
+        has_side_effect=True,
     )
 
 

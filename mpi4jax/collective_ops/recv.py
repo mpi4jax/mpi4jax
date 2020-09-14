@@ -36,7 +36,7 @@ def Recv(
     """
     Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD, status=None, token=None)
 
-    Receives the input`x` from the target rank `source` using the communicator `comm` 
+    Receives the input`x` from the target rank `source` using the communicator `comm`
     which defaults to the  world comunicator, with the `tag`.
     An optional token can be passed, which is used to force jax to execute
     MPI operations in the correct order.
@@ -48,12 +48,12 @@ def Recv(
         source: rank of the source MPI process.
         tag: Tag of this message.
         comm: The communicator (defaults to MPI.COMM_WORLD)
-        status: 
+        status:
         token: token to force a sequential order in the operations (default=None)
 
     Returns:
         res: the received array or scalar
-        new_token: a new, modified token, that depends on this operation. 
+        new_token: a new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)
@@ -95,7 +95,10 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape(),]
+        [
+            xla_client.Shape.array_shape(dtype, dims),
+            xla_client.Shape.token_shape(),
+        ]
     )
 
     if status is None:
@@ -114,7 +117,11 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     )
 
     out = _ops.CustomCall(
-        c, b"mpi_recv", operands=operands, shape=sh, has_side_effect=True,
+        c,
+        b"mpi_recv",
+        operands=operands,
+        shape=sh,
+        has_side_effect=True,
     )
 
     return out
