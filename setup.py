@@ -1,5 +1,6 @@
 from setuptools import setup
 from setuptools.extension import Extension
+from Cython.Build import cythonize
 import os
 
 
@@ -28,7 +29,7 @@ def mpi_info(cmd):
 
 setup(
     name="mpi4jax",
-    version="0.2.1",
+    version="0.2.2",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
     long_description="""Jax-mpi provides integration among jax and MPI, so that
@@ -41,15 +42,17 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
-    ext_modules=[
-        Extension(
-            name="mpi4jax.cython.mpi_xla_bridge",
-            sources=["mpi4jax/cython/mpi_xla_bridge.pyx"],
-            include_dirs=mpi_info("compile"),
-            library_dirs=mpi_info("libdirs"),
-            libraries=mpi_info("libs"),
-        ),
-    ],
+    ext_modules=cythonize(
+        [
+            Extension(
+                name="mpi4jax.cython.mpi_xla_bridge",
+                sources=["mpi4jax/cython/mpi_xla_bridge.pyx"],
+                include_dirs=mpi_info("compile"),
+                library_dirs=mpi_info("libdirs"),
+                libraries=mpi_info("libs"),
+            ),
+        ],
+    ),
     setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
     python_requires=">=3.6",
     install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
