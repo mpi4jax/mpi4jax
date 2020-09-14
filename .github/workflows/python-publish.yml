@@ -19,8 +19,7 @@ jobs:
       with:
         python-version: '3.x'
     - name: Install MPI
-        run: |
-          sh ./conf/travis-install-mpi.sh mpich
+      run: sh ./conf/travis-install-mpi.sh mpich
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
