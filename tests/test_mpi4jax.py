@@ -280,11 +280,8 @@ def test_abort_on_error(tmp_path):
         env=dict(PATH=os.environ["PATH"]),
     )
 
-    print(proc.stdout)
-    print(proc.stderr)
-
     assert proc.returncode != 0
-    assert "MPI_Send returned error code 6" in proc.stderr
+    assert "r0 | MPI_Send returned error code" in proc.stderr
 
 
 def test_debug_logging_disabled(capsys, monkeypatch):
