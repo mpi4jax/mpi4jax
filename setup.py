@@ -29,7 +29,7 @@ def mpi_info(cmd):
 
 setup(
     name="mpi4jax",
-    version="0.1",
+    version="0.2.0",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
     long_description="""Jax-mpi provides integration among jax and MPI, so that
