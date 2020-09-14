@@ -273,14 +273,18 @@ def test_abort_on_error(tmp_path):
 
     proc = subprocess.run(
         [sys.executable, test_file],
-        capture_output=True, bufsize=0, timeout=10,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        bufsize=0, timeout=10, universal_newlines=True,
         # passing a mostly empty env seems to be the only way to
         # force MPI to initialize again
         env=dict(PATH=os.environ["PATH"]),
     )
 
+    print(proc.stdout)
+    print(proc.stderr)
+
     assert proc.returncode != 0
-    assert b"MPI_Send returned error code 6" in proc.stderr
+    assert "MPI_Send returned error code 6" in proc.stderr
 
 
 def test_debug_logging_disabled(capsys, monkeypatch):
