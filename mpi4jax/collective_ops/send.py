@@ -34,11 +34,8 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_send_impl(x, token, dest, tag, comm):
-    # TODO: make this support gpus (use cupy?)
-    inpt = _np.asarray(x)
-    comm.Send(inpt, dest=dest, tag=tag)
-    return token
+def mpi_send_impl(*args, **kwargs):
+    xla.apply_primitive(mpi_send_p, *args, **kwargs)
 
 
 #  This function compiles the operation

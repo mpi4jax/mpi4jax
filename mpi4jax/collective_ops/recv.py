@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-import jax.numpy as jnp
-from jax import abstract_arrays, device_put
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -41,20 +40,8 @@ def Recv(
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_recv_impl(x, token, source, tag, comm, status):
-    # TODO: make this support gpus (use cupy?)
-    out = _np.empty_like(x)
-    comm.Recv(out, source=source, tag=tag, status=status)
-
-    res = jnp.array(out, dtype=out.dtype)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(x, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == x.device_buffer.device()):
-            res = device_put(res, device=x.device_buffer.device())
-
-    return res, token
+def mpi_recv_impl(*args, **kwargs):
+    return xla.apply_primitive(mpi_recv_impl, *args, **kwargs)
 
 
 #  This function compiles the operation
@@ -73,7 +60,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape(),]
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     if status is None:

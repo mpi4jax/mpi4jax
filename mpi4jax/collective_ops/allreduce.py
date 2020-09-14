@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, device_put
-from jax import numpy as jnp
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -34,21 +33,9 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
 
 #  this function executes the primitive, when not under any transformation
 def mpi_allreduce_impl(x, token, op, comm):
-    # TODO: make this support gpus (use cupy?)
-    inpt = _np.asarray(x)
-    out = _np.zeros_like(x)
-
-    comm.Allreduce(inpt, out, op=op)
-
-    res = jnp.array(out, dtype=inpt.dtype)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(x, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == x.device_buffer.device()):
-            res = device_put(res, device=x.device_buffer.device())
-
-    return res, token
+    hashableop = type('hop', (type(op),), dict(__hash__=lambda x: id(op)))
+    # op.__hash__ = lambda: id(op)
+    return xla.apply_primitive(mpi_allreduce_p, x, token, op=hashableop(), comm=comm)
 
 
 #  This function compiles the operation

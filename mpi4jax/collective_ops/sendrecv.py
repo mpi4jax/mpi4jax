@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-import jax.numpy as jnp
-from jax import abstract_arrays, device_put
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -53,38 +52,8 @@ def Sendrecv(
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(
-    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
-):
-    # TODO: make this support gpus (use cupy?)
-    inarr = _np.asarray(sendbuf)
-    outarr = _np.empty_like(recvbuf)
-
-    comm.Sendrecv(
-        sendbuf=inarr,
-        dest=dest,
-        sendtag=sendtag,
-        recvbuf=outarr,
-        source=source,
-        recvtag=recvtag,
-        status=status,
-    )
-
-    if hasattr(recvbuf, "dtype"):
-        dt = recvbuf.dtype
-    else:
-        # probably a scalar
-        dt = _np.dtype(type(recvbuf))
-
-    res = jnp.array(outarr, dtype=dt)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(recvbuf, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == recvbuf.device_buffer.device()):
-            res = device_put(res, device=recvbuf.device_buffer.device())
-
-    return res, token
+def mpi_sendrecv_impl(*args, **kwargs):
+    return xla.apply_primitive(mpi_sendrecv_p, *args, **kwargs)
 
 
 #  This function compiles the operation
