@@ -31,11 +31,10 @@ MPI_STATUS_IGNORE_ADDR = int(<uint64_t>MPI_STATUS_IGNORE)
 #
 
 cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
-    cdef int rank
-
     if ierr == MPI_SUCCESS:
         return 0
 
+    cdef int rank
     MPI_Comm_rank(comm, &rank)
 
     with gil:
