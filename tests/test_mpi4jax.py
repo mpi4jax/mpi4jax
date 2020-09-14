@@ -239,6 +239,50 @@ def test_sendrecv_scalar_jit():
     assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
+def test_abort_on_error(tmp_path):
+    # hacky but I think this is the only way not to kill the testing process itself
+    import os
+    import sys
+    import subprocess
+    from textwrap import dedent
+
+    test_script = dedent("""
+        import jax
+        jax.config.enable_omnistaging()
+        import jax.numpy as jnp
+
+        from mpi4py import MPI
+        from mpi4jax import Send
+
+        comm = MPI.COMM_WORLD
+        assert comm.Get_size() == 1
+
+        # send to non-existing rank
+        jax.jit(lambda x: Send(x, dest=100, comm=comm))(
+            jnp.ones(10)
+        )
+
+        # sleep so the process doesn't exit before running the function
+        import time
+        time.sleep(1)
+    """)
+
+    test_file = tmp_path / "abort.py"
+    test_file.write_text(test_script)
+
+    proc = subprocess.run(
+        [sys.executable, test_file],
+        capture_output=True, bufsize=0, timeout=10,
+        # passing a mostly empty env seems to be the only way to
+        # force MPI to initialize again
+        env=dict(PATH=os.environ["PATH"]),
+    )
+
+    assert proc.returncode != 0
+    assert b"MPI_Send returned error code 6" in proc.stderr
+
+
 def test_debug_logging_disabled(capsys, monkeypatch):
     from mpi4jax import Allreduce
     from mpi4jax.cython.mpi_xla_bridge import set_logging

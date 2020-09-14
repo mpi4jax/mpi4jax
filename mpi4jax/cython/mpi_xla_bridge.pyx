@@ -1,5 +1,7 @@
 # cython: language_level=3
 
+import sys
+
 from cpython.pycapsule cimport PyCapsule_New
 
 from libc.stdint cimport int32_t, int64_t, uint64_t
@@ -25,6 +27,26 @@ MPI_STATUS_IGNORE_ADDR = int(<uint64_t>MPI_STATUS_IGNORE)
 
 
 #
+# Error handling
+#
+
+cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
+    cdef int rank
+
+    if ierr == MPI_SUCCESS:
+        return 0
+
+    MPI_Comm_rank(comm, &rank)
+
+    with gil:
+        sys.stderr.write(
+            f'r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n'
+        )
+        sys.stderr.flush()
+        return libmpi.MPI_Abort(comm, ierr)
+
+
+#
 # Logging
 #
 
@@ -40,7 +62,7 @@ cpdef void set_logging(bint enable):
 #
 
 cdef void mpi_send(void** out_ptr, void** data_ptr) nogil:
-    cdef int rank
+    cdef int rank, ierr
 
     #decode inputs
     cdef int32_t nitems = (<int32_t*>(data_ptr[0]))[0]
@@ -56,13 +78,14 @@ cdef void mpi_send(void** out_ptr, void** data_ptr) nogil:
             print(f"r{rank} | MPI_Send -> {destination} with tag {tag} and token {<uint64_t>token:x}")
 
     # MPI Call
-    libmpi.MPI_Send(data_ptr[1], nitems, dtype, destination, tag, comm)
+    ierr = libmpi.MPI_Send(data_ptr[1], nitems, dtype, destination, tag, comm)
+    abort_on_error(ierr, comm, u"Send")
 
     out_ptr[0] = token
 
 
 cdef void mpi_recv(void** out_ptr, void** data_ptr) nogil:
-    cdef int rank
+    cdef int rank, ierr
 
     #decode inputs
     cdef int32_t nitems = (<int32_t*>(data_ptr[0]))[0]
@@ -79,7 +102,8 @@ cdef void mpi_recv(void** out_ptr, void** data_ptr) nogil:
             print(f"r{rank} | MPI_Recv <- {source} with tag {tag} and token {<uint64_t> token:x}")
 
     # MPI Call
-    libmpi.MPI_Recv(out_ptr[0], nitems, dtype, source, tag, comm, status)
+    ierr = libmpi.MPI_Recv(out_ptr[0], nitems, dtype, source, tag, comm, status)
+    abort_on_error(ierr, comm, u"Recv")
 
     out_ptr[1] = token
 
@@ -112,17 +136,18 @@ cdef void mpi_sendrecv(void** out_ptr, void** data_ptr) nogil:
             )
 
     # MPI Call
-    libmpi.MPI_Sendrecv(
+    ierr = libmpi.MPI_Sendrecv(
         data_ptr[1], sendcount, sendtype, dest, sendtag,
         out_ptr[0], recvcount, recvtype, source, recvtag,
         comm, status
     )
+    abort_on_error(ierr, comm, u"Sendrecv")
 
     out_ptr[1] = token
 
 
 cdef void mpi_allreduce(void** out_ptr, void** data_ptr) nogil:
-    cdef int rank
+    cdef int rank, ierr
 
     #decode inputs
     cdef int32_t nitems = (<int32_t*>(data_ptr[0]))[0]
@@ -137,7 +162,8 @@ cdef void mpi_allreduce(void** out_ptr, void** data_ptr) nogil:
             print(f"r{rank} | MPI_Allreduce with token {<uint64_t>token:x}")
 
     # MPI Call
-    libmpi.MPI_Allreduce(data_ptr[1], out_ptr[0], nitems, dtype, op, comm)
+    ierr = libmpi.MPI_Allreduce(data_ptr[1], out_ptr[0], nitems, dtype, op, comm)
+    abort_on_error(ierr, comm, u"Allreduce")
 
     out_ptr[1] = token
 
