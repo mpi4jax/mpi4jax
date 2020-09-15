@@ -1,7 +1,13 @@
 from setuptools import setup
 from setuptools.extension import Extension
-from Cython.Build import cythonize
 import os
+
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    HAS_CYTHON = False
+else:
+    HAS_CYTHON = True
 
 
 def mpi_info(cmd):
@@ -27,9 +33,28 @@ def mpi_info(cmd):
     return out
 
 
+if HAS_CYTHON:
+    CY_EXT = ".pyx"
+else:
+    CY_EXT = ".c"
+
+EXTENSIONS = [
+    Extension(
+        name="mpi4jax.cython.mpi_xla_bridge",
+        sources=["mpi4jax/cython/mpi_xla_bridge" + CY_EXT],
+        include_dirs=mpi_info("compile"),
+        library_dirs=mpi_info("libdirs"),
+        libraries=mpi_info("libs"),
+    ),
+]
+
+if HAS_CYTHON:
+    EXTENSIONS = cythonize(EXTENSIONS)
+
+
 setup(
     name="mpi4jax",
-    version="0.2.2",
+    version="0.2.3",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
     long_description="""Jax-mpi provides integration among jax and MPI, so that
@@ -42,17 +67,7 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
-    ext_modules=cythonize(
-        [
-            Extension(
-                name="mpi4jax.cython.mpi_xla_bridge",
-                sources=["mpi4jax/cython/mpi_xla_bridge.pyx"],
-                include_dirs=mpi_info("compile"),
-                library_dirs=mpi_info("libdirs"),
-                libraries=mpi_info("libs"),
-            ),
-        ],
-    ),
+    ext_modules=EXTENSIONS,
     setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
     python_requires=">=3.6",
     install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
