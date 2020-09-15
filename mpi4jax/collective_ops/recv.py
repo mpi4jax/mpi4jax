@@ -15,6 +15,8 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -40,8 +42,11 @@ def Recv(
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_recv_impl(*args, **kwargs):
-    return xla.apply_primitive(mpi_recv_impl, *args, **kwargs)
+def mpi_recv_impl(x, token, source, tag, comm, status):
+    comm = wrap_as_hashable(comm)
+    return xla.apply_primitive(
+        mpi_recv_p, x, token, source=source, tag=tag, comm=comm, status=status
+    )
 
 
 #  This function compiles the operation
@@ -49,6 +54,8 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
@@ -66,7 +73,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
     else:
-        _status = _MPI._addressof(status)
+        _status = to_mpi_ptr(status)
 
     operands = (
         _nitems,

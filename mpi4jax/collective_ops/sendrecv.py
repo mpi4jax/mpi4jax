@@ -15,6 +15,8 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -52,8 +54,22 @@ def Sendrecv(
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(*args, **kwargs):
-    return xla.apply_primitive(mpi_sendrecv_p, *args, **kwargs)
+def mpi_sendrecv_impl(
+    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
+    comm = wrap_as_hashable(comm)
+    return xla.apply_primitive(
+        mpi_sendrecv_p,
+        sendbuf,
+        recvbuf,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+    )
 
 
 #  This function compiles the operation
@@ -63,6 +79,8 @@ def mpi_sendrecv_xla_encode(
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
@@ -92,7 +110,7 @@ def mpi_sendrecv_xla_encode(
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
     else:
-        _status = _MPI._addressof(status)
+        _status = to_mpi_ptr(status)
 
     operands = (
         _send_nitems,

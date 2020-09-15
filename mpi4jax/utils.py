@@ -1,5 +1,4 @@
 import numpy as _np
-import ctypes
 
 from mpi4py import MPI as _MPI
 
@@ -14,31 +13,13 @@ def to_mpi_ptr(mpi_obj):
 
     Returns the ptr to the underlying C mpi object
     """
-    return _np.uint64(_MPI._handleof(mpi_obj))
+    try:
+        addr = _MPI._handleof(mpi_obj)
+    except NotImplementedError:
+        # some objects like Status only work with addressof
+        addr = _MPI._addressof(mpi_obj)
 
-
-def MPIComm_from_ptr(ptr):
-    """
-    MPIComm_from_ptr(ptr)
-
-    Constructs a MPI Comm object from a pointer
-    """
-    comm = _MPI.Comm()
-    comm_ptr = ctypes.c_void_p.from_address(_MPI._addressof(comm))
-    comm_ptr.value = int(ptr)
-    return comm
-
-
-def MPIOp_from_ptr(ptr):
-    """
-    MPIOp_from_ptr(ptr)
-
-    Constructs a MPI Op object from a pointer
-    """
-    op = _MPI.Op()
-    op_ptr = ctypes.c_void_p.from_address(_MPI._addressof(op))
-    op_ptr.value = int(ptr)
-    return op
+    return _np.uint64(addr)
 
 
 def dtype_ptr(dtype):
@@ -63,7 +44,31 @@ def dtype_ptr(dtype):
     return _dtype
 
 
+# Helpers to make MPI objects hashable
+
+
+class HashableMPIType:
+    def __init__(self, obj):
+        self.wrapped = obj
+
+    def __hash__(self):
+        return int(to_mpi_ptr(self.wrapped))
+
+
+def wrap_as_hashable(obj):
+    return HashableMPIType(obj)
+
+
+def unpack_hashable(obj):
+    if isinstance(obj, HashableMPIType):
+        return obj.wrapped
+
+    return obj
+
+
 # Helper functions
+
+
 def _constant_s32_scalar(c, x):
     return _ops.Constant(c, _np.int32(x))
 

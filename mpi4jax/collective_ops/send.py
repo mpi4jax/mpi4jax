@@ -15,6 +15,8 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -34,13 +36,16 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
 
 
 #  this function executes the primitive, when not under any transformation
-def mpi_send_impl(*args, **kwargs):
-    xla.apply_primitive(mpi_send_p, *args, **kwargs)
+def mpi_send_impl(x, token, dest, tag, comm):
+    comm = wrap_as_hashable(comm)
+    return xla.apply_primitive(mpi_send_p, x, token, dest=dest, tag=tag, comm=comm)
 
 
 #  This function compiles the operation
 def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)

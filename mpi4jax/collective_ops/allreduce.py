@@ -15,6 +15,8 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -33,14 +35,17 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
 
 #  this function executes the primitive, when not under any transformation
 def mpi_allreduce_impl(x, token, op, comm):
-    hashableop = type('hop', (type(op),), dict(__hash__=lambda x: id(op)))
-    # op.__hash__ = lambda: id(op)
-    return xla.apply_primitive(mpi_allreduce_p, x, token, op=hashableop(), comm=comm)
+    op = wrap_as_hashable(op)
+    comm = wrap_as_hashable(comm)
+    return xla.apply_primitive(mpi_allreduce_p, x, token, op=op, comm=comm)
 
 
 #  This function compiles the operation
 def mpi_allreduce_xla_encode(c, x, token, op, comm):
     warn_missing_omnistaging()
+
+    op = unpack_hashable(op)
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
