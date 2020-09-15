@@ -102,7 +102,7 @@ def mpi_allreduce_abstract_eval(xs, token, op, comm):
 
 
 mpi_allreduce_p.multiple_results = True
-mpi_allreduce_p.def_impl(default_primitive_impl(mpi_allreduce_p))
+mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
 
 # assign to the primitive the correct encoder

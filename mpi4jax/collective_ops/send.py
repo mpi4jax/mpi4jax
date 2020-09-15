@@ -99,7 +99,6 @@ def mpi_send_abstract_eval(xs, token, dest, tag, comm):
     return abstract_arrays.abstract_token
 
 
-# mpi_send_p.multiple_results = True
 mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
