@@ -69,6 +69,34 @@ def test_allreduce_scalar_jit():
     assert jnp.array_equal(_arr, arr)
 
 
+def test_allreduce_grad():
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    token = jax.lax.create_token(arr)
+    res, grad = jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())(arr)
+    assert jnp.array_equal(res, arr.sum() * size)
+    assert jnp.array_equal(_arr, arr)
+
+    res, grad = jax.jit(
+        jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())
+    )(arr)
+    assert jnp.array_equal(res, arr.sum() * size)
+    assert jnp.array_equal(_arr, arr)
+
+    def testfun(x):
+        y, token = Allreduce(x, op=MPI.SUM)
+        z = x + 2 * y
+        res, token2 = Allreduce(x, op=MPI.SUM, token=token)
+        return res.sum()
+
+    res, grad = jax.jit(jax.value_and_grad(testfun))(arr)
+    assert jnp.array_equal(res, arr.sum() * size)
+    assert jnp.array_equal(_arr, arr)
+
+
 def test_send_recv():
     from mpi4jax import Send, Recv
 

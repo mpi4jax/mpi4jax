@@ -4,10 +4,11 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, device_put
 from jax import numpy as jnp
-from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
-from jax.interpreters import xla
+from jax.interpreters import xla, ad
+
+from .. import create_token
 
 from ..utils import (
     to_mpi_ptr,
@@ -112,9 +113,28 @@ def mpi_allreduce_abstract_eval(xs, token, op, comm):
     )
 
 
+def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
+    x, token = in_args
+    x_tan, token_tan = tan_args
+
+    res = Allreduce(x, token=token, op=op, comm=comm)
+
+    # Identify the correct adjoint
+    if op == _MPI.SUM:
+        jvp = (x_tan, token_tan)
+    else:
+        raise NotImplementedError(
+            "The adjoint of allreduce for {} operation is not defined".format(op)
+        )
+
+    return (res, jvp)
+
+
 mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
+
+ad.primitive_jvps[mpi_allreduce_p] = mpi_allreduce_value_and_jvp
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode
