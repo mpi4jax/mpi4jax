@@ -17,12 +17,14 @@ from ..utils import (
     dtype_ptr,
     wrap_as_hashable,
     unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
+mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 
 
 # This function applies the primitive to an AST
@@ -30,14 +32,9 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
-    return mpi_allreduce_p.bind(x, token, op=op, comm=comm)
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_allreduce_impl(x, token, op, comm):
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return xla.apply_primitive(mpi_allreduce_p, x, token, op=op, comm=comm)
+    return mpi_allreduce_p.bind(x, token, op=op, comm=comm)
 
 
 #  This function compiles the operation
@@ -86,7 +83,7 @@ def mpi_allreduce_abstract_eval(xs, token, op, comm):
 
 
 mpi_allreduce_p.multiple_results = True
-mpi_allreduce_p.def_impl(mpi_allreduce_impl)
+mpi_allreduce_p.def_impl(default_primitive_impl(mpi_allreduce_p))
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
 
 # assign to the primitive the correct encoder

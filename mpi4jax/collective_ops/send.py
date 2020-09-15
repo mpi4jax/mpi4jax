@@ -17,6 +17,7 @@ from ..utils import (
     dtype_ptr,
     wrap_as_hashable,
     unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -24,6 +25,7 @@ from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
+mpi_send_impl = default_primitive_impl(mpi_send_p)
 
 
 # This function applies the primitive to an AST
@@ -31,14 +33,8 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
-    out = mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
-    return out
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_send_impl(x, token, dest, tag, comm):
     comm = wrap_as_hashable(comm)
-    return xla.apply_primitive(mpi_send_p, x, token, dest=dest, tag=tag, comm=comm)
+    return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
 
 
 #  This function compiles the operation

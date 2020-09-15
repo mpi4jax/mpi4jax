@@ -1,10 +1,16 @@
+import functools
 import numpy as _np
 
 from mpi4py import MPI as _MPI
 
 from jax.lib import xla_client
+from jax.interpreters import xla
 
 _ops = xla_client.ops
+
+
+def default_primitive_impl(primitive):
+    return functools.partial(xla.apply_primitive, primitive)
 
 
 def to_mpi_ptr(mpi_obj):

@@ -17,12 +17,14 @@ from ..utils import (
     dtype_ptr,
     wrap_as_hashable,
     unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
+mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
 
 
 # This function applies the primitive to an AST
@@ -40,26 +42,8 @@ def Sendrecv(
     if token is None:
         token = create_token(sendbuf)
 
-    return mpi_sendrecv_p.bind(
-        sendbuf,
-        recvbuf,
-        token,
-        source=source,
-        dest=dest,
-        sendtag=sendtag,
-        recvtag=recvtag,
-        comm=comm,
-        status=status,
-    )
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(
-    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
-):
     comm = wrap_as_hashable(comm)
-    return xla.apply_primitive(
-        mpi_sendrecv_p,
+    return mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
         token,
