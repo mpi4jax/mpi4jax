@@ -109,6 +109,8 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
     res = Allreduce(x, token=token, op=op, comm=comm)
 
     # Identify the correct adjoint
+    op = unpack_hashable(op)
+
     if op == _MPI.SUM:
         jvp = (x_tan, token_tan)
     else:

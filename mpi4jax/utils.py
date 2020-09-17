@@ -62,6 +62,9 @@ class HashableMPIType:
 
 
 def wrap_as_hashable(obj):
+    if isinstance(obj, HashableMPIType):
+        return obj
+
     return HashableMPIType(obj)
 
 
