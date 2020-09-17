@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, device_put
-from jax import numpy as jnp
+from jax import abstract_arrays
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, ad
@@ -17,12 +16,16 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
+mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 
 
 # This function applies the primitive to an AST
@@ -49,31 +52,17 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
+    op = wrap_as_hashable(op)
+    comm = wrap_as_hashable(comm)
     return mpi_allreduce_p.bind(x, token, op=op, comm=comm)
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_allreduce_impl(x, token, op, comm):
-    # TODO: make this support gpus (use cupy?)
-    inpt = _np.asarray(x)
-    out = _np.zeros_like(x)
-
-    comm.Allreduce(inpt, out, op=op)
-
-    res = jnp.array(out, dtype=inpt.dtype)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(x, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == x.device_buffer.device()):
-            res = device_put(res, device=x.device_buffer.device())
-
-    return res, token
 
 
 #  This function compiles the operation
 def mpi_allreduce_xla_encode(c, x, token, op, comm):
     warn_missing_omnistaging()
+
+    op = unpack_hashable(op)
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
@@ -120,6 +109,8 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
     res = Allreduce(x, token=token, op=op, comm=comm)
 
     # Identify the correct adjoint
+    op = unpack_hashable(op)
+
     if op == _MPI.SUM:
         jvp = (x_tan, token_tan)
     else:

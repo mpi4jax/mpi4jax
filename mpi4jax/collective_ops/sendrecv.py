@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-import jax.numpy as jnp
-from jax import abstract_arrays, device_put
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -16,12 +15,16 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
+mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
 
 
 # This function applies the primitive to an AST
@@ -39,6 +42,7 @@ def Sendrecv(
     if token is None:
         token = create_token(sendbuf)
 
+    comm = wrap_as_hashable(comm)
     return mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
@@ -52,41 +56,6 @@ def Sendrecv(
     )
 
 
-#  this function executes the primitive, when not under any transformation
-def mpi_sendrecv_impl(
-    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
-):
-    # TODO: make this support gpus (use cupy?)
-    inarr = _np.asarray(sendbuf)
-    outarr = _np.empty_like(recvbuf)
-
-    comm.Sendrecv(
-        sendbuf=inarr,
-        dest=dest,
-        sendtag=sendtag,
-        recvbuf=outarr,
-        source=source,
-        recvtag=recvtag,
-        status=status,
-    )
-
-    if hasattr(recvbuf, "dtype"):
-        dt = recvbuf.dtype
-    else:
-        # probably a scalar
-        dt = _np.dtype(type(recvbuf))
-
-    res = jnp.array(outarr, dtype=dt)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(recvbuf, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == recvbuf.device_buffer.device()):
-            res = device_put(res, device=recvbuf.device_buffer.device())
-
-    return res, token
-
-
 #  This function compiles the operation
 def mpi_sendrecv_xla_encode(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
@@ -94,6 +63,8 @@ def mpi_sendrecv_xla_encode(
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
@@ -123,7 +94,7 @@ def mpi_sendrecv_xla_encode(
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
     else:
-        _status = _MPI._addressof(status)
+        _status = to_mpi_ptr(status)
 
     operands = (
         _send_nitems,
@@ -141,11 +112,7 @@ def mpi_sendrecv_xla_encode(
     )
 
     return _ops.CustomCall(
-        c,
-        b"mpi_sendrecv",
-        operands=operands,
-        shape=sh,
-        has_side_effect=True,
+        c, b"mpi_sendrecv", operands=operands, shape=sh, has_side_effect=True,
     )
 
 

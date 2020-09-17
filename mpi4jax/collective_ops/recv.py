@@ -2,8 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-import jax.numpy as jnp
-from jax import abstract_arrays, device_put
+from jax import abstract_arrays
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -16,12 +15,16 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
+mpi_recv_impl = default_primitive_impl(mpi_recv_p)
 
 
 # This function applies the primitive to an AST
@@ -58,25 +61,8 @@ def Recv(
     if token is None:
         token = create_token(x)
 
-    out = mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
-    return out
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_recv_impl(x, token, source, tag, comm, status):
-    # TODO: make this support gpus (use cupy?)
-    out = _np.empty_like(x)
-    comm.Recv(out, source=source, tag=tag, status=status)
-
-    res = jnp.array(out, dtype=out.dtype)
-
-    # if it's a jax array and not a standard python array
-    if hasattr(x, "device_buffer"):
-        # put the result on the correct device if needed
-        if not (res.device_buffer.device() == x.device_buffer.device()):
-            res = device_put(res, device=x.device_buffer.device())
-
-    return res, token
+    comm = wrap_as_hashable(comm)
+    return mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
 
 
 #  This function compiles the operation
@@ -84,6 +70,8 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
@@ -95,16 +83,13 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
-        [
-            xla_client.Shape.array_shape(dtype, dims),
-            xla_client.Shape.token_shape(),
-        ]
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     if status is None:
         _status = MPI_STATUS_IGNORE_ADDR
     else:
-        _status = _MPI._addressof(status)
+        _status = to_mpi_ptr(status)
 
     operands = (
         _nitems,
@@ -117,11 +102,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     )
 
     out = _ops.CustomCall(
-        c,
-        b"mpi_recv",
-        operands=operands,
-        shape=sh,
-        has_side_effect=True,
+        c, b"mpi_recv", operands=operands, shape=sh, has_side_effect=True,
     )
 
     return out

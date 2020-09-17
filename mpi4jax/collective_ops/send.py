@@ -15,6 +15,9 @@ from ..utils import (
     _constant_s32_scalar,
     _constant_u64_scalar,
     dtype_ptr,
+    wrap_as_hashable,
+    unpack_hashable,
+    default_primitive_impl,
 )
 
 from ..warn import warn_missing_omnistaging
@@ -22,6 +25,7 @@ from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
+mpi_send_impl = default_primitive_impl(mpi_send_p)
 
 
 # This function applies the primitive to an AST
@@ -49,21 +53,15 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
-    out = mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
-    return out
-
-
-#  this function executes the primitive, when not under any transformation
-def mpi_send_impl(x, token, dest, tag, comm):
-    # TODO: make this support gpus (use cupy?)
-    inpt = _np.asarray(x)
-    comm.Send(inpt, dest=dest, tag=tag)
-    return token
+    comm = wrap_as_hashable(comm)
+    return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
 
 
 #  This function compiles the operation
 def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
@@ -101,7 +99,6 @@ def mpi_send_abstract_eval(xs, token, dest, tag, comm):
     return abstract_arrays.abstract_token
 
 
-# mpi_send_p.multiple_results = True
 mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
