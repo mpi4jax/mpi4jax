@@ -1,5 +1,6 @@
 # mpi4jax
-![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg) [![Conda Recipe](https://img.shields.io/badge/recipe-mpi4jax-green.svg)](https://anaconda.org/conda-forge/mpi4jax)
+![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg) [![codecov](https://codecov.io/gh/PhilipVinc/mpi4jax/branch/master/graph/badge.svg)](https://codecov.io/gh/PhilipVinc/mpi4jax)
+ [![Conda Recipe](https://img.shields.io/badge/recipe-mpi4jax-green.svg)](https://anaconda.org/conda-forge/mpi4jax) 
 
 MPI plugin for JAX, allowing MPI operations to be inserted in jitted blocks.
 
