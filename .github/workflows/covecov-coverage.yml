@@ -13,10 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: 3.8
+        python-version: [3.8] 
         os: [ubuntu-latest]
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
+       MPI4JAX_TRACING: true
     steps:
       - uses: actions/checkout@v2
         
