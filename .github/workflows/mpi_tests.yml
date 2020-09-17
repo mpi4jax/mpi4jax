@@ -56,4 +56,3 @@ jobs:
           mpirun -host localhost:2 -v -np 2 coverage run --parallel-mode --source=. -m pytest tests/
       - name: Upload coverage
         uses: codecov/codecov-action@v1
-        token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
