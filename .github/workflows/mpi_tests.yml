@@ -50,7 +50,7 @@ jobs:
           pip install -v -e .
       - name: Single-execution test with pytest
         run: |
-          coverage run --source=mpi4jax/ . -m pytest tests/
+          coverage run --source=mpi4jax/ -m pytest tests/
       - name: mpirun test with pytest
         run: |
           mpirun -host localhost:2 -v -np 2 coverage run --parallel-mode --source=mpi4jax/ -m pytest tests/
