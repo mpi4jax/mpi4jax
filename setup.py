@@ -54,7 +54,7 @@ if HAS_CYTHON:
 
 setup(
     name="mpi4jax",
-    version="0.2.3",
+    version="0.2.5",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
     long_description="""Jax-mpi provides integration among jax and MPI, so that

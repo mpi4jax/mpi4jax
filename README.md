@@ -6,7 +6,8 @@ MPI plugin for JAX, allowing MPI operations to be inserted in jitted blocks.
 # Installation
 You can Install `mpi4jax` through pip (see below) or conda (click on the badge)
 ```python
-pip install mpi4jax # Pip
+pip install mpi4jax                     # Pip
+conda install -c conda-forge mpi4jax    # conda
 ```
 
 ## Supported operations
