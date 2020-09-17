@@ -17,7 +17,7 @@ jobs:
         os: [ubuntu-latest]
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
-       MPI4JAX_TRACING: true
+       # MPI4JAX_TRACING: true   # since we go through xla, we cant really trace cython calls anyway
     steps:
       - uses: actions/checkout@v2
         
