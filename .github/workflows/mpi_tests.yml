@@ -45,17 +45,14 @@ jobs:
       #  if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
-          pip install pytest numpy jax jaxlib mpi4py coverage
+          pip install pytest numpy jax jaxlib mpi4py
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install -v -e .
+          pip install -v .
       - name: Single-execution test with pytest
         run: |
-          coverage run --parallel-mode --source=mpi4jax/ -m pytest tests/
+          cd tests 
+          pytest .
       - name: mpirun test with pytest
         run: |
-          mpirun -host localhost:2 -v -np 2 coverage run --parallel-mode --source=mpi4jax/ -m pytest tests/
-      - name: Combine multiple coverage results
-        run: |
-          coverage combine
-      - name: Upload coverage
-        uses: codecov/codecov-action@v1
+          cd tests
+          mpirun -host localhost:2 -v -np 2 pytest .
