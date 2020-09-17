@@ -38,6 +38,14 @@ if HAS_CYTHON:
 else:
     CY_EXT = ".c"
 
+activate_tracing = os.environ.get("MPI4JAX_TRACING", "").lower() in ("true", "1", "on")
+
+if activate_tracing:
+    macros = [("CYTHON_TRACE_NOGIL", "1")]
+else:
+    macros = None
+
+
 EXTENSIONS = [
     Extension(
         name="mpi4jax.cython.mpi_xla_bridge",
@@ -45,11 +53,13 @@ EXTENSIONS = [
         include_dirs=mpi_info("compile"),
         library_dirs=mpi_info("libdirs"),
         libraries=mpi_info("libs"),
+        define_macros=macros,
     ),
 ]
 
 if HAS_CYTHON:
-    EXTENSIONS = cythonize(EXTENSIONS)
+    compiler_directives = {"linetrace": activate_tracing}
+    EXTENSIONS = cythonize(EXTENSIONS, compiler_directives=compiler_directives)
 
 
 setup(
