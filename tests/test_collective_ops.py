@@ -75,7 +75,6 @@ def test_allreduce_grad():
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    token = jax.lax.create_token(arr)
     res, grad = jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())(arr)
     assert jnp.array_equal(res, arr.sum() * size)
     assert jnp.array_equal(_arr, arr)

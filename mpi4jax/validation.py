@@ -34,7 +34,7 @@ def enforce_types(**types):
             # make sure given types are actually parameters of decorated function
             if t not in func_sig.parameters:
                 raise ValueError(
-                    f"enforce_types decorator for {func_name} got unexpected argument {t}"
+                    f'enforce_types decorator for {func_name} got unexpected argument "{t}"'
                 )
 
             # make sure types are iterable
