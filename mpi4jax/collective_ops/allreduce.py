@@ -2,7 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays
+from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.lib import xla_client
 from jax.interpreters import xla, ad
@@ -19,9 +19,11 @@ from ..utils import (
     wrap_as_hashable,
     unpack_hashable,
     default_primitive_impl,
+    HashableMPIType,
 )
 
 from ..warn import warn_missing_omnistaging
+from ..validation import enforce_types
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -29,6 +31,11 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 
 
 # This function applies the primitive to an AST
+@enforce_types(
+    op=(_MPI.Op, HashableMPIType),
+    comm=(_MPI.Intracomm, HashableMPIType),
+    token=(type(None), xla.Token, core.Tracer),
+)
 def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
     """
     Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None)
