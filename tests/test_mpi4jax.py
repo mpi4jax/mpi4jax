@@ -291,10 +291,6 @@ def test_abort_on_error(tmp_path):
         jax.jit(lambda x: Send(x, dest=100, comm=comm))(
             jnp.ones(10)
         )
-
-        # sleep so the process doesn't exit before running the function
-        import time
-        time.sleep(1)
     """
     )
 
