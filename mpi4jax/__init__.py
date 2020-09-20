@@ -1,5 +1,5 @@
 # make sure to import mpi4py first
-# this calls MPI_Init and registers mpi4py's  atexit handler
+# this calls MPI_Init and registers mpi4py's atexit handler
 import mpi4py  # noqa: F401
 
 import mpi4jax.cython  # noqa: F401
