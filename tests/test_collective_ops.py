@@ -75,7 +75,6 @@ def test_allreduce_grad():
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    token = jax.lax.create_token(arr)
     res, grad = jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())(arr)
     assert jnp.array_equal(res, arr.sum() * size)
     assert jnp.array_equal(_arr, arr)
@@ -88,7 +87,7 @@ def test_allreduce_grad():
 
     def testfun(x):
         y, token = Allreduce(x, op=MPI.SUM)
-        z = x + 2 * y
+        z = x + 2 * y  # noqa: F841
         res, token2 = Allreduce(x, op=MPI.SUM, token=token)
         return res.sum()
 
@@ -97,6 +96,7 @@ def test_allreduce_grad():
     assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv():
     from mpi4jax import Send, Recv
 
@@ -113,6 +113,7 @@ def test_send_recv():
         assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar():
     from mpi4jax import Send, Recv
 
@@ -129,6 +130,7 @@ def test_send_recv_scalar():
         assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar_jit():
     from mpi4jax import Send, Recv
 
@@ -145,6 +147,7 @@ def test_send_recv_scalar_jit():
         assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_jit():
     from mpi4jax import Send, Recv
 
@@ -183,7 +186,27 @@ def test_send_recv_deadlock():
     assert jnp.array_equal(arr, jnp.ones_like(arr) * (1 - rank))
 
 
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_status():
+    from mpi4jax import Send, Recv
+
+    arr = jnp.ones((3, 2)) * rank
+    _arr = arr.copy()
+
+    if rank == 0:
+        for proc in range(1, size):
+            status = MPI.Status()
+            res, token = Recv(arr, source=proc, tag=proc, status=status)
+            assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
+            assert jnp.array_equal(_arr, arr)
+            assert status.Get_source() == proc
+    else:
+        Send(arr, 0, tag=rank)
+        assert jnp.array_equal(_arr, arr)
+
+
+@pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
+def test_send_recv_status_jit():
     from mpi4jax import Send, Recv
 
     arr = jnp.ones((3, 2)) * rank
@@ -216,6 +239,42 @@ def test_sendrecv():
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_status():
+    from mpi4jax import Sendrecv
+
+    arr = jnp.ones((3, 2)) * rank
+    _arr = arr.copy()
+
+    other = 1 - rank
+
+    status = MPI.Status()
+    res, token = Sendrecv(arr, arr, source=other, dest=other, status=status)
+
+    assert jnp.array_equal(res, jnp.ones_like(arr) * other)
+    assert jnp.array_equal(_arr, arr)
+    assert status.Get_source() == other
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_status_jit():
+    from mpi4jax import Sendrecv
+
+    arr = jnp.ones((3, 2)) * rank
+    _arr = arr.copy()
+
+    other = 1 - rank
+
+    status = MPI.Status()
+    res, token = jax.jit(
+        lambda x, y: Sendrecv(x, y, source=other, dest=other, status=status)
+    )(arr, arr)
+
+    assert jnp.array_equal(res, jnp.ones_like(arr) * other)
+    assert jnp.array_equal(_arr, arr)
+    assert status.Get_source() == other
 
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
@@ -275,14 +334,16 @@ def run_in_subprocess(code, test_file, timeout=10):
     from textwrap import dedent
 
     # this enables us to measure coverage in subprocesses
-    cov_preamble = dedent("""
+    cov_preamble = dedent(
+        """
     try:
         import coverage
         coverage.process_startup()
     except ImportError:
         pass
 
-    """)
+    """
+    )
 
     test_file.write_text(cov_preamble + code)
 
@@ -295,10 +356,7 @@ def run_in_subprocess(code, test_file, timeout=10):
         universal_newlines=True,
         # passing a mostly empty env seems to be the only way to
         # force MPI to initialize again
-        env=dict(
-            PATH=os.environ["PATH"],
-            COVERAGE_PROCESS_START="pyproject.toml",
-        ),
+        env=dict(PATH=os.environ["PATH"], COVERAGE_PROCESS_START="pyproject.toml",),
     )
     return proc
 

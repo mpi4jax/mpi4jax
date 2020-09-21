@@ -2,7 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays
+from jax import abstract_arrays, core
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -18,9 +18,11 @@ from ..utils import (
     wrap_as_hashable,
     unpack_hashable,
     default_primitive_impl,
+    HashableMPIType,
 )
 
 from ..warn import warn_missing_omnistaging
+from ..validation import enforce_types
 
 
 # The Jax primitive
@@ -29,6 +31,12 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
 
 
 # This function applies the primitive to an AST
+@enforce_types(
+    dest=_np.integer,
+    tag=_np.integer,
+    comm=(_MPI.Intracomm, HashableMPIType),
+    token=(type(None), xla.Token, core.Tracer),
+)
 def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     """
     Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None)

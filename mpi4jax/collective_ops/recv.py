@@ -2,7 +2,7 @@ import numpy as _np
 
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays
+from jax import abstract_arrays, core
 from jax.lax import create_token
 from jax.core import Primitive
 from jax.lib import xla_client
@@ -18,9 +18,11 @@ from ..utils import (
     wrap_as_hashable,
     unpack_hashable,
     default_primitive_impl,
+    HashableMPIType,
 )
 
 from ..warn import warn_missing_omnistaging
+from ..validation import enforce_types
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -28,6 +30,13 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
 
 
 # This function applies the primitive to an AST
+@enforce_types(
+    source=_np.integer,
+    tag=_np.integer,
+    comm=(_MPI.Intracomm, HashableMPIType),
+    status=(type(None), _MPI.Status, HashableMPIType),
+    token=(type(None), xla.Token, core.Tracer),
+)
 def Recv(
     x,
     source=_MPI.ANY_SOURCE,
@@ -62,6 +71,10 @@ def Recv(
         token = create_token(x)
 
     comm = wrap_as_hashable(comm)
+
+    if status is not None:
+        status = wrap_as_hashable(status)
+
     return mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
 
 
@@ -72,6 +85,7 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
 
     c = _unpack_builder(c)
     x_shape = c.GetShape(x)
