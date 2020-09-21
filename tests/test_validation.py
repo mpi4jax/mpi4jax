@@ -3,6 +3,7 @@ import pytest
 
 def test_enforce_types():
     from types import FunctionType
+
     from mpi4jax.validation import enforce_types
 
     @enforce_types(y=(int, str), z=FunctionType)
@@ -27,6 +28,7 @@ def test_enforce_types():
 
 def test_enforce_types_generic():
     import numpy as np
+
     from mpi4jax.validation import enforce_types
 
     @enforce_types(x=np.integer)
@@ -64,6 +66,7 @@ def test_enforce_types_invalid_args():
 
 def test_enforce_types_tracer():
     import jax
+
     from mpi4jax.validation import enforce_types
 
     @enforce_types(x=int)

@@ -1,29 +1,25 @@
 import numpy as _np
-
-from mpi4py import MPI as _MPI
-
 from jax import abstract_arrays, core
 from jax.core import Primitive
+from jax.interpreters import ad, xla
 from jax.lib import xla_client
-from jax.interpreters import xla, ad
+from mpi4py import MPI as _MPI
 
 from .. import create_token
-
 from ..utils import (
-    to_mpi_ptr,
-    _unpack_builder,
-    _ops,
+    HashableMPIType,
     _constant_s32_scalar,
     _constant_u64_scalar,
-    dtype_ptr,
-    wrap_as_hashable,
-    unpack_hashable,
+    _ops,
+    _unpack_builder,
     default_primitive_impl,
-    HashableMPIType,
+    dtype_ptr,
+    to_mpi_ptr,
+    unpack_hashable,
+    wrap_as_hashable,
 )
-
-from ..warn import warn_missing_omnistaging
 from ..validation import enforce_types
+from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive

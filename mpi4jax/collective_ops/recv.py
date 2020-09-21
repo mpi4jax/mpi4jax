@@ -1,28 +1,25 @@
 import numpy as _np
-
+from jax import abstract_arrays, core
+from jax.core import Primitive
+from jax.interpreters import xla
+from jax.lax import create_token
+from jax.lib import xla_client
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, core
-from jax.lax import create_token
-from jax.core import Primitive
-from jax.lib import xla_client
-from jax.interpreters import xla
-
 from ..utils import (
-    to_mpi_ptr,
-    _unpack_builder,
-    _ops,
+    HashableMPIType,
     _constant_s32_scalar,
     _constant_u64_scalar,
-    dtype_ptr,
-    wrap_as_hashable,
-    unpack_hashable,
+    _ops,
+    _unpack_builder,
     default_primitive_impl,
-    HashableMPIType,
+    dtype_ptr,
+    to_mpi_ptr,
+    unpack_hashable,
+    wrap_as_hashable,
 )
-
-from ..warn import warn_missing_omnistaging
 from ..validation import enforce_types
+from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -116,7 +113,11 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     )
 
     out = _ops.CustomCall(
-        c, b"mpi_recv", operands=operands, shape=sh, has_side_effect=True,
+        c,
+        b"mpi_recv",
+        operands=operands,
+        shape=sh,
+        has_side_effect=True,
     )
 
     return out

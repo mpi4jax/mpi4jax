@@ -1,10 +1,9 @@
 import functools
+
 import numpy as _np
-
-from mpi4py import MPI as _MPI
-
-from jax.lib import xla_client
 from jax.interpreters import xla
+from jax.lib import xla_client
+from mpi4py import MPI as _MPI
 
 _ops = xla_client.ops
 

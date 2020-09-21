@@ -1,9 +1,8 @@
-import inspect
 import functools
-
-from jax.core import Tracer
+import inspect
 
 import numpy as _np
+from jax.core import Tracer
 
 
 def enforce_types(**types):

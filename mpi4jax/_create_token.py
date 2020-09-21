@@ -2,13 +2,12 @@
 This file defines a create_token operation analogous to the jax.lax one,
 but for which we also define the gradient, so that it plays nice with AD.
 """
-from jax.lax import create_token, zeros_like_array
-from jax.lax.lax import create_token_p
-from jax.core import Primitive
-from jax.util import partial
 from jax.abstract_arrays import abstract_token
-from jax.interpreters import xla, ad
+from jax.core import Primitive
+from jax.interpreters import ad, xla
+from jax.lax import zeros_like_array
 from jax.lib import xla_client
+from jax.util import partial
 
 
 def create_token(x):
