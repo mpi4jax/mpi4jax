@@ -1,10 +1,11 @@
 import numpy as _np
+from mpi4py import MPI as _MPI
+
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
 from jax.lax import create_token
 from jax.lib import xla_client
-from mpi4py import MPI as _MPI
 
 from ..utils import (
     HashableMPIType,
@@ -35,8 +36,6 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
 )
 def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     """
-    Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None)
-
     Sends the input`x` to the target rank `dest` using the communicator `comm`
     which defaults to the  world comunicator, with the `tag`.
     An optional token can be passed, which is used to force jax to execute

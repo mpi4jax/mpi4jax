@@ -1,10 +1,11 @@
 import numpy as _np
+from mpi4py import MPI as _MPI
+
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
 from jax.lax import create_token
 from jax.lib import xla_client
-from mpi4py import MPI as _MPI
 
 from ..utils import (
     HashableMPIType,
@@ -43,9 +44,7 @@ def Recv(
     token=None,
 ):
     """
-    Recv(x, source=_MPI.ANY_SOURCE, tag=_MPI.ANY_TAG, comm=_MPI.COMM_WORLD, status=None, token=None)
-
-    Receives the input`x` from the target rank `source` using the communicator `comm`
+    Receives the input `x` from the target rank `source` using the communicator `comm`
     which defaults to the  world comunicator, with the `tag`.
     An optional token can be passed, which is used to force jax to execute
     MPI operations in the correct order.

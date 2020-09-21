@@ -1,9 +1,10 @@
 import numpy as _np
+from mpi4py import MPI as _MPI
+
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import ad, xla
 from jax.lib import xla_client
-from mpi4py import MPI as _MPI
 
 from .. import create_token
 from ..utils import (
@@ -34,8 +35,6 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 )
 def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
     """
-    Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None)
-
     Performs the Allreduce operation `op` on the input `x` using the
     communicator `comm` which defaults to the world comunicator.
     An optional token can be passed, which is used to force jax to execute
