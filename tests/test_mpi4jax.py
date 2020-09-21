@@ -267,14 +267,47 @@ def test_sendrecv_scalar_jit():
     assert jnp.array_equal(_arr, arr)
 
 
-@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
-def test_abort_on_error(tmp_path):
-    # hacky but I think this is the only way not to kill the testing process itself
+def run_in_subprocess(code, test_file, timeout=10):
+    """Runs given code string in a subprocess"""
     import os
     import sys
     import subprocess
     from textwrap import dedent
 
+    # this enables us to measure coverage in subprocesses
+    cov_preamble = dedent("""
+    try:
+        import coverage
+        coverage.process_startup()
+    except ImportError:
+        pass
+
+    """)
+
+    test_file.write_text(cov_preamble + code)
+
+    proc = subprocess.run(
+        [sys.executable, test_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        timeout=timeout,
+        universal_newlines=True,
+        # passing a mostly empty env seems to be the only way to
+        # force MPI to initialize again
+        env=dict(
+            PATH=os.environ["PATH"],
+            COVERAGE_PROCESS_START="pyproject.toml",
+        ),
+    )
+    return proc
+
+
+@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
+def test_abort_on_error(tmp_path):
+    from textwrap import dedent
+
+    # test in subprocess so we don't kill the testing process itself
     test_script = dedent(
         """
         import jax
@@ -291,30 +324,40 @@ def test_abort_on_error(tmp_path):
         jax.jit(lambda x: Send(x, dest=100, comm=comm))(
             jnp.ones(10)
         )
-
-        # sleep so the process doesn't exit before running the function
-        import time
-        time.sleep(1)
     """
     )
 
-    test_file = tmp_path / "abort.py"
-    test_file.write_text(test_script)
-
-    proc = subprocess.run(
-        [sys.executable, test_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        bufsize=0,
-        timeout=10,
-        universal_newlines=True,
-        # passing a mostly empty env seems to be the only way to
-        # force MPI to initialize again
-        env=dict(PATH=os.environ["PATH"]),
-    )
-
+    proc = run_in_subprocess(test_script, tmp_path / "abort.py")
     assert proc.returncode != 0
     assert "r0 | MPI_Send returned error code" in proc.stderr
+
+
+@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
+def test_deadlock_on_exit(tmp_path):
+    from textwrap import dedent
+
+    # without our custom atexit handler, this would deadlock most of the time
+    test_script = dedent(
+        """
+        import jax
+        jax.config.enable_omnistaging()
+        import jax.numpy as jnp
+
+        from mpi4py import MPI
+        from mpi4jax import Sendrecv
+
+        comm = MPI.COMM_WORLD
+        assert comm.Get_size() == 1
+
+        # sendrecv to self
+        jax.jit(lambda x: Sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm))(
+            jnp.ones(10)
+        )
+    """
+    )
+
+    proc = run_in_subprocess(test_script, tmp_path / "deadlock_on_exit.py")
+    assert proc.returncode == 0, proc.stderr
 
 
 def test_debug_logging_disabled(capsys, monkeypatch):
