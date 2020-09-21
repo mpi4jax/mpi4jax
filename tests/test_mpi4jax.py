@@ -272,6 +272,19 @@ def run_in_subprocess(code, test_file, timeout=10):
     import os
     import sys
     import subprocess
+    from textwrap import dedent
+
+    # this enables us to measure coverage in subprocesses
+    cov_preamble = dedent("""
+    try:
+        import coverage
+        coverage.process_startup()
+    except ImportError:
+        pass
+
+    """)
+
+    code = f"{cov_preamble}\n{code}"
 
     test_file.write_text(code)
 
@@ -326,14 +339,12 @@ def test_deadlock_on_exit(tmp_path):
 
     test_script = dedent(
         """
-        import coverage
-        coverage.process_startup()
         import jax
         jax.config.enable_omnistaging()
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Sendrecv, flush
+        from mpi4jax import Sendrecv
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
