@@ -42,8 +42,7 @@ def test_enforce_types_generic():
     with pytest.raises(TypeError) as exc:
         foo(True)
 
-    assert "expected: integer, got: <class 'bool'>" in str(
-        exc.value)
+    assert "expected: integer, got: <class 'bool'>" in str(exc.value)
 
     with pytest.raises(TypeError) as exc:
         foo(1.2)
