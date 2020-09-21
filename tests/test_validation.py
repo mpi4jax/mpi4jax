@@ -25,6 +25,32 @@ def test_enforce_types():
     assert "expected: function, got: <class 'int'>" in str(exc.value)
 
 
+def test_enforce_types_generic():
+    import numpy as np
+    from mpi4jax.validation import enforce_types
+
+    @enforce_types(x=np.integer)
+    def foo(x):
+        pass
+
+    # ok
+    foo(1)
+    foo(np.uint64(1))
+    foo(np.int(1))
+
+    # not ok
+    with pytest.raises(TypeError) as exc:
+        foo(True)
+
+    assert "expected: integer, got: <class 'bool'>" in str(
+        exc.value)
+
+    with pytest.raises(TypeError) as exc:
+        foo(1.2)
+
+    assert "expected: integer, got: <class 'float'>" in str(exc.value)
+
+
 def test_enforce_types_invalid_args():
     from mpi4jax.validation import enforce_types
 
