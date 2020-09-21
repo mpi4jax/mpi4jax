@@ -25,11 +25,6 @@ exclude = '''
 '''
 
 
-[tool.isort]
-profile = "black"
-line_length = 88
-
-
 # Requirements
 [dependencies]
 Click = "^7.0"
