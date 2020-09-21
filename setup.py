@@ -1,6 +1,7 @@
+import os
+
 from setuptools import setup
 from setuptools.extension import Extension
-import os
 
 try:
     from Cython.Build import cythonize

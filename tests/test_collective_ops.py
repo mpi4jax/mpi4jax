@@ -6,11 +6,10 @@ Run with
 $ mpirun -n <nproc> python -m pytest .
 """
 
-import pytest
-
 import jax
 import jax.config
 import jax.numpy as jnp
+import pytest
 
 jax.config.enable_omnistaging()
 
@@ -98,7 +97,7 @@ def test_allreduce_grad():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -115,7 +114,7 @@ def test_send_recv():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = 1 * rank
     _arr = 1 * rank
@@ -132,7 +131,7 @@ def test_send_recv_scalar():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar_jit():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = 1 * rank
     _arr = 1 * rank
@@ -149,7 +148,7 @@ def test_send_recv_scalar_jit():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_jit():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -166,7 +165,7 @@ def test_send_recv_jit():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_send_recv_deadlock():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     # this deadlocks without proper token management
     @jax.jit
@@ -188,7 +187,7 @@ def test_send_recv_deadlock():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_status():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -207,7 +206,7 @@ def test_send_recv_status():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_status_jit():
-    from mpi4jax import Send, Recv
+    from mpi4jax import Recv, Send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -329,8 +328,8 @@ def test_sendrecv_scalar_jit():
 def run_in_subprocess(code, test_file, timeout=10):
     """Runs given code string in a subprocess"""
     import os
-    import sys
     import subprocess
+    import sys
     from textwrap import dedent
 
     # this enables us to measure coverage in subprocesses
@@ -356,7 +355,10 @@ def run_in_subprocess(code, test_file, timeout=10):
         universal_newlines=True,
         # passing a mostly empty env seems to be the only way to
         # force MPI to initialize again
-        env=dict(PATH=os.environ["PATH"], COVERAGE_PROCESS_START="pyproject.toml",),
+        env=dict(
+            PATH=os.environ["PATH"],
+            COVERAGE_PROCESS_START="pyproject.toml",
+        ),
     )
     return proc
 

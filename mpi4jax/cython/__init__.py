@@ -1,7 +1,8 @@
-from . import mpi_xla_bridge
+import os
+
 from jax.lib import xla_client
 
-import os
+from . import mpi_xla_bridge
 
 mpi_xla_bridge.set_logging(
     os.environ.get("MPI4JAX_DEBUG", "").lower() in ("true", "1", "on")

@@ -1,9 +1,8 @@
-import inspect
 import functools
-
-from jax.core import Tracer
+import inspect
 
 import numpy as _np
+from jax.core import Tracer
 
 
 def enforce_types(**types):
@@ -27,7 +26,8 @@ def enforce_types(**types):
         hi there!
 
         >>> func(1, 2, 3)
-        TypeError: func got unexpected type for argument "bar" (expected: str, got: <class 'int'>)
+        TypeError: func got unexpected type for argument "bar" (expected: str, got:
+        <class 'int'>)
 
     """
 
@@ -39,7 +39,8 @@ def enforce_types(**types):
             # make sure given types are actually parameters of decorated function
             if t not in func_sig.parameters:
                 raise ValueError(
-                    f'enforce_types decorator for {func_name} got unexpected argument "{t}"'
+                    f"enforce_types decorator for {func_name} "
+                    f'got unexpected argument "{t}"'
                 )
 
             # make sure types are iterable
@@ -75,8 +76,9 @@ def enforce_types(**types):
                     extra_message = ""
                     if isinstance(val, Tracer):
                         extra_message = (
-                            "\n\nAn abstract tracer was passed where a concrete value is expected. "
-                            "Try using the static_argnums argument of jax.jit."
+                            "\n\nAn abstract tracer was passed where a concrete value "
+                            "is expected. Try using the static_argnums argument "
+                            "of jax.jit."
                         )
 
                     raise TypeError(
