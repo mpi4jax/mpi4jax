@@ -1,3 +1,10 @@
+[tool.coverage.run]
+branch = true
+parallel = true
+command_line = "-m pytest tests/"
+source = ["mpi4jax"]
+
+
 [tool.black]
 line-length = 88
 target-version = ['py36', 'py37', 'py38']
@@ -16,6 +23,7 @@ exclude = '''
   | dist
 )/
 '''
+
 
 # Requirements
 [dependencies]
