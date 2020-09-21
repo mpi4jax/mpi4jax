@@ -31,12 +31,12 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
 
 # This function applies the primitive to an AST
 @enforce_types(
-    source=int,
-    dest=int,
-    sendtag=int,
-    recvtag=int,
+    source=_np.integer,
+    dest=_np.integer,
+    sendtag=_np.integer,
+    recvtag=_np.integer,
     comm=(_MPI.Intracomm, HashableMPIType),
-    status=(type(None), _MPI.Status),
+    status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
 def Sendrecv(
@@ -54,6 +54,10 @@ def Sendrecv(
         token = create_token(sendbuf)
 
     comm = wrap_as_hashable(comm)
+
+    if status is not None:
+        status = wrap_as_hashable(status)
+
     return mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
@@ -76,6 +80,7 @@ def mpi_sendrecv_xla_encode(
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
 
     c = _unpack_builder(c)
 

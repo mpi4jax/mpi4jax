@@ -3,16 +3,21 @@ import functools
 
 from jax.core import Tracer
 
+import numpy as _np
+
 
 def enforce_types(**types):
     """Decorator that enforces given argument types at runtime.
 
     Throws a TypeError if an invalid type is passed.
 
+    If argument type is a subclass of np.generic (e.g. np.integer or np.floating),
+    allow all sub-dtypes (np.integer allows int, np.uint64, np.int16, ...).
+
     Example:
 
         >>> @enforce_types(
-        ...     foo=(int, type(None)),
+        ...     foo=(np.integer, type(None)),
         ...     bar=str
         ... )
         ... def func(x, foo, bar):
@@ -47,14 +52,22 @@ def enforce_types(**types):
             bound_args = func_sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
 
-            # check one by one
+            # check arguments one by one
             for arg, val in bound_args.arguments.items():
                 if arg not in types:
                     continue
 
                 arg_types = types[arg]
 
-                if not isinstance(val, arg_types):
+                # check types one by one
+                check_passed = False
+                for t in arg_types:
+                    if issubclass(t, _np.generic):
+                        check_passed |= _np.issubdtype(type(val), t)
+                    else:
+                        check_passed |= isinstance(val, t)
+
+                if not check_passed:
                     readable_arg_types = [t.__qualname__ for t in arg_types]
                     if len(readable_arg_types) == 1:
                         readable_arg_types = readable_arg_types[0]

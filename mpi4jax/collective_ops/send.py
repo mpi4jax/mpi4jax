@@ -32,8 +32,8 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
 
 # This function applies the primitive to an AST
 @enforce_types(
-    dest=int,
-    tag=int,
+    dest=_np.integer,
+    tag=_np.integer,
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
