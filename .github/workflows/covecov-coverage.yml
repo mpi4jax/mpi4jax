@@ -2,7 +2,7 @@ name: Coverage
 
 on:
   pull_request:
-    
+
   push:
     branches:
       - master
@@ -13,14 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8] 
+        python-version: [3.8]
         os: [ubuntu-latest]
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
        # MPI4JAX_TRACING: true   # since we go through xla, we cant really trace cython calls anyway
     steps:
       - uses: actions/checkout@v2
-        
+
       - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
         uses: actions/setup-python@v2
         with:
@@ -30,12 +30,12 @@ jobs:
         id: pip-cache-lookup
         run: |
           echo "::set-output name=dir::$(pip cache dir)"
-          
+
       - name: Install MPI
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: |
           sh ./conf/travis-install-mpi.sh mpich
-          
+
       - name: Cache pip installed packages
         id: pip-cache
         uses: actions/cache@v2
@@ -44,7 +44,7 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
           #restore-keys: |
           #  ${{ runner.os }}-${{ runner.python-version }}-pip-
-          
+
       - name: Pip install python dependencies
       #  if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
@@ -52,18 +52,18 @@ jobs:
           pip install pytest numpy jax jaxlib mpi4py cython coverage
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -v -e .
-          
+
       - name: Single-execution test with pytest and coverage
         run: |
-          coverage run --parallel-mode --source=mpi4jax/ -m pytest tests/
-          
+          coverage run
+
       - name: Mpirun-executed test with pytest and coverage
         run: |
-          mpirun -host localhost:2 -v -np 2 coverage run --parallel-mode --source=mpi4jax/ -m pytest tests/
-          
+          mpirun -host localhost:2 -v -np 2 coverage run
+
       - name: Combine multiple coverage results
         run: |
           coverage combine
-          
+
       - name: Upload coverage
         uses: codecov/codecov-action@v1

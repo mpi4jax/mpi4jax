@@ -267,11 +267,33 @@ def test_sendrecv_scalar_jit():
     assert jnp.array_equal(_arr, arr)
 
 
-@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
-def test_abort_on_error(tmp_path):
+def run_in_subprocess(code, test_file, timeout=10):
+    """Runs given code string in a subprocess"""
     import os
     import sys
     import subprocess
+
+    test_file.write_text(code)
+
+    proc = subprocess.run(
+        [sys.executable, test_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        timeout=timeout,
+        universal_newlines=True,
+        # passing a mostly empty env seems to be the only way to
+        # force MPI to initialize again
+        env=dict(
+            PATH=os.environ["PATH"],
+            COVERAGE_PROCESS_START="pyproject.toml",
+        ),
+    )
+    return proc
+
+
+@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
+def test_abort_on_error(tmp_path):
     from textwrap import dedent
 
     test_script = dedent(
@@ -293,40 +315,25 @@ def test_abort_on_error(tmp_path):
     """
     )
 
-    test_file = tmp_path / "abort.py"
-    test_file.write_text(test_script)
-
-    proc = subprocess.run(
-        [sys.executable, test_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        bufsize=0,
-        timeout=10,
-        universal_newlines=True,
-        # passing a mostly empty env seems to be the only way to
-        # force MPI to initialize again
-        env=dict(PATH=os.environ["PATH"]),
-    )
-
+    proc = run_in_subprocess(test_script, tmp_path / "abort.py")
     assert proc.returncode != 0
     assert "r0 | MPI_Send returned error code" in proc.stderr
 
 
 @pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
 def test_deadlock_on_exit(tmp_path):
-    import os
-    import sys
-    import subprocess
     from textwrap import dedent
 
     test_script = dedent(
         """
+        import coverage
+        coverage.process_startup()
         import jax
         jax.config.enable_omnistaging()
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Sendrecv
+        from mpi4jax import Sendrecv, flush
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
@@ -338,22 +345,8 @@ def test_deadlock_on_exit(tmp_path):
     """
     )
 
-    test_file = tmp_path / "deadlock_on_exit.py"
-    test_file.write_text(test_script)
-
-    proc = subprocess.run(
-        [sys.executable, test_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        bufsize=0,
-        timeout=10,
-        universal_newlines=True,
-        # passing a mostly empty env seems to be the only way to
-        # force MPI to initialize again
-        env=dict(PATH=os.environ["PATH"]),
-    )
-
-    assert proc.returncode == 0
+    proc = run_in_subprocess(test_script, tmp_path / "deadlock_on_exit.py")
+    assert proc.returncode == 0, proc.stderr
 
 
 def test_debug_logging_disabled(capsys, monkeypatch):
