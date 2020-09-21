@@ -1,8 +1,9 @@
 # make sure to import mpi4py first
 # this calls MPI_Init and registers mpi4py's atexit handler
-from mpi4py import MPI  # noqa: F401
+from mpi4py import MPI
 
-import mpi4jax.cython  # noqa: F401
+# this registers our custom XLA functions
+import mpi4jax.cython
 
 from ._create_token import create_token
 
@@ -31,4 +32,4 @@ __all__ = [
     "flush",
 ]
 
-del atexit, MPI
+del atexit, MPI, mpi4jax.cython

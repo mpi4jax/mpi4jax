@@ -284,9 +284,7 @@ def run_in_subprocess(code, test_file, timeout=10):
 
     """)
 
-    code = f"{cov_preamble}\n{code}"
-
-    test_file.write_text(code)
+    test_file.write_text(cov_preamble + code)
 
     proc = subprocess.run(
         [sys.executable, test_file],
@@ -309,6 +307,7 @@ def run_in_subprocess(code, test_file, timeout=10):
 def test_abort_on_error(tmp_path):
     from textwrap import dedent
 
+    # test in subprocess so we don't kill the testing process itself
     test_script = dedent(
         """
         import jax
@@ -337,6 +336,7 @@ def test_abort_on_error(tmp_path):
 def test_deadlock_on_exit(tmp_path):
     from textwrap import dedent
 
+    # without our custom atexit handler, this would deadlock most of the time
     test_script = dedent(
         """
         import jax
