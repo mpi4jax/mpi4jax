@@ -65,7 +65,6 @@ if HAS_CYTHON:
 
 setup(
     name="mpi4jax",
-    version="0.2.5",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
     long_description="""Jax-mpi provides integration among jax and MPI, so that
@@ -79,7 +78,12 @@ setup(
     ],
     packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
     ext_modules=EXTENSIONS,
-    setup_requires=["setuptools>=18.0", "cython>=0.21", "mpi4py>=3.0.1"],
+    setup_requires=[
+        "setuptools>=18.0",
+        "cython>=0.21",
+        "mpi4py>=3.0.1",
+        "setuptools_scm",
+    ],
     python_requires=">=3.6",
     install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest"]},
