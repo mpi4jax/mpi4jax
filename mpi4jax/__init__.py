@@ -12,7 +12,6 @@ from .collective_ops.recv import Recv
 from .collective_ops.send import Send
 from .collective_ops.sendrecv import Sendrecv
 from .flush import flush
-from .token import create_token
 from .warn import disable_omnistaging_warning
 
 # at exit, we wait for all pending operations to finish
@@ -27,7 +26,6 @@ __all__ = [
     "Send",
     "Recv",
     "Sendrecv",
-    "create_token",
     "disable_omnistaging_warning",
     "flush",
 ]

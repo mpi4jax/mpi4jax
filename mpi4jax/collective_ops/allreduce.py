@@ -6,7 +6,7 @@ from jax.core import Primitive
 from jax.interpreters import ad, xla
 from jax.lib import xla_client
 
-from ..token import create_token
+from jax.lax import create_token, stop_gradient
 from ..utils import (
     HashableMPIType,
     _constant_s32_scalar,
@@ -52,7 +52,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
             This result can be ignored if result forces a data dependency.
     """
     if token is None:
-        token = create_token(x)
+        token = create_token(stop_gradient(x))
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
