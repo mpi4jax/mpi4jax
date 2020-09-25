@@ -6,10 +6,16 @@ Run with
 $ mpirun -n <nproc> python -m pytest .
 """
 
-import jax
-import jax.config
-import jax.numpy as jnp
 import pytest
+
+# don't hog memory if running on GPU
+import os
+
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+
+import jax  # noqa: E402
+import jax.config  # noqa: E402
+import jax.numpy as jnp  # noqa: E402
 
 jax.config.enable_omnistaging()
 
@@ -41,7 +47,7 @@ def test_allreduce_jit():
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, token = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
+    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
@@ -63,7 +69,7 @@ def test_allreduce_scalar_jit():
     arr = 1
     _arr = 1
 
-    res, token = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
+    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
@@ -136,13 +142,18 @@ def test_send_recv_scalar_jit():
     arr = 1 * rank
     _arr = 1 * rank
 
+    @jax.jit
+    def send_jit(x):
+        Send(x, 0, tag=rank)
+        return x
+
     if rank == 0:
         for proc in range(1, size):
-            res, token = jax.jit(lambda x: Recv(x, source=proc, tag=proc))(arr)
+            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc)[0])(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
-        jax.jit(lambda x: Send(x, 0, tag=rank))(arr)
+        send_jit(arr)
         assert jnp.array_equal(_arr, arr)
 
 
@@ -153,13 +164,18 @@ def test_send_recv_jit():
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
+    @jax.jit
+    def send_jit(x):
+        Send(x, 0, tag=rank)
+        return x
+
     if rank == 0:
         for proc in range(1, size):
-            res, token = jax.jit(lambda x: Recv(x, source=proc, tag=proc))(arr)
+            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc)[0])(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
-        jax.jit(lambda x: Send(x, 0, tag=rank))(arr)
+        send_jit(arr)
         assert jnp.array_equal(_arr, arr)
 
 
@@ -211,17 +227,22 @@ def test_send_recv_status_jit():
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
+    @jax.jit
+    def send_jit(x):
+        Send(x, 0, tag=rank)
+        return x
+
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res, token = jax.jit(
-                lambda x: Recv(x, source=proc, tag=proc, status=status)
-            )(arr)
+            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc, status=status)[0])(
+                arr
+            )
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
             assert status.Get_source() == proc
     else:
-        jax.jit(lambda x: Send(x, 0, tag=rank))(arr)
+        send_jit(arr)
         assert jnp.array_equal(_arr, arr)
 
 
@@ -267,8 +288,8 @@ def test_sendrecv_status_jit():
     other = 1 - rank
 
     status = MPI.Status()
-    res, token = jax.jit(
-        lambda x, y: Sendrecv(x, y, source=other, dest=other, status=status)
+    res = jax.jit(
+        lambda x, y: Sendrecv(x, y, source=other, dest=other, status=status)[0]
     )(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
@@ -300,9 +321,7 @@ def test_sendrecv_jit():
 
     other = 1 - rank
 
-    res, token = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other))(
-        arr, arr
-    )
+    res = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -317,9 +336,7 @@ def test_sendrecv_scalar_jit():
 
     other = 1 - rank
 
-    res, token = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other))(
-        arr, arr
-    )
+    res = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -358,6 +375,7 @@ def run_in_subprocess(code, test_file, timeout=10):
         env=dict(
             PATH=os.environ["PATH"],
             COVERAGE_PROCESS_START="pyproject.toml",
+            XLA_PYTHON_CLIENT_PREALLOCATE="false",
         ),
     )
     return proc
@@ -381,14 +399,17 @@ def test_abort_on_error(tmp_path):
         assert comm.Get_size() == 1
 
         # send to non-existing rank
-        jax.jit(lambda x: Send(x, dest=100, comm=comm))(
-            jnp.ones(10)
-        )
+        @jax.jit
+        def send_jit(x):
+            Send(x, dest=100, comm=comm)
+
+        send_jit(jnp.ones(10))
     """
     )
 
     proc = run_in_subprocess(test_script, tmp_path / "abort.py")
     assert proc.returncode != 0
+    print(proc.stderr)
     assert "r0 | MPI_Send returned error code" in proc.stderr
 
 
@@ -410,9 +431,9 @@ def test_deadlock_on_exit(tmp_path):
         assert comm.Get_size() == 1
 
         # sendrecv to self
-        jax.jit(lambda x: Sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm))(
-            jnp.ones(10)
-        )
+        jax.jit(
+            lambda x: Sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
+        )(jnp.ones(10))
     """
     )
 
@@ -420,33 +441,21 @@ def test_deadlock_on_exit(tmp_path):
     assert proc.returncode == 0, proc.stderr
 
 
-def test_debug_logging_disabled(capsys, monkeypatch):
+def test_set_debug_logging(capsys):
     from mpi4jax import Allreduce
     from mpi4jax.cython.mpi_xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
-
     set_logging(True)
-    set_logging(False)
-
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
-    res[0].block_until_ready()
-
-    captured = capsys.readouterr()
-    assert not captured.out
-
-
-def test_debug_logging_enabled(capsys, monkeypatch):
-    from mpi4jax import Allreduce
-    from mpi4jax.cython.mpi_xla_bridge import set_logging
-
-    arr = jnp.ones((3, 2))
-    try:
-        set_logging(True)
-        res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM))(arr)
-        res[0].block_until_ready()
-    finally:
-        set_logging(False)
+    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res.block_until_ready()
 
     captured = capsys.readouterr()
     assert captured.out.startswith(f"r{rank} | MPI_Allreduce with token")
+
+    set_logging(False)
+    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res.block_until_ready()
+
+    captured = capsys.readouterr()
+    assert not captured.out
