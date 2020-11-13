@@ -19,10 +19,23 @@ from .cuda_runtime_api cimport (
     cudaError_t,
     cudaMemcpyKind,
     cudaSuccess,
+    cudaGetErrorName,
+    cudaGetErrorString,
 )
 
 from . cimport mpi_xla_bridge
 from .mpi_xla_bridge cimport abort_on_error
+
+
+cpdef unicode py_string(char* c_str):
+    py_str = <bytes> c_str
+    return py_str.decode('UTF-8')
+
+cpdef unicode GetErrorName(cudaError_t ierr):
+    return py_string(cudaGetErrorName(ierr))
+
+cpdef unicode GetErrorString(cudaError_t ierr):
+    return py_string(cudaGetErrorString(ierr))
 
 
 cdef bint COPY_TO_HOST = False
@@ -47,7 +60,11 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count, 
 
     if ierr != cudaSuccess:
         with gil:
-            raise RuntimeError(f"cudaMemcpy failed with error code {ierr}")
+            err_str = GetErrorName(ierr)
+            err_des = GetErrorString(ierr)
+
+            mystr = f"cudaMemcpy failed with the following error:\n\tError {ierr} {err_str}: {err_des}"
+            raise RuntimeError(mystr)
 
     return ierr
 
