@@ -61,7 +61,7 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
 
 
 #  This function compiles the operation
-def mpi_send_xla_encode(c, x, token, dest, tag, comm):
+def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
@@ -97,6 +97,48 @@ def mpi_send_xla_encode(c, x, token, dest, tag, comm):
     return xla_client.ops.GetTupleElement(out, 0)
 
 
+def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
+    from ..cython.mpi_xla_bridge_gpu import build_send_descriptor
+
+    warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
+
+    c = _unpack_builder(c)
+    x_shape = c.GetShape(x)
+    dtype = x_shape.element_type()
+    dims = x_shape.dimensions()
+
+    # compute total number of elements in array
+    _nitems = _np.prod(dims, dtype=int)
+    _dtype_ptr = dtype_ptr(dtype)
+
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+
+    descriptor = build_send_descriptor(
+        _nitems,
+        dest,
+        tag,
+        to_mpi_ptr(comm),
+        _dtype_ptr,
+    )
+
+    out = _ops.CustomCall(
+        c,
+        b"mpi_send",
+        operands=(
+            x,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
+        has_side_effect=True,
+    )
+
+    return xla_client.ops.GetTupleElement(out, 0)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, token, dest, tag, comm):
     return abstract_arrays.abstract_token
@@ -106,4 +148,5 @@ mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode
+xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_send_p] = mpi_send_xla_encode_gpu

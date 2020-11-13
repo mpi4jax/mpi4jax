@@ -75,7 +75,7 @@ def Recv(
 
 
 #  This function compiles the operation
-def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
+def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     warn_missing_omnistaging()
@@ -122,6 +122,54 @@ def mpi_recv_xla_encode(c, x, token, source, tag, comm, status):
     return out
 
 
+def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..cython.mpi_xla_bridge_gpu import build_recv_descriptor
+
+    warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
+
+    c = _unpack_builder(c)
+    x_shape = c.GetShape(x)
+    dtype = x_shape.element_type()
+    dims = x_shape.dimensions()
+
+    # compute total number of elements in array
+    _nitems = _np.prod(dims, dtype=int)
+    _dtype_ptr = dtype_ptr(dtype)
+
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
+
+    if status is None:
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = to_mpi_ptr(status)
+
+    descriptor = build_recv_descriptor(
+        _nitems,
+        source,
+        tag,
+        to_mpi_ptr(comm),
+        _dtype_ptr,
+        _status,
+    )
+
+    out = _ops.CustomCall(
+        c,
+        b"mpi_recv",
+        operands=(token,),
+        shape=sh,
+        opaque=descriptor,
+        has_side_effect=True,
+    )
+
+    return out
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
@@ -135,4 +183,5 @@ mpi_recv_p.def_impl(mpi_recv_impl)
 mpi_recv_p.def_abstract_eval(mpi_recv_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_recv_p] = mpi_recv_xla_encode
+xla.backend_specific_translations["cpu"][mpi_recv_p] = mpi_recv_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_recv_p] = mpi_recv_xla_encode_gpu

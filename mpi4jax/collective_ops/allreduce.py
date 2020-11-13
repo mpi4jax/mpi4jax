@@ -60,7 +60,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
 
 
 #  This function compiles the operation
-def mpi_allreduce_xla_encode(c, x, token, op, comm):
+def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm):
     warn_missing_omnistaging()
 
     op = unpack_hashable(op)
@@ -92,6 +92,56 @@ def mpi_allreduce_xla_encode(c, x, token, op, comm):
             token,
         ),
         shape=sh,
+        has_side_effect=True,
+    )
+
+
+def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm):
+    from mpi4jax.cython import HAS_GPU_EXT
+
+    if not HAS_GPU_EXT:
+        raise RuntimeError(
+            "mpi4jax GPU extensions failed to build, "
+            "so it cannot be used in GPU contexts"
+        )
+
+    from mpi4jax.cython.mpi_xla_bridge_gpu import build_allreduce_descriptor
+
+    warn_missing_omnistaging()
+
+    op = unpack_hashable(op)
+    comm = unpack_hashable(comm)
+
+    c = _unpack_builder(c)
+    x_shape = c.GetShape(x)
+    dtype = x_shape.element_type()
+    dims = x_shape.dimensions()
+
+    # compute total number of elements in array
+    _nitems = _np.prod(dims, dtype=int)
+
+    _dtype_ptr = dtype_ptr(dtype)
+
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
+
+    descriptor = build_allreduce_descriptor(
+        _nitems,
+        to_mpi_ptr(op),
+        to_mpi_ptr(comm),
+        _dtype_ptr,
+    )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_allreduce",
+        operands=(
+            x,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
         has_side_effect=True,
     )
 
@@ -130,4 +180,5 @@ mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
 ad.primitive_jvps[mpi_allreduce_p] = mpi_allreduce_value_and_jvp
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode
+xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode_gpu

@@ -70,7 +70,7 @@ def Sendrecv(
 
 
 #  This function compiles the operation
-def mpi_sendrecv_xla_encode(
+def mpi_sendrecv_xla_encode_cpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
     from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
@@ -134,6 +134,73 @@ def mpi_sendrecv_xla_encode(
     )
 
 
+def mpi_sendrecv_xla_encode_gpu(
+    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..cython.mpi_xla_bridge_gpu import build_sendrecv_descriptor
+
+    warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
+
+    c = _unpack_builder(c)
+
+    recv_shape = c.GetShape(recvbuf)
+    recv_dtype = recv_shape.element_type()
+    recv_dims = recv_shape.dimensions()
+
+    # compute total number of elements in recv array
+    _recv_nitems = _np.prod(recv_dims, dtype=int)
+    _recv_dtype_ptr = dtype_ptr(recv_dtype)
+
+    send_shape = c.GetShape(sendbuf)
+    send_dtype = send_shape.element_type()
+    send_dims = send_shape.dimensions()
+
+    # compute total number of elements in send array
+    _send_nitems = _np.prod(send_dims, dtype=int)
+    _send_dtype_ptr = dtype_ptr(send_dtype)
+
+    sh = xla_client.Shape.tuple_shape(
+        [
+            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.token_shape(),
+        ]
+    )
+
+    if status is None:
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = to_mpi_ptr(status)
+
+    descriptor = build_sendrecv_descriptor(
+        _send_nitems,
+        dest,
+        sendtag,
+        _send_dtype_ptr,
+        _recv_nitems,
+        source,
+        recvtag,
+        _recv_dtype_ptr,
+        to_mpi_ptr(comm),
+        _status,
+    )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_sendrecv",
+        operands=(
+            sendbuf,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
+        has_side_effect=True,
+    )
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_sendrecv_abstract_eval(
     sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
@@ -149,4 +216,5 @@ mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode
+xla.backend_specific_translations["cpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode_gpu
