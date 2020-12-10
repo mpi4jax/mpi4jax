@@ -52,7 +52,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
             This result can be ignored if result forces a data dependency.
     """
     if token is None:
-        token = create_token(stop_gradient(x))
+        token = create_token(x)
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
@@ -173,12 +173,78 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
     return (res, jvp)
 
 
+def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm):
+    _, token = x_args
+    t, _ = tan_args
+    # Identify the correct adjoint
+    op_ = unpack_hashable(op)
+
+    if op_ == _MPI.SUM:
+        return mpi_allreduceT_p.bind(t, token, op=op, comm=comm)
+    else:
+        raise NotImplementedError(
+            "The adjoint of allreduce for {} operation is not defined".format(op)
+        )
+
+
 mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
 
 ad.primitive_jvps[mpi_allreduce_p] = mpi_allreduce_value_and_jvp
+ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode_cpu
 xla.backend_specific_translations["gpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode_gpu
+
+
+@enforce_types(
+    op=(_MPI.Op, HashableMPIType),
+    comm=(_MPI.Intracomm, HashableMPIType),
+    token=(type(None), xla.Token, core.Tracer),
+)
+def AllreduceT(x, op, comm=_MPI.COMM_WORLD, token=None):
+    if token is None:
+        token = create_token(x)
+    op = wrap_as_hashable(op)
+    comm = wrap_as_hashable(comm)
+    return mpi_allreduceT_p.bind(x, token, op=op, comm=comm)
+
+
+mpi_allreduceT_p = Primitive("allreduceT_mpi")
+
+
+def mpi_allreduceT_impl(x, token, op, comm):
+    op_ = unpack_hashable(op)
+    if op_ != _MPI.SUM:
+        raise NotImplementedError(
+            "The linear transpose of allreduce for {} is not defined".format(op)
+        )
+    return [x, token]
+
+
+def mpi_allreduceT_abstract_eval(xs, token, op, comm):
+    return (
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.abstract_token,
+    )
+
+
+def mpi_allreduceT_transpose_rule(tan_args, *x_args, op, comm):
+    _, token = x_args
+    t, _ = tan_args
+    op_ = unpack_hashable(op)
+    if op_ == _MPI.SUM:
+        return mpi_allreduce_p.bind(t, token, op=op, comm=comm)
+    else:
+        raise NotImplementedError(
+            "The linear transpose of allreduceT for {} is not defined".format(op)
+        )
+
+
+mpi_allreduceT_p.multiple_results = True
+mpi_allreduceT_p.def_impl(mpi_allreduceT_impl)
+mpi_allreduceT_p.def_abstract_eval(mpi_allreduceT_abstract_eval)
+
+ad.primitive_transposes[mpi_allreduceT_p] = mpi_allreduceT_transpose_rule

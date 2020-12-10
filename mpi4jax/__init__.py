@@ -7,7 +7,7 @@ from mpi4py import MPI
 # this registers our custom XLA functions
 import mpi4jax.cython
 
-from .collective_ops.allreduce import Allreduce
+from .collective_ops.allreduce import Allreduce, AllreduceT
 from .collective_ops.recv import Recv
 from .collective_ops.send import Send
 from .collective_ops.sendrecv import Sendrecv
@@ -23,6 +23,7 @@ atexit.register(flush)
 
 __all__ = [
     "Allreduce",
+    "AllreduceT",
     "Send",
     "Recv",
     "Sendrecv",
