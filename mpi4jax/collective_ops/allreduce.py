@@ -6,7 +6,7 @@ from jax.core import Primitive
 from jax.interpreters import ad, xla
 from jax.lib import xla_client
 
-from jax.lax import create_token, stop_gradient
+from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
     _constant_s32_scalar,
