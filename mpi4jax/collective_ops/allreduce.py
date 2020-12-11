@@ -161,10 +161,10 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
     res = Allreduce(x, token=token, op=op, comm=comm)
 
     # Identify the correct adjoint
-    op = unpack_hashable(op)
+    op_ = unpack_hashable(op)
 
-    if op == _MPI.SUM:
-        jvp = (x_tan, token_tan)
+    if op_ == _MPI.SUM:
+        jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
             "The adjoint of allreduce for {} operation is not defined".format(op)
@@ -183,7 +183,7 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm):
         return mpi_allreduceT_p.bind(t, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
-            "The adjoint of allreduce for {} operation is not defined".format(op)
+            "The linear transpose of allreduce for {} is not defined".format(op)
         )
 
 
@@ -219,7 +219,7 @@ def mpi_allreduceT_impl(x, token, op, comm):
     op_ = unpack_hashable(op)
     if op_ != _MPI.SUM:
         raise NotImplementedError(
-            "The linear transpose of allreduce for {} is not defined".format(op)
+            "allreduceT for {} is not defined".format(op)
         )
     return [x, token]
 
@@ -230,6 +230,24 @@ def mpi_allreduceT_abstract_eval(xs, token, op, comm):
         abstract_arrays.abstract_token,
     )
 
+
+def mpi_allreduceT_value_and_jvp(in_args, tan_args, op, comm):
+    x, token = in_args
+    x_tan, token_tan = tan_args
+
+    res = AllreduceT(x, token=token, op=op, comm=comm)
+
+    # Identify the correct adjoint
+    op_ = unpack_hashable(op)
+
+    if op_ == _MPI.SUM:
+        jvp = mpi_allreduceT_p.bind(x_tan, token, op=op, comm=comm)
+    else:
+        raise NotImplementedError(
+            "The adjoint of allreduce for {} operation is not defined".format(op)
+        )
+
+    return (res, jvp)
 
 def mpi_allreduceT_transpose_rule(tan_args, *x_args, op, comm):
     _, token = x_args
@@ -247,4 +265,5 @@ mpi_allreduceT_p.multiple_results = True
 mpi_allreduceT_p.def_impl(mpi_allreduceT_impl)
 mpi_allreduceT_p.def_abstract_eval(mpi_allreduceT_abstract_eval)
 
+ad.primitive_jvps[mpi_allreduceT_p] = mpi_allreduceT_value_and_jvp
 ad.primitive_transposes[mpi_allreduceT_p] = mpi_allreduceT_transpose_rule
