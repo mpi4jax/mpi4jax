@@ -199,6 +199,9 @@ xla.backend_specific_translations["cpu"][mpi_allreduce_p] = mpi_allreduce_xla_en
 xla.backend_specific_translations["gpu"][mpi_allreduce_p] = mpi_allreduce_xla_encode_gpu
 
 
+mpi_allreduceT_p = Primitive("allreduceT_mpi")
+
+
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     comm=(_MPI.Intracomm, HashableMPIType),
@@ -212,14 +215,7 @@ def AllreduceT(x, op, comm=_MPI.COMM_WORLD, token=None):
     return mpi_allreduceT_p.bind(x, token, op=op, comm=comm)
 
 
-mpi_allreduceT_p = Primitive("allreduceT_mpi")
-
-
-def mpi_allreduceT_impl(x, token, op, comm):
-    op_ = unpack_hashable(op)
-    if op_ != _MPI.SUM:
-        raise NotImplementedError("allreduceT for {} is not defined".format(op_))
-    return [x, token]
+mpi_allreduceT_impl = default_primitive_impl(mpi_allreduceT_p)
 
 
 def mpi_allreduceT_abstract_eval(xs, token, op, comm):
@@ -266,3 +262,14 @@ mpi_allreduceT_p.def_abstract_eval(mpi_allreduceT_abstract_eval)
 
 ad.primitive_jvps[mpi_allreduceT_p] = mpi_allreduceT_value_and_jvp
 ad.primitive_transposes[mpi_allreduceT_p] = mpi_allreduceT_transpose_rule
+
+
+def mpi_allreduceT_xla(c, x, token, op, comm):
+    op_ = unpack_hashable(op)
+    if op_ != _MPI.SUM:
+        raise NotImplementedError("allreduceT for {} is not defined".format(op_))
+    c = _unpack_builder(c)
+    return _ops.Tuple(c, [x, token])
+
+
+xla.translations[mpi_allreduceT_p] = mpi_allreduceT_xla
