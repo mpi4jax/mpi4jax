@@ -167,7 +167,7 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm):
         jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
-            "The adjoint of allreduce for {} operation is not defined".format(op)
+            "The adjoint of allreduce for {} operation is not defined".format(op_)
         )
 
     return (res, jvp)
@@ -183,7 +183,7 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm):
         return mpi_allreduceT_p.bind(t, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
-            "The linear transpose of allreduce for {} is not defined".format(op)
+            "The linear transpose of allreduce for {} is not defined".format(op_)
         )
 
 
@@ -218,7 +218,7 @@ mpi_allreduceT_p = Primitive("allreduceT_mpi")
 def mpi_allreduceT_impl(x, token, op, comm):
     op_ = unpack_hashable(op)
     if op_ != _MPI.SUM:
-        raise NotImplementedError("allreduceT for {} is not defined".format(op))
+        raise NotImplementedError("allreduceT for {} is not defined".format(op_))
     return [x, token]
 
 
@@ -242,7 +242,7 @@ def mpi_allreduceT_value_and_jvp(in_args, tan_args, op, comm):
         jvp = mpi_allreduceT_p.bind(x_tan, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
-            "The adjoint of allreduce for {} operation is not defined".format(op)
+            "The adjoint of allreduce for {} operation is not defined".format(op_)
         )
 
     return (res, jvp)
@@ -256,7 +256,7 @@ def mpi_allreduceT_transpose_rule(tan_args, *x_args, op, comm):
         return mpi_allreduce_p.bind(t, token, op=op, comm=comm)
     else:
         raise NotImplementedError(
-            "The linear transpose of allreduceT for {} is not defined".format(op)
+            "The linear transpose of allreduceT for {} is not defined".format(op_)
         )
 
 
