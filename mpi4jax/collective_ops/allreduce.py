@@ -183,7 +183,7 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
     x, token = in_args
     x_tan, token_tan = tan_args
 
-    res = Allreduce(x, token=token, op=op, comm=comm, transpose=transpose)
+    res = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
 
     # Identify the correct adjoint
     op_ = unpack_hashable(op)
