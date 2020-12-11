@@ -218,9 +218,7 @@ mpi_allreduceT_p = Primitive("allreduceT_mpi")
 def mpi_allreduceT_impl(x, token, op, comm):
     op_ = unpack_hashable(op)
     if op_ != _MPI.SUM:
-        raise NotImplementedError(
-            "allreduceT for {} is not defined".format(op)
-        )
+        raise NotImplementedError("allreduceT for {} is not defined".format(op))
     return [x, token]
 
 
@@ -248,6 +246,7 @@ def mpi_allreduceT_value_and_jvp(in_args, tan_args, op, comm):
         )
 
     return (res, jvp)
+
 
 def mpi_allreduceT_transpose_rule(tan_args, *x_args, op, comm):
     _, token = x_args
