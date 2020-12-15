@@ -156,7 +156,7 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
                 "The linear transpose of Allreduce for {} is not defined".format(op)
             )
 
-        raise NotImplementedError("TODO implement on GPU transpose of Allreduce")
+        return _ops.Tuple(c, [x, token])
     else:
         return _ops.CustomCall(
             c,
