@@ -49,8 +49,6 @@ A_local = A[:, start_local:end_local]
 x_local = x[start_local:end_local]
 v_local = v[start_local:end_local]
 
-test_token = jax.lax.create_token(123)
-
 
 # expected results:
 Ax = A @ x
@@ -61,15 +59,13 @@ ATvprime_local = (A.T @ vprime)[start_local:end_local]
 
 
 def allreduce_sum(x):
-    res, token = Allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD, token=test_token)
+    res, token = Allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
     return res
 
 
 # this is just an identity
 def allreduce_sumT(y):
-    res, token = Allreduce(
-        y, op=MPI.SUM, comm=MPI.COMM_WORLD, token=test_token, _transpose=True
-    )
+    res, token = Allreduce(y, op=MPI.SUM, comm=MPI.COMM_WORLD, _transpose=True)
     return res
 
 
