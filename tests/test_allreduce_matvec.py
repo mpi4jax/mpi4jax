@@ -106,8 +106,18 @@ def test_matvec():
     assert jnp.allclose(Ax, res)
 
 
+def test_matvec_jit():
+    res = jax.jit(mv)(x_local)
+    assert jnp.allclose(Ax, res)
+
+
 def test_matvecT():
     res = mvT(y)
+    assert jnp.allclose(ATy_local, res)
+
+
+def test_matvecT_jit():
+    res = jax.jit(mvT)(y)
     assert jnp.allclose(ATy_local, res)
 
 
@@ -117,9 +127,21 @@ def test_matvec_transpose():
     assert jnp.allclose(ATy_local, res)
 
 
+def test_matvec_transpose_jit():
+    lt = transpose(mv, x_local)
+    res = jax.jit(lt)(y)
+    assert jnp.allclose(ATy_local, res)
+
+
 def test_matvecT_transpose():
     ltT = transpose(mvT, y)
     res = ltT(x_local)
+    assert jnp.allclose(Ax, res)
+
+
+def test_matvecT_transpose_jit():
+    ltT = transpose(mvT, y)
+    res = jax.jit(ltT)(x_local)
     assert jnp.allclose(Ax, res)
 
 
@@ -130,10 +152,24 @@ def test_matvec_transpose2():
     assert jnp.allclose(Ax, res)
 
 
+def test_matvec_transpose2_jit():
+    lt = transpose(mv, x_local)
+    ltlt = transpose(lt, y)
+    res = jax.jit(ltlt)(x_local)
+    assert jnp.allclose(Ax, res)
+
+
 def test_matvecT_transpose2():
     ltT = transpose(mvT, y)
     ltltT = transpose(ltT, x_local)
     res = ltltT(y)
+    assert jnp.allclose(ATy_local, res)
+
+
+def test_matvecT_transpose2_jit():
+    ltT = transpose(mvT, y)
+    ltltT = transpose(ltT, x_local)
+    res = jax.jit(ltltT)(y)
     assert jnp.allclose(ATy_local, res)
 
 
@@ -145,11 +181,27 @@ def test_matvec_transpose3():
     assert jnp.allclose(ATy_local, res)
 
 
+def test_matvec_transpose3_jit():
+    lt = transpose(mv, x_local)
+    ltlt = transpose(lt, y)
+    ltltlt = transpose(ltlt, x_local)
+    res = jax.jit(ltltlt)(y)
+    assert jnp.allclose(ATy_local, res)
+
+
 def test_matvecT_transpose3():
     ltT = transpose(mvT, y)
     ltltT = transpose(ltT, x_local)
     ltltltT = transpose(ltltT, y)
     res = ltltltT(x_local)
+    assert jnp.allclose(Ax, res)
+
+
+def test_matvecT_transpose3_jit():
+    ltT = transpose(mvT, y)
+    ltltT = transpose(ltT, x_local)
+    ltltltT = transpose(ltltT, y)
+    res = jax.jit(ltltltT)(x_local)
     assert jnp.allclose(Ax, res)
 
 
@@ -159,8 +211,20 @@ def test_matvec_jvp():
     assert jnp.allclose(Av, jvp)
 
 
+def test_matvec_jvp_jit():
+    res, jvp = jax.jit(lambda x, v: jax.jvp(mv, (x,), (v,)))(x_local, v_local)
+    assert jnp.allclose(Ax, res)
+    assert jnp.allclose(Av, jvp)
+
+
 def test_matvecT_jvp():
     res, jvp = jax.jvp(mvT, (y,), (vprime,))
+    assert jnp.allclose(ATy_local, res)
+    assert jnp.allclose(ATvprime_local, jvp)
+
+
+def test_matvecT_jvp_jit():
+    res, jvp = jax.jit(lambda y, v: jax.jvp(mvT, (y,), (v,)))(y, vprime)
     assert jnp.allclose(ATy_local, res)
     assert jnp.allclose(ATvprime_local, jvp)
 
@@ -172,8 +236,30 @@ def test_matvec_vjp():
     assert jnp.allclose(ATvprime_local, vjp)
 
 
+def test_matvec_vjp_jit():
+    def f(x, v):
+        res, vjp_fun = jax.vjp(mv, x)
+        (vjp,) = vjp_fun(v)
+        return res, vjp
+
+    res, vjp = jax.jit(f)(x_local, vprime)
+    assert jnp.allclose(Ax, res)
+    assert jnp.allclose(ATvprime_local, vjp)
+
+
 def test_matvecT_vjp():
     res, vjp_fun = jax.vjp(mvT, y)
     (jvp,) = vjp_fun(v_local)
+    assert jnp.allclose(ATy_local, res)
+    assert jnp.allclose(Av, jvp)
+
+
+def test_matvecT_vjp_jit():
+    def f(y, v):
+        res, vjp_fun = jax.vjp(mvT, y)
+        (jvp,) = vjp_fun(v)
+        return res, jvp
+
+    res, jvp = jax.jit(f)(y, v_local)
     assert jnp.allclose(ATy_local, res)
     assert jnp.allclose(Av, jvp)
