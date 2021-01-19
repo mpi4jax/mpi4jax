@@ -240,6 +240,66 @@ def test_allreduceT_vjp():
     assert jnp.array_equal(expected, vjp)
 
 
+def test_bcast():
+    from mpi4jax import Bcast
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    if rank != 0:
+        _arr = _arr * 0
+
+    res, token = Bcast(_arr, root=0)
+    assert jnp.array_equal(res, arr)
+    if rank == 0:
+        assert jnp.array_equal(_arr, arr)
+
+
+def test_bcast_jit():
+    from mpi4jax import Bcast
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    if rank != 0:
+        _arr = _arr * 0
+
+    res = jax.jit(lambda x: Bcast(x, root=0)[0])(arr)
+    assert jnp.array_equal(res, arr)
+    if rank == 0:
+        assert jnp.array_equal(_arr, arr)
+
+
+def test_bcast_scalar():
+    from mpi4jax import Bcast
+
+    arr = 1
+    _arr = 1
+
+    if rank != 0:
+        _arr = _arr * 0
+
+    res, token = Bcast(_arr, root=0)
+    assert jnp.array_equal(res, arr)
+    if rank == 0:
+        assert jnp.array_equal(_arr, arr)
+
+
+def test_bcast_scalar_jit():
+    from mpi4jax import Bcast
+
+    arr = 1
+    _arr = 1
+
+    if rank != 0:
+        _arr = _arr * 0
+
+    res = jax.jit(lambda x: Bcast(x, root=0)[0])(_arr)
+    assert jnp.array_equal(res, arr)
+    if rank == 0:
+        assert jnp.array_equal(_arr, arr)
+
+
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv():
     from mpi4jax import Recv, Send
