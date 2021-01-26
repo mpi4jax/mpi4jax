@@ -37,14 +37,32 @@ def dtype_ptr(dtype):
         _dtype = to_mpi_ptr(_MPI.FLOAT)
     elif dtype == _np.float64:
         _dtype = to_mpi_ptr(_MPI.DOUBLE)
+    elif dtype == _np.float128:
+        _dtype = to_mpi_ptr(_MPI.LONG_DOUBLE)
     elif dtype == _np.complex64:
         _dtype = to_mpi_ptr(_MPI.COMPLEX)
     elif dtype == _np.complex128:
         _dtype = to_mpi_ptr(_MPI.DOUBLE_COMPLEX)
+    elif dtype == _np.int8:
+        _dtype = to_mpi_ptr(_MPI.INT8_T)
+    elif dtype == _np.int16:
+        _dtype = to_mpi_ptr(_MPI.INT16_T)
     elif dtype == _np.int32:
         _dtype = to_mpi_ptr(_MPI.INT32_T)
     elif dtype == _np.int64:
         _dtype = to_mpi_ptr(_MPI.INT64_T)
+    elif dtype == _np.uint8:
+        _dtype = to_mpi_ptr(_MPI.UINT8_T)
+    elif dtype == _np.uint16:
+        _dtype = to_mpi_ptr(_MPI.UINT16_T)
+    elif dtype == _np.uint32:
+        _dtype = to_mpi_ptr(_MPI.UINT32_T)
+    elif dtype == _np.uint64:
+        _dtype = to_mpi_ptr(_MPI.UINT64_T)
+    elif dtype == _np.bool:
+        _dtype = to_mpi_ptr(_MPI.BOOL)
+    else:
+        raise RuntimeError("Unknown MPI type for numpy type {}".format(dtype))
 
     return _dtype
 
