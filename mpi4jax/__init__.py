@@ -11,6 +11,7 @@ from .collective_ops.allreduce import Allreduce
 from .collective_ops.recv import Recv
 from .collective_ops.send import Send
 from .collective_ops.sendrecv import Sendrecv
+from .collective_ops.bcast import Bcast
 from .flush import flush
 from .warn import disable_omnistaging_warning
 
@@ -26,6 +27,7 @@ __all__ = [
     "Send",
     "Recv",
     "Sendrecv",
+    "Bcast",
     "disable_omnistaging_warning",
     "flush",
 ]

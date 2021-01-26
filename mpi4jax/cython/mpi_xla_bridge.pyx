@@ -108,6 +108,18 @@ cdef void mpi_sendrecv(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype, 
     abort_on_error(ierr, comm, u"Sendrecv")
 
 
+cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
+                   int32_t root, MPI_Comm comm, void* token) nogil:
+    if PRINT_DEBUG:
+        with gil:
+            print_debug(f"MPI_Bcast -> {root} with token {<uint64_t>token:x}", comm)
+
+    # MPI Call
+    cdef int ierr
+    ierr = libmpi.MPI_Bcast(sendrecvbuf, nitems, dtype, root, comm)
+    abort_on_error(ierr, comm, u"Bcast")
+
+
 cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm, void* token) nogil:
     cdef int ierr

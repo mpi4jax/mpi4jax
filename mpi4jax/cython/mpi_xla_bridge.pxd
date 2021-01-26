@@ -13,5 +13,8 @@ cdef void mpi_sendrecv(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype, 
                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype, int32_t source, int32_t recvtag,
                        MPI_Comm comm, MPI_Status* status, void* token) nogil
 
+cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
+                   int32_t root, MPI_Comm comm, void* token) nogil
+
 cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm, void* token) nogil
