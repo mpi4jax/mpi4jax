@@ -84,16 +84,37 @@ def test_allreduceT():
     assert jnp.array_equal(_arr, res)
 
 
-def test_allreduce_transpose():
+def test_allreduceT_jit():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    (res,) = jax.linear_transpose(
-        lambda x: Allreduce(x, op=MPI.SUM, token=token)[0], arr
-    )(_arr)
+    res, _ = jax.jit(lambda x: Allreduce(x, op=MPI.SUM, _transpose=True))(arr)
+    assert jnp.array_equal(_arr, res)
+
+
+def test_allreduce_transpose():
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    (res,) = jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(_arr)
+    assert jnp.array_equal(_arr, res)
+
+
+def test_allreduce_transpose_jit():
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    def f(x):
+        (res,) = jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(x)
+        return res
+
+    res = jax.jit(f)(arr)
     assert jnp.array_equal(_arr, res)
 
 
@@ -101,17 +122,34 @@ def test_allreduce_transpose2():
     # test transposing twice
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
     _arr2 = arr.copy()
 
     def lt(y):
-        return jax.linear_transpose(
-            lambda x: Allreduce(x, op=MPI.SUM, token=token)[0], arr
-        )(y)[0]
+        return jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
 
     (res,) = jax.linear_transpose(lt, _arr)(_arr2)
+    expected, _ = Allreduce(_arr2, op=MPI.SUM)
+    assert jnp.array_equal(expected, res)
+
+
+def test_allreduce_transpose2_jit():
+    # test transposing twice
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+    _arr2 = arr.copy()
+
+    def lt(y):
+        return jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
+
+    def f(x):
+        (res,) = jax.linear_transpose(lt, _arr)(x)
+        return res
+
+    res = jax.jit(f)(_arr2)
     expected, _ = Allreduce(_arr2, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
@@ -119,13 +157,29 @@ def test_allreduce_transpose2():
 def test_allreduceT_transpose():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     (res,) = jax.linear_transpose(
-        lambda x: Allreduce(x, op=MPI.SUM, token=token, _transpose=True)[0], arr
+        lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
     )(_arr)
+    expected, _ = Allreduce(_arr, op=MPI.SUM)
+    assert jnp.array_equal(expected, res)
+
+
+def test_allreduceT_transpose_jit():
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    def f(x):
+        (res,) = jax.linear_transpose(
+            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+        )(x)
+        return res
+
+    res = jax.jit(f)(_arr)
     expected, _ = Allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
@@ -134,17 +188,37 @@ def test_allreduceT_transpose2():
     # test transposing twice
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
     _arr2 = arr.copy()
 
     def lt(y):
         return jax.linear_transpose(
-            lambda x: Allreduce(x, op=MPI.SUM, token=token, _transpose=True)[0], arr
+            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
         )(y)[0]
 
     (res,) = jax.linear_transpose(lt, _arr)(_arr2)
+    assert jnp.array_equal(_arr2, res)
+
+
+def test_allreduceT_transpose2_jit():
+    # test transposing twice
+    from mpi4jax import Allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+    _arr2 = arr.copy()
+
+    def lt(y):
+        return jax.linear_transpose(
+            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+        )(y)[0]
+
+    def f(x):
+        (res,) = jax.jit(jax.linear_transpose(lt, _arr))(x)
+        return res
+
+    res = jax.jit(f)(_arr2)
     assert jnp.array_equal(_arr2, res)
 
 
@@ -167,7 +241,7 @@ def test_allreduce_grad():
     def testfun(x):
         y, token = Allreduce(x, op=MPI.SUM)
         z = x + 2 * y  # noqa: F841
-        res, token2 = Allreduce(x, op=MPI.SUM, token=token)
+        res, token2 = Allreduce(x, op=MPI.SUM)
         return res.sum()
 
     res, grad = jax.jit(jax.value_and_grad(testfun))(arr)
@@ -178,13 +252,10 @@ def test_allreduce_grad():
 def test_allreduce_jvp():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, jvp = jax.jvp(
-        lambda x: Allreduce(x, op=MPI.SUM, token=token)[0], (arr,), (_arr,)
-    )
+    res, jvp = jax.jvp(lambda x: Allreduce(x, op=MPI.SUM)[0], (arr,), (_arr,))
 
     expected, _ = Allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
@@ -195,11 +266,10 @@ def test_allreduce_jvp():
 def test_allreduce_vjp():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, vjp_fun = jax.vjp(lambda x: Allreduce(x, op=MPI.SUM, token=token)[0], arr)
+    res, vjp_fun = jax.vjp(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)
     (vjp,) = vjp_fun(_arr)
 
     expected, _ = Allreduce(arr, op=MPI.SUM)
@@ -210,12 +280,11 @@ def test_allreduce_vjp():
 def test_allreduceT_jvp():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     res, jvp = jax.jvp(
-        lambda x: Allreduce(x, op=MPI.SUM, token=token, _transpose=True)[0],
+        lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0],
         (arr,),
         (_arr,),
     )
@@ -226,13 +295,10 @@ def test_allreduceT_jvp():
 def test_allreduceT_vjp():
     from mpi4jax import Allreduce
 
-    token = jax.lax.create_token(123)
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, vjp_fun = jax.vjp(
-        lambda x: Allreduce(x, op=MPI.SUM, token=token, _transpose=True)[0], arr
-    )
+    res, vjp_fun = jax.vjp(lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr)
     (vjp,) = vjp_fun(_arr)
 
     assert jnp.array_equal(arr, res)
