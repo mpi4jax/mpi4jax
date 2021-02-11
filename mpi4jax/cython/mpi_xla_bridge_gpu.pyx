@@ -178,9 +178,10 @@ cdef void mpi_bcast(cudaStream_t* stream, void** buffers,
     ierr = MPI_Comm_rank(comm, &rank)
     abort_on_error(ierr, comm, u"Comm_rank")
 
+    count = dtype_size * nitems
+
     if COPY_TO_HOST:
         # copy memory to host
-        count = dtype_size * nitems
         buf = checked_malloc(count)
         if rank == root:
             checked_cuda_memcpy(buf, data, count, cudaMemcpyDeviceToHost)
@@ -188,7 +189,7 @@ cdef void mpi_bcast(cudaStream_t* stream, void** buffers,
         if rank == root:
             checked_cuda_memcpy(buf, data, count, cudaMemcpyDeviceToDevice)
 
-    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, op, comm, token)
+    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm, token)
 
     if COPY_TO_HOST:
         # copy back to device
