@@ -61,7 +61,7 @@ def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
 
 
 #  This function compiles the operation
-def mpi_bcast_xla_encode(c, x, token, root, comm):
+def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
@@ -73,7 +73,6 @@ def mpi_bcast_xla_encode(c, x, token, root, comm):
 
     # compute total number of elements in array
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
@@ -92,6 +91,46 @@ def mpi_bcast_xla_encode(c, x, token, root, comm):
             token,
         ),
         shape=sh,
+        has_side_effect=True,
+    )
+
+
+def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
+    from ..cython.mpi_xla_bridge_gpu import build_bcast_descriptor
+
+    warn_missing_omnistaging()
+
+    comm = unpack_hashable(comm)
+
+    c = _unpack_builder(c)
+    x_shape = c.GetShape(x)
+    dtype = x_shape.element_type()
+    dims = x_shape.dimensions()
+
+    # compute total number of elements in array
+    _nitems = _np.prod(dims, dtype=int)
+    _dtype_ptr = dtype_ptr(dtype)
+
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
+
+    descriptor = build_bcast_descriptor(
+        _nitems,
+        root,
+        to_mpi_ptr(comm),
+        _dtype_ptr,
+    )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_bcast",
+        operands=(
+            x,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
         has_side_effect=True,
     )
 
@@ -125,4 +164,5 @@ mpi_bcast_p.def_abstract_eval(mpi_bcast_abstract_eval)
 # ad.primitive_jvps[mpi_bcast_p] = mpi_bcast_value_and_jvp
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_bcast_p] = mpi_bcast_xla_encode
+xla.backend_specific_translations["cpu"][mpi_bcast_p] = mpi_bcast_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_bcast_p] = mpi_bcast_xla_encode_gpu
