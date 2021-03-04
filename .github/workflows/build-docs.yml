@@ -16,7 +16,9 @@ jobs:
       - name: Install OpenMPI
         run: sudo apt-get install libopenmpi-dev -y
       - name: Install mpi4jax
-        run: pip install .
+        run: |
+          pip install wheel
+          pip install .
       - name: Build docs
         run: |
           cd docs
