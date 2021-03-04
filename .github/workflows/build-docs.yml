@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
+      - name: Install OpenMPI
+        run: sudo apt-get install openmpi-dev -y
       - name: Install mpi4jax
-        run: |
-          pip install wheel
-          pip install .
+        run: pip install .
       - name: Build docs
         run: |
           cd docs
