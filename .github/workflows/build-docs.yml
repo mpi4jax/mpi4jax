@@ -14,7 +14,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
       - name: Install mpi4jax
-        run: pip install .
+        run: |
+          pip install wheel
+          pip install .
       - name: Build docs
         run: |
           cd docs
