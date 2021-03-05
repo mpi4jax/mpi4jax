@@ -10,5 +10,6 @@ dependencies:
   - jax
   - jaxlib
   - mpi4py
+  - cython
   - sphinx
   - sphinx_rtd_theme

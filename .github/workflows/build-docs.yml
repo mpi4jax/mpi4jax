@@ -22,10 +22,8 @@ jobs:
           auto-activate-base: false
       - name: Install mpi4jax
         run: |
-          conda activate mpi4jax-docs
           python setup.py install
       - name: Build docs
         run: |
           cd docs
-          conda activate mpi4jax-docs
           make html SPHINXOPTS="-W --keep-going -n"
