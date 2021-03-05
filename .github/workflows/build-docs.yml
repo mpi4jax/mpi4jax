@@ -8,19 +8,18 @@ on:
       - master
 
 jobs:
-  test:
+  build-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - name: Install OpenMPI
-        run: sudo apt-get install libopenmpi-dev -y
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: mpi4jax-docs
+          environment-file: docs/environment.yml
+          auto-activate-base: false
       - name: Install mpi4jax
-        run: |
-          pip install wheel
-          pip install .
+        run: pip install .
       - name: Build docs
         run: |
           cd docs
-          pip install -r requirements.txt
           make html SPHINXOPTS="-W --keep-going -n"
