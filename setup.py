@@ -203,7 +203,7 @@ setup(
         "mpi4py>=3.0.1",
         "setuptools_scm",
     ],
-    use_setuptools_scm=dict(
+    use_scm_version=dict(
         write_to="mpi4jax/_version.py",
     ),
     python_requires=">=3.6",
