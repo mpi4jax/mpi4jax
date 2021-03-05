@@ -1,13 +1,15 @@
 # mpi4jax
-![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg) [![codecov](https://codecov.io/gh/PhilipVinc/mpi4jax/branch/master/graph/badge.svg)](https://codecov.io/gh/PhilipVinc/mpi4jax)
+
+![Tests](https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg)
+[![codecov](https://codecov.io/gh/PhilipVinc/mpi4jax/branch/master/graph/badge.svg)](https://codecov.io/gh/PhilipVinc/mpi4jax)
 [![Conda Recipe](https://img.shields.io/badge/recipe-mpi4jax-green.svg)](https://anaconda.org/conda-forge/mpi4jax)
 [![Documentation Status](https://readthedocs.org/projects/mpi4jax/badge/?version=latest)](https://mpi4jax.readthedocs.io/en/latest/?badge=latest)
 
-MPI plugin for JAX, allowing MPI operations to be inserted in jitted blocks.
+MPI plugin for JAX, allowing MPI operations to be inserted in blocks compiled with `jax.jit`.
 
 ## Installation
 
-You can Install `mpi4jax` through pip (see below) or conda (click on the badge)
+You can install `mpi4jax` through `pip` or `conda`:
 
 ```bash
 $ pip install mpi4jax                     # Pip
@@ -31,28 +33,27 @@ import mpi4jax
 
 comm = MPI.COMM_WORLD
 a = jax.numpy.ones(5,4)
-b = mpi4jax.Allreduce(a, op=MPI.SUM, comm=comm)
-b_jit, _ = jax.jit(lambda x: mpi4jax.Allreduce(x, op=MPI.SUM, comm=comm))(a)
+b, token = mpi4jax.Allreduce(a, op=MPI.SUM, comm=comm)
+b_jit, token = jax.jit(lambda x: mpi4jax.Allreduce(x, op=MPI.SUM, comm=comm))(a)
 ```
 
 ## GPU Support
 
-Mpi4jax also supports jax arrays stored on GPU devices. To use Jax on the GPU, make sure that your jaxlib is built with CUDA support by checking [jax Readme.md](https://github.com/google/jax#pip-installation).
-By default mpi4jax will activate a slow path, where GPU data is first transferred to the CPU, then the MPI operation is performed, and then the result is copied back to the GPU.
+`mpi4jax` also supports JAX arrays stored in GPU memory. To use JAX on the GPU, make sure that your `jaxlib` is [built with CUDA support](https://github.com/google/jax#pip-installation).
 
-Direct GPU-to-GPU MPI operations are supported if your MPI distribution is built with CUDA support.
-If you know that is the case (or want to find out) export the following environment variable:
+Currently, we cannot detect whether MPI was built with CUDA support. Therefore, by default, `mpi4jax` will not read directly from GPU memory, but instead copy to the CPU and back.
+
+If you are certain that the underlying MPI library was built with CUDA support, you can set the following environment variable:
 
 ```bash
 $ export MPI4JAX_USE_CUDA_MPI=1
 ```
 
-And data will not be copied to the CPU.
-However, if your MPI library does not have CUDA support, python will most likely crash.
+Data will then be copied directly from GPU to GPU. If your MPI library does not have CUDA support, you will receive a segmentation fault when trying to access GPU memory.
 
 ## Contributing
 
-We use pre-commit hooks to enforce a common code format. To install them, just run
+We use pre-commit hooks to enforce a common code format. To install them, just run:
 
 ```bash
 $ pip install pre-commit
@@ -71,5 +72,5 @@ r1 | MPI_Recv <- 0 with tag -1 and token 7f9af7419ac0
 
 ## Contributors
 
-- Filippo Vicentini [@PhilipVinc](github.com/PhilipVinc)
-- Dion Häfner [@dionhaefner](github.com/dionhaefner)
+- Filippo Vicentini [@PhilipVinc](https://github.com/PhilipVinc)
+- Dion Häfner [@dionhaefner](https://github.com/dionhaefner)

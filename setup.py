@@ -168,13 +168,18 @@ if HAS_CYTHON:
         language_level=3,
     )
 
+here = os.path.abspath(os.path.dirname(__file__))
+
+# get the long description from the README file
+with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="mpi4jax",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
-    long_description="""Jax-mpi provides integration among jax and MPI, so that
-    code containing MPI calls can be correctly jit-compiled through jax.""",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/PhilipVinc/mpi4jax",
     license="MIT",
     classifiers=[

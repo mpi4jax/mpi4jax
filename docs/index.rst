@@ -1,15 +1,18 @@
+:tocdepth: 5
+
 mpi4jax
 =======
 
 mpi4jax enables zero-copy, multi-host communication of JAX arrays, even from jitted code and from GPU memory.
 
+This allows you to do multi-host computations in JAX with the full speed of ``jax.jit``!
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents
 
    quickstart
-   tokens
-   gpu
+   sharp-bits
    api
 
 
