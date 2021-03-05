@@ -184,12 +184,9 @@ setup(
     ],
     packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
     ext_modules=EXTENSIONS,
-    setup_requires=[
-        "setuptools>=18.0",
-        "cython>=0.21",
-        "mpi4py>=3.0.1",
-        "setuptools_scm",
-    ],
+    use_scm_version=dict(
+        write_to="mpi4jax/_version.py",
+    ),
     python_requires=">=3.6",
     install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest", "black", "flake8==3.8.3", "pre-commit>=2"]},
