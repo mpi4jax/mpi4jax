@@ -29,8 +29,15 @@ author = "Filippo Vicentini & Dion Häfner"
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
     "sphinx_rtd_theme",
 ]
+
+intersphinx_mapping = {
+    "jax": ("https://jax.readthedocs.io/en/latest/", None),
+}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []

@@ -51,7 +51,7 @@ def Recv(
     This is particularly important if you are performing different Send/Recv
     operations, which might otherwise deadlock.
 
-    Argumemnts:
+    Arguments:
         x: Array or scalar input with the desired shape and dtype.
         source: rank of the source MPI process.
         tag: Tag of this message.

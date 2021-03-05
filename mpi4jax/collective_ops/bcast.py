@@ -35,17 +35,15 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
 )
 def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
     """
-    bcast(x, op, comm=_MPI.COMM_WORLD, token=None)
-
     Performs the bcast operation `op` on the input `x` using the
     communicator `comm` which defaults to the world comunicator.
     An optional token can be passed, which is used to force jax to execute
     MPI operations in the correct order.
 
-    Argumemnts:
+    Arguments:
         x: Array or scalar input.
-        op: The reduction operation `MPI.Op` (e.g: MPI.SUM)
-        comm: The communicator (defaults to MPI.COMM_WORLD)
+        op: The reduction operation ``MPI.Op`` (e.g :obj:`mpi4py.MPI.SUM`)
+        comm: The communicator to use
         token: token to force a sequential order in the operations (default=None)
 
     Returns:

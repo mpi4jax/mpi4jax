@@ -43,7 +43,7 @@ def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
     This is particularly important if you are performing different Send/Recv
     operations, which might otherwise deadlock.
 
-    Argumemnts:
+    Arguments:
         x: Array or scalar input.
         dest: rank of the target MPI process.
         tag: Tag of this message.
