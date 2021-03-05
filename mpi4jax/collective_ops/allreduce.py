@@ -49,7 +49,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
     Returns:
         res: result of the allreduce operation
         new_token: a new, modified token, that depends on this operation.
-            This result can be ignored if result forces a data dependency.
+
     """
 
     # The extra argument _transpose is an implementation detail. It is used to

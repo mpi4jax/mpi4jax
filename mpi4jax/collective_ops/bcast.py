@@ -51,7 +51,7 @@ def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
     Returns:
         res: result of the bcast operation
         new_token: a new, modified token, that depends on this operation.
-            This result can be ignored if result forces a data dependency.
+
     """
     if token is None:
         token = create_token(x)
