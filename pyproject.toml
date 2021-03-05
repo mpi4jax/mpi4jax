@@ -1,7 +1,3 @@
-[tool.setuptools_scm]
-write_to = "mpi4jax/_version.py"
-
-
 [tool.coverage.run]
 branch = true
 parallel = true
