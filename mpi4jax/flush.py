@@ -7,3 +7,8 @@ def flush():
     for device in jax.devices("cpu"):
         noop = jax.device_put(0, device=device) + 0
         noop.block_until_ready()
+
+    # if there are gpus, then also flush there
+    for device in jax.devices():
+        noop = jax.device_put(0, device=device) + 0
+        noop.block_until_ready()
