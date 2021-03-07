@@ -76,12 +76,14 @@ jobs:
 
       - name: mpirun test with pytest
         run: |
+          cd tests
+
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
-          fi 
-
-          cd tests
-          mpirun -host localhost:2 -v -np 2 pytest .
+            mpirun -v -np 2 pytest .
+          else
+            mpirun -host localhost:2 -v -np 2 pytest .
+          fi
 
       - name: Setup tmate session
         if: ${{ failure() }}

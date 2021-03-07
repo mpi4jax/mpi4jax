@@ -628,6 +628,18 @@ def run_in_subprocess(code, test_file, timeout=10):
 
     test_file.write_text(cov_preamble + code)
 
+    env = dict(
+        PATH=os.environ["PATH"],
+        COVERAGE_PROCESS_START="pyproject.toml",
+        XLA_PYTHON_CLIENT_PREALLOCATE="false",
+    )
+
+    if os.getenv("LD_LIBRARY_PATH") is not None:
+        env["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")
+
+    if os.getenv("FI_PROVIDER_PATH") is not None:
+        env["FI_PROVIDER_PATH"] = os.getenv("FI_PROVIDER_PATH")
+
     proc = subprocess.run(
         [sys.executable, test_file],
         stdout=subprocess.PIPE,
@@ -637,13 +649,7 @@ def run_in_subprocess(code, test_file, timeout=10):
         universal_newlines=True,
         # passing a mostly empty env seems to be the only way to
         # force MPI to initialize again
-        env=dict(
-            PATH=os.environ["PATH"],
-            COVERAGE_PROCESS_START="pyproject.toml",
-            XLA_PYTHON_CLIENT_PREALLOCATE="false",
-            LD_LIBRARY_PATH=os.environ["LD_LIBRARY_PATH"],
-            FI_PROVIDER_PATH=os.environ["FI_PROVIDER_PATH"],
-        ),
+        env=env,
     )
     return proc
 
