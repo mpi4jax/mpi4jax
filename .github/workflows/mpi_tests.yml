@@ -84,7 +84,3 @@ jobs:
           else
             mpirun -host localhost:2 -v -np 2 pytest .
           fi
-
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
