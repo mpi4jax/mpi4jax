@@ -13,8 +13,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.6, 3.9]
         os: [ubuntu-latest, macos-latest]
+        mpi: [mpich, openmpi]
+
+        include:
+          - os: ubuntu-18.04
+            python-version: 3.6
+            mpi: intelmpi
+          - os: ubuntu-18.04
+            python-version: 3.9
+            mpi: intelmpi
+
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
     steps:
@@ -29,10 +39,12 @@ jobs:
         id: pip-cache-lookup
         run: |
           echo "::set-output name=dir::$(pip cache dir)"
-      - name: Install MPI
+
+      - name: Install MPI (${{ matrix.mpi }})
         #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: |
-          sh ./conf/travis-install-mpi.sh mpich
+          sh ./conf/travis-install-mpi.sh ${{ matrix.mpi }}
+
       - name: Cache pip installed packages
         id: pip-cache
         uses: actions/cache@v2
@@ -41,18 +53,36 @@ jobs:
           key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
           #restore-keys: |
           #  ${{ runner.os }}-${{ runner.python-version }}-pip-
+
       - name: Pip install python dependencies
-      #  if: steps.pip-cache.outputs.cache-hit != 'true'
         run: |
+          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
+            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
+          fi 
+
           python -m pip install --upgrade pip
           pip install pytest numpy jax jaxlib mpi4py
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -v .
+
       - name: Single-execution test with pytest
         run: |
+          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
+            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
+          fi 
+
           cd tests 
           pytest .
+
       - name: mpirun test with pytest
         run: |
+          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
+            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
+          fi 
+
           cd tests
           mpirun -host localhost:2 -v -np 2 pytest .
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3

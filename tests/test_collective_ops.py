@@ -641,6 +641,8 @@ def run_in_subprocess(code, test_file, timeout=10):
             PATH=os.environ["PATH"],
             COVERAGE_PROCESS_START="pyproject.toml",
             XLA_PYTHON_CLIENT_PREALLOCATE="false",
+            LD_LIBRARY_PATH=os.environ["LD_LIBRARY_PATH"],
+            FI_PROVIDER_PATH=os.environ["FI_PROVIDER_PATH"],
         ),
     )
     return proc
