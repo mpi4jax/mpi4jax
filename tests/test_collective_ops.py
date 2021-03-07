@@ -634,9 +634,12 @@ def run_in_subprocess(code, test_file, timeout=10):
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
     )
 
+    #  Some MPI Libraries (Intel) customize this
+    #  varible before running
     if os.getenv("LD_LIBRARY_PATH") is not None:
         env["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")
 
+    # non-standard Intel MPI env var for libfabric
     if os.getenv("FI_PROVIDER_PATH") is not None:
         env["FI_PROVIDER_PATH"] = os.getenv("FI_PROVIDER_PATH")
 
