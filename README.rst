@@ -3,11 +3,19 @@ mpi4jax
 
 |Tests| |codecov| |Conda Recipe| |Documentation Status|
 
-MPI plugin for JAX, allowing MPI operations to be inserted in blocks
-compiled with :func:`jax.jit`.
+``mpi4jax`` enables zero-copy, multi-host communication of `JAX <https://jax.readthedocs.io/>`_ arrays, even from jitted code and from GPU memory.
 
-Installation
-------------
+
+But why?
+--------
+
+The JAX framework `has great performance for scientific computing workloads <https://github.com/dionhaefner/pyhpc-benchmarks>`_, but its `multi-host capabilities <https://jax.readthedocs.io/en/latest/jax.html#jax.pmap>`_ are still limited.
+
+With ``mpi4jax``, you can scale your JAX-based simulations to *entire CPU and GPU clusters* (without ever leaving ``jax.jit``).
+
+
+Quick installation
+------------------
 
 ``mpi4jax`` is available through ``pip`` and ``conda``:
 
@@ -16,7 +24,7 @@ Installation
    $ pip install mpi4jax                     # Pip
    $ conda install -c conda-forge mpi4jax    # conda
 
-Refer to the documentation for more advanced installation examples.
+Our documentation includes some more advanced installation examples.
 
 
 Example usage
@@ -26,15 +34,34 @@ Example usage
 
    from mpi4py import MPI
    import jax
+   import jax.numpy as jnp
    import mpi4jax
 
    comm = MPI.COMM_WORLD
-   a = jax.numpy.ones(5,4)
-   b, token = mpi4jax.Allreduce(a, op=MPI.SUM, comm=comm)
-   b_jit, token = jax.jit(lambda x: mpi4jax.Allreduce(x, op=MPI.SUM, comm=comm))(a)
+   rank = comm.Get_rank()
 
+   @jax.jit
+   def foo(arr):
+      arr = arr + rank
+      arr_sum, _ = mpi4jax.Allreduce(arr, op=MPI.SUM, comm=comm)
+      return arr_sum
 
-`See all supported operations here. <https://mpi4jax.readthedcs.org/en/latest/api.html>`
+   a = jnp.zeros((3, 3))
+   result = foo(a)
+
+   if rank == 0:
+      print(result)
+
+Running this script on 4 processes gives:
+
+.. code:: bash
+
+   $ mpirun -n 4 python example.py
+   [[6. 6. 6.]
+    [6. 6. 6.]
+    [6. 6. 6.]]
+
+``Allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here. <https://mpi4jax.readthedocs.org/en/latest/api.html>`_
 
 Contributing
 ------------
