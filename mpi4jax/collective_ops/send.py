@@ -35,23 +35,19 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
-    """
-    Sends the input`x` to the target rank `dest` using the communicator `comm`
-    which defaults to the  world comunicator, with the `tag`.
-    An optional token can be passed, which is used to force jax to execute
-    MPI operations in the correct order.
-    This is particularly important if you are performing different Send/Recv
-    operations, which might otherwise deadlock.
+    """Perform a Send operation.
 
     Arguments:
-        x: Array or scalar input.
-        dest: rank of the target MPI process.
-        tag: Tag of this message.
-        comm: The communicator (defaults to MPI.COMM_WORLD)
-        token: token to force a sequential order in the operations (default=None)
+        x: Array or scalar input to send.
+        dest (int): Rank of the destination MPI process.
+        tag (int): Tag of this message.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
 
     Returns:
-        new_token: a new, modified token, that depends on this operation.
+        Token: A new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)

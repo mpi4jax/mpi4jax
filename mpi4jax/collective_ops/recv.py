@@ -43,25 +43,27 @@ def Recv(
     status=None,
     token=None,
 ):
-    """
-    Receives the input `x` from the target rank `source` using the communicator `comm`
-    which defaults to the  world comunicator, with the `tag`.
-    An optional token can be passed, which is used to force jax to execute
-    MPI operations in the correct order.
-    This is particularly important if you are performing different Send/Recv
-    operations, which might otherwise deadlock.
+    """Perform a Recv (receive) operation.
+
+    .. warning::
+
+        Unlike mpi4py's Recv, this returns a *new* array with the received data.
 
     Arguments:
-        x: Array or scalar input with the desired shape and dtype.
-        source: rank of the source MPI process.
-        tag: Tag of this message.
-        comm: The communicator (defaults to MPI.COMM_WORLD)
-        status:
-        token: token to force a sequential order in the operations (default=None)
+        x: Array or scalar input with the correct shape and dtype. This can contain
+           arbitrary data and will not be overwritten.
+        source (int): Rank of the source MPI process.
+        tag (int): Tag of this message.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        status (mpi4py.MPI.Status): Status object, can be used for introspection.
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
 
     Returns:
-        res: the received array or scalar
-        new_token: a new, modified token, that depends on this operation.
+        Tuple[Array, Token]:
+            - Received data.
+            - A new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)
