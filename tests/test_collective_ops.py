@@ -628,19 +628,17 @@ def run_in_subprocess(code, test_file, timeout=10):
 
     test_file.write_text(cov_preamble + code)
 
+    # passing a mostly empty env seems to be the only way to
+    # force MPI to initialize again
     env = dict(
-        PATH=os.environ["PATH"],
+        PATH=os.getenv("PATH", ""),
         COVERAGE_PROCESS_START="pyproject.toml",
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
+        LD_LIBRARY_PATH=os.getenv("LD_LIBRARY_PATH", ""),
     )
 
-    #  Some MPI Libraries (Intel) customize this
-    #  varible before running
-    if os.getenv("LD_LIBRARY_PATH") is not None:
-        env["LD_LIBRARY_PATH"] = os.getenv("LD_LIBRARY_PATH")
-
-    # non-standard Intel MPI env var for libfabric
-    if os.getenv("FI_PROVIDER_PATH") is not None:
+    # non-standard Intel MPI env var for libfabric.
+    if "FI_PROVIDER_PATH" in os.environ:
         env["FI_PROVIDER_PATH"] = os.getenv("FI_PROVIDER_PATH")
 
     proc = subprocess.run(
@@ -650,8 +648,6 @@ def run_in_subprocess(code, test_file, timeout=10):
         bufsize=0,
         timeout=timeout,
         universal_newlines=True,
-        # passing a mostly empty env seems to be the only way to
-        # force MPI to initialize again
         env=env,
     )
     return proc
