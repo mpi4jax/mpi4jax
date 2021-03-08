@@ -50,7 +50,7 @@ def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
             a new token is generated.
 
     Returns:
-        Tuple[Array, Token]:
+        Tuple[DeviceArray, Token]:
             - Received data.
             - A new, modified token, that depends on this operation.
 

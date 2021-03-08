@@ -25,4 +25,4 @@ jobs:
       - name: Build docs
         run: |
           cd docs
-          make html SPHINXOPTS="-W --keep-going -n"
+          make html SPHINXOPTS="-W --keep-going"

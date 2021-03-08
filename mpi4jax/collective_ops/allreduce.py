@@ -46,7 +46,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
         _transpose (bool): Used internally.
 
     Returns:
-        Tuple[Array, Token]:
+        Tuple[DeviceArray, Token]:
             - Result of the allreduce operation.
             - A new, modified token, that depends on this operation.
 
