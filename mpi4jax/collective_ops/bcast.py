@@ -29,29 +29,31 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
 
 # This function applies the primitive to an AST
 @enforce_types(
-    root=(int),
+    root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
 def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
-    """
-    bcast(x, op, comm=_MPI.COMM_WORLD, token=None)
+    """Perform a Bcast (broadcast) operation.
 
-    Performs the bcast operation `op` on the input `x` using the
-    communicator `comm` which defaults to the world comunicator.
-    An optional token can be passed, which is used to force jax to execute
-    MPI operations in the correct order.
+    .. warning::
 
-    Argumemnts:
-        x: Array or scalar input.
-        op: The reduction operation `MPI.Op` (e.g: MPI.SUM)
-        comm: The communicator (defaults to MPI.COMM_WORLD)
-        token: token to force a sequential order in the operations (default=None)
+        Unlike mpi4py's Bcast, this returns a *new* array with the received data.
+
+    Arguments:
+        x: Array or scalar input. Data is only read on root process. On non-root
+           processes, this is used to determine the shape and dtype of the result.
+        root (int): The process to use as source.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
 
     Returns:
-        res: result of the bcast operation
-        new_token: a new, modified token, that depends on this operation.
-            This result can be ignored if result forces a data dependency.
+        Tuple[DeviceArray, Token]:
+            - Received data.
+            - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(x)

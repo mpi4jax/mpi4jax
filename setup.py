@@ -123,58 +123,70 @@ def cuda_info(cmd):
 # /end Cuda detection
 #####################
 
-if HAS_CYTHON:
-    CY_EXT = "pyx"
-else:
-    CY_EXT = "c"
 
-activate_tracing = os.environ.get("MPI4JAX_TRACING", "").lower() in ("true", "1", "on")
-
-if activate_tracing:
-    macros = [("CYTHON_TRACE_NOGIL", "1")]
-else:
-    macros = None
+def _env_to_bool(envvar):
+    return os.environ.get(envvar, "").lower() in ("true", "1", "on")
 
 
-EXTENSIONS = [
-    Extension(
-        name=f"mpi4jax.cython.{mod}",
-        sources=[f"mpi4jax/cython/{mod}.{CY_EXT}"],
-        include_dirs=mpi_info("compile"),
-        library_dirs=mpi_info("libdirs"),
-        libraries=mpi_info("libs"),
-        define_macros=macros,
-    )
-    for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
-]
+def get_extensions():
+    if HAS_CYTHON:
+        ext_suffix = "pyx"
+    else:
+        ext_suffix = "c"
 
-if cuda_info("compile"):
-    EXTENSIONS.append(
+    activate_tracing = _env_to_bool("MPI4JAX_ENABLE_TRACING")
+
+    if activate_tracing:
+        macros = [("CYTHON_TRACE_NOGIL", "1")]
+    else:
+        macros = None
+
+    extensions = [
         Extension(
-            name="mpi4jax.cython.mpi_xla_bridge_gpu",
-            sources=[f"mpi4jax/cython/mpi_xla_bridge_gpu.{CY_EXT}"],
-            include_dirs=mpi_info("compile") + cuda_info("compile"),
-            library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
-            libraries=mpi_info("libs") + cuda_info("libs"),
+            name=f"mpi4jax.cython.{mod}",
+            sources=[f"mpi4jax/cython/{mod}.{ext_suffix}"],
+            include_dirs=mpi_info("compile"),
+            library_dirs=mpi_info("libdirs"),
+            libraries=mpi_info("libs"),
             define_macros=macros,
         )
-    )
+        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
+    ]
 
-if HAS_CYTHON:
-    compiler_directives = {"linetrace": activate_tracing}
-    EXTENSIONS = cythonize(
-        EXTENSIONS,
-        compiler_directives=compiler_directives,
-        language_level=3,
-    )
+    if cuda_info("compile"):
+        extensions.append(
+            Extension(
+                name="mpi4jax.cython.mpi_xla_bridge_gpu",
+                sources=[f"mpi4jax/cython/mpi_xla_bridge_gpu.{ext_suffix}"],
+                include_dirs=mpi_info("compile") + cuda_info("compile"),
+                library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
+                libraries=mpi_info("libs") + cuda_info("libs"),
+                define_macros=macros,
+            )
+        )
 
+    if HAS_CYTHON:
+        compiler_directives = {"linetrace": activate_tracing}
+        extensions = cythonize(
+            extensions,
+            compiler_directives=compiler_directives,
+            language_level=3,
+        )
+
+    return extensions
+
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+# get the long description from the README file
+with open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="mpi4jax",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
-    long_description="""Jax-mpi provides integration among jax and MPI, so that
-    code containing MPI calls can be correctly jit-compiled through jax.""",
+    long_description=long_description,
     url="https://github.com/PhilipVinc/mpi4jax",
     license="MIT",
     classifiers=[
@@ -183,7 +195,7 @@ setup(
         "Operating System :: OS Independent",
     ],
     packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
-    ext_modules=EXTENSIONS,
+    ext_modules=get_extensions(),
     use_scm_version=dict(
         write_to="mpi4jax/_version.py",
     ),

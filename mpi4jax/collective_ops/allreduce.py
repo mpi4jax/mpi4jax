@@ -34,22 +34,27 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
-    """
-    Performs the Allreduce operation `op` on the input `x` using the
-    communicator `comm` which defaults to the world comunicator.
-    An optional token can be passed, which is used to force jax to execute
-    MPI operations in the correct order.
+    """Perform an Allreduce operation.
+
+    .. note::
+
+       This primitive can be differentiated via :func:`jax.grad` and related functions
+       if ``op`` is :obj:`mpi4py.MPI.SUM`.
 
     Arguments:
         x: Array or scalar input.
-        op: The reduction operation `MPI.Op` (e.g: MPI.SUM)
-        comm: The communicator (defaults to MPI.COMM_WORLD)
-        token: token to force a sequential order in the operations (default=None)
+        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
+        _transpose (bool): Used internally.
 
     Returns:
-        res: result of the allreduce operation
-        new_token: a new, modified token, that depends on this operation.
-            This result can be ignored if result forces a data dependency.
+        Tuple[DeviceArray, Token]:
+            - Result of the allreduce operation.
+            - A new, modified token, that depends on this operation.
+
     """
 
     # The extra argument _transpose is an implementation detail. It is used to

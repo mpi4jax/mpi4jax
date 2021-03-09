@@ -1,0 +1,14 @@
+version: 2
+
+sphinx:
+  builder: html
+  configuration: docs/conf.py
+  fail_on_warning: true
+
+conda:
+  environment: docs/environment.yml
+
+python:
+  install:
+    - method: setuptools
+      path: .
