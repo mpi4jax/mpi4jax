@@ -48,6 +48,31 @@ def Sendrecv(
     status=None,
     token=None,
 ):
+    """Perform a Sendrecv operation.
+
+    .. warning::
+
+        Unlike mpi4py's Sendrecv, this returns a *new* array with the received data.
+
+    Arguments:
+        sendbuf: Array or scalar input to send.
+        recvbuf: Array or scalar input with the correct shape and dtype. This can
+           contain arbitrary data and will not be overwritten.
+        source (int): Rank of the source MPI process.
+        dest (int): Rank of the destination MPI process.
+        sendtag (int): Tag of this message for sending.
+        recvtag (int): Tag of this message for receiving.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        status (mpi4py.MPI.Status): Status object, can be used for introspection.
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
+
+    Returns:
+        Tuple[DeviceArray, Token]:
+            - Received data.
+            - A new, modified token, that depends on this operation.
+    """
     if token is None:
         token = create_token(sendbuf)
 

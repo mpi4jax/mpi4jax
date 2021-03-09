@@ -1,0 +1,28 @@
+name: Build documentation
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - master
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: mpi4jax-docs
+          environment-file: docs/environment.yml
+          auto-activate-base: false
+      - name: Install mpi4jax
+        run: python setup.py install
+      - name: Build docs
+        run: |
+          cd docs
+          make html SPHINXOPTS="-W --keep-going"
