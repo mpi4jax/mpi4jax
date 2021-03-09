@@ -7,11 +7,18 @@ from mpi4py import MPI
 # this registers our custom XLA functions
 import mpi4jax.cython
 
+from .collective_ops.allgather import Allgather
 from .collective_ops.allreduce import Allreduce
+from .collective_ops.alltoall import Alltoall
+from .collective_ops.bcast import Bcast
+from .collective_ops.gather import Gather
 from .collective_ops.recv import Recv
+from .collective_ops.reduce import Reduce
+from .collective_ops.scan import Scan
+from .collective_ops.scatter import Scatter
 from .collective_ops.send import Send
 from .collective_ops.sendrecv import Sendrecv
-from .collective_ops.bcast import Bcast
+
 from .flush import flush
 from .warn import disable_omnistaging_warning
 
@@ -23,11 +30,17 @@ atexit.register(flush)
 
 
 __all__ = [
+    "Allgather",
     "Allreduce",
-    "Send",
-    "Recv",
-    "Sendrecv",
+    "Alltoall",
     "Bcast",
+    "Gather",
+    "Recv",
+    "Reduce",
+    "Scan",
+    "Scatter",
+    "Send",
+    "Sendrecv",
     "disable_omnistaging_warning",
     "flush",
 ]

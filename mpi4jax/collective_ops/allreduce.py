@@ -114,14 +114,6 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
 
 
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
-    from mpi4jax.cython import HAS_GPU_EXT
-
-    if not HAS_GPU_EXT:
-        raise RuntimeError(
-            "mpi4jax GPU extensions failed to build, "
-            "so it cannot be used in GPU contexts"
-        )
-
     from mpi4jax.cython.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     warn_missing_omnistaging()

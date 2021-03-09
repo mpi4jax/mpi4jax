@@ -5,33 +5,34 @@ from libc.stdlib cimport malloc, free
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
-    MPI_Op,
+    MPI_Comm_rank
     MPI_Datatype,
+    MPI_Op,
     MPI_Status,
     MPI_Type_size,
-    MPI_Comm_rank
 )
 
 from .cuda_runtime_api cimport (
-    cudaMemcpy,
-    cudaMemcpyHostToDevice,
-    cudaMemcpyDeviceToHost,
-    cudaMemcpyDeviceToDevice,
-    cudaStream_t,
-    cudaError_t,
-    cudaMemcpyKind,
-    cudaSuccess,
     cudaGetErrorName,
     cudaGetErrorString,
+    cudaError_t,
+    cudaMemcpy,
+    cudaMemcpyDeviceToDevice,
+    cudaMemcpyDeviceToHost,
+    cudaMemcpyKind,
+    cudaMemcpyHostToDevice,
+    cudaStream_t,
+    cudaSuccess,
 )
 
 from . cimport mpi_xla_bridge
-from .mpi_xla_bridge cimport abort_on_error
 
+
+# Error handling
 
 cpdef unicode py_string(char* c_str):
     py_str = <bytes> c_str
-    return py_str.decode('UTF-8')
+    return py_str.decode("UTF-8")
 
 cpdef unicode GetErrorName(cudaError_t ierr):
     return py_string(cudaGetErrorName(ierr))
@@ -40,6 +41,8 @@ cpdef unicode GetErrorString(cudaError_t ierr):
     return py_string(cudaGetErrorString(ierr))
 
 
+# Config
+
 cdef bint COPY_TO_HOST = False
 
 cpdef void set_copy_to_host(bint enable):
@@ -47,11 +50,13 @@ cpdef void set_copy_to_host(bint enable):
     COPY_TO_HOST = enable
 
 
+# Memory management
+
 cdef inline void* checked_malloc(size_t count) nogil except *:
     cdef void* mem = malloc(count)
     if not mem:
         with gil:
-            raise MemoryError(f"Failed to allocate {count} bytes")
+            raise MemoryError(f"Failed to allocate {count} bytes on host")
 
     return mem
 
@@ -74,6 +79,80 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count, 
 #
 # GPU XLA targets
 #
+
+# Allgather
+
+cdef struct AllgatherDescriptor:
+    int32_t sendcount
+    MPI_Datatype sendtype
+    int32_t recvcount
+    MPI_Datatype recvtype
+    MPI_Comm comm
+
+
+cpdef bytes build_allgather_descriptor(
+    int32_t sendcount, uint64_t sendtype_addr,
+    int32_t recvcount, uint64_t recvtype_addr,
+    uint64_t comm_addr
+):
+    cdef AllgatherDescriptor desc = AllgatherDescriptor(
+        sendcount, <MPI_Datatype> sendtype_addr,
+        recvcount, <MPI_Datatype> recvtype_addr,
+        <MPI_Comm> comm_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
+
+
+cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
+                        const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, sendtype_size, recvtype_size
+    cdef size_t sendbytes, recvbytes
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
+
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
+
+    if opaque_len != sizeof(AllgatherDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef AllgatherDescriptor* desc = <AllgatherDescriptor*>(opaque)
+    cdef int32_t sendcount = desc.sendcount
+    cdef MPI_Datatype sendtype = desc.sendtype
+    cdef int32_t recvcount = desc.recvcount
+    cdef MPI_Datatype recvtype = desc.recvtype
+    cdef MPI_Comm comm = desc.comm
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(sendtype, &sendtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        sendbytes = sendtype_size * sendcount
+        in_buf = checked_malloc(sendbytes)
+
+        ierr = MPI_Type_size(recvtype, &recvtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        recvbyes = recvtype_size * recvcount
+        out_buf = checked_malloc(recvbyes)
+
+        checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_allgather(in_buf, out_buf, sendcount, dtype, op, comm, token)
+
+    if COPY_TO_HOST:
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
+
+    buffers[3] = token
+
 
 # Allreduce
 
@@ -129,6 +208,80 @@ cdef void mpi_allreduce(cudaStream_t* stream, void** buffers,
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
+
+    buffers[3] = token
+
+
+# Alltoall
+
+cdef struct AlltoallDescriptor:
+    int32_t sendcount
+    MPI_Datatype sendtype
+    int32_t recvcount
+    MPI_Datatype recvtype
+    MPI_Comm comm
+
+
+cpdef bytes build_alltoall_descriptor(
+    int32_t sendcount, uint64_t sendtype_addr,
+    int32_t recvcount, uint64_t recvtype_addr,
+    uint64_t comm_addr
+):
+    cdef AlltoallDescriptor desc = AlltoallDescriptor(
+        sendcount, <MPI_Datatype> sendtype_addr,
+        recvcount, <MPI_Datatype> recvtype_addr,
+        <MPI_Comm> comm_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(AlltoallDescriptor)])
+
+
+cdef void mpi_alltoall(cudaStream_t* stream, void** buffers,
+                        const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, sendtype_size, recvtype_size
+    cdef size_t sendbytes, recvbytes
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
+
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
+
+    if opaque_len != sizeof(AlltoallDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef AlltoallDescriptor* desc = <AlltoallDescriptor*>(opaque)
+    cdef int32_t sendcount = desc.sendcount
+    cdef MPI_Datatype sendtype = desc.sendtype
+    cdef int32_t recvcount = desc.recvcount
+    cdef MPI_Datatype recvtype = desc.recvtype
+    cdef MPI_Comm comm = desc.comm
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(sendtype, &sendtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        sendbytes = sendtype_size * sendcount
+        in_buf = checked_malloc(sendbytes)
+
+        ierr = MPI_Type_size(recvtype, &recvtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        recvbyes = recvtype_size * recvcount
+        out_buf = checked_malloc(recvbyes)
+
+        checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_alltoall(in_buf, out_buf, sendcount, dtype, op, comm, token)
+
+    if COPY_TO_HOST:
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
 
@@ -199,61 +352,80 @@ cdef void mpi_bcast(cudaStream_t* stream, void** buffers,
     buffers[3] = token
 
 
+# Gather
 
-# Send
-
-cdef struct SendDescriptor:
-    int32_t nitems
-    int32_t dest
-    int32_t tag
+cdef struct GatherDescriptor:
+    int32_t sendcount
+    MPI_Datatype sendtype
+    int32_t recvcount
+    MPI_Datatype recvtype
+    int32_t root
     MPI_Comm comm
-    MPI_Datatype dtype
 
 
-cpdef bytes build_send_descriptor(int32_t nitems, int32_t dest, int32_t tag, uint64_t comm_addr, uint64_t dtype_addr):
-    cdef SendDescriptor desc = SendDescriptor(
-        nitems, dest, tag, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+cpdef bytes build_gather_descriptor(
+    int32_t sendcount, uint64_t sendtype_addr,
+    int32_t recvcount, uint64_t recvtype_addr,
+    int32_t root, uint64_t comm_addr
+):
+    cdef GatherDescriptor desc = GatherDescriptor(
+        sendcount, <MPI_Datatype> sendtype_addr,
+        recvcount, <MPI_Datatype> recvtype_addr,
+        root, <MPI_Comm> comm_addr
     )
-    return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
+    return bytes((<char*> &desc)[:sizeof(GatherDescriptor)])
 
 
-cdef void mpi_send(cudaStream_t* stream, void** buffers,
-                   const char* opaque, size_t opaque_len) nogil except *:
-    cdef int ierr, dtype_size
-    cdef size_t count
+cdef void mpi_gather(cudaStream_t* stream, void** buffers,
+                        const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, sendtype_size, recvtype_size
+    cdef size_t sendbytes, recvbytes
 
     #decode inputs
     cdef void* data = buffers[0]
     cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
 
-    cdef void* sendbuf = data
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
 
-    if opaque_len != sizeof(SendDescriptor):
+    if opaque_len != sizeof(GatherDescriptor):
         with gil:
             raise RuntimeError("got wrong size of opaque argument")
 
-    cdef SendDescriptor* desc = <SendDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
-    cdef int32_t dest = desc.dest
-    cdef int32_t tag = desc.tag
+    cdef AlltoallDescriptor* desc = <AlltoallDescriptor*>(opaque)
+    cdef int32_t sendcount = desc.sendcount
+    cdef MPI_Datatype sendtype = desc.sendtype
+    cdef int32_t recvcount = desc.recvcount
+    cdef MPI_Datatype recvtype = desc.recvtype
+    cdef int32_t root = desc.root
     cdef MPI_Comm comm = desc.comm
-    cdef MPI_Datatype dtype = desc.dtype
 
     if COPY_TO_HOST:
         # copy memory to host
-        ierr = MPI_Type_size(dtype, &dtype_size)
+        ierr = MPI_Type_size(sendtype, &sendtype_size)
         abort_on_error(ierr, comm, u"Type_size")
 
-        count = dtype_size * nitems
-        sendbuf = checked_malloc(count)
-        checked_cuda_memcpy(sendbuf, data, count, cudaMemcpyDeviceToHost)
+        sendbytes = sendtype_size * sendcount
+        in_buf = checked_malloc(sendbytes)
 
-    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm, token)
+        ierr = MPI_Type_size(recvtype, &recvtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        recvbyes = recvtype_size * recvcount
+        out_buf = checked_malloc(recvbyes)
+
+        checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_gather(in_buf, out_buf, sendcount, dtype, op, root, comm, token)
 
     if COPY_TO_HOST:
-        free(sendbuf)
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
 
-    buffers[2] = token
+    buffers[3] = token
 
 
 # Recv
@@ -311,6 +483,260 @@ cdef void mpi_recv(cudaStream_t* stream, void** buffers,
     if COPY_TO_HOST:
         checked_cuda_memcpy(out_buf, recvbuf, count, cudaMemcpyHostToDevice)
         free(recvbuf)
+
+    buffers[2] = token
+
+
+# Reduce
+
+cdef struct ReduceDescriptor:
+    int32_t nitems
+    MPI_Op op
+    int32_t root
+    MPI_Comm comm
+    MPI_Datatype dtype
+
+
+cpdef bytes build_reduce_descriptor(int32_t nitems, uint64_t op_addr, int32_t root, uint64_t comm_addr, uint64_t dtype_addr):
+    cdef ReduceDescriptor desc = ReduceDescriptor(
+        nitems, <MPI_Op> op_addr, root, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
+
+
+cdef void mpi_reduce(cudaStream_t* stream, void** buffers,
+                     const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, dtype_size
+    cdef size_t count
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
+
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
+
+    if opaque_len != sizeof(reduceDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef ReduceDescriptor* desc = <ReduceDescriptor*>(opaque)
+    cdef int32_t nitems = desc.nitems
+    cdef MPI_Op op = desc.op
+    cdef int32_t root = desc.root
+    cdef MPI_Comm comm = desc.comm
+    cdef MPI_Datatype dtype = desc.dtype
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(dtype, &dtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        count = dtype_size * nitems
+        in_buf = checked_malloc(count)
+        out_buf = checked_malloc(count)
+        checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_reduce(in_buf, out_buf, nitems, dtype, op, root, comm, token)
+
+    if COPY_TO_HOST:
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
+
+    buffers[3] = token
+
+
+# Scan
+
+cdef struct ScanDescriptor:
+    int32_t nitems
+    MPI_Op op
+    MPI_Comm comm
+    MPI_Datatype dtype
+
+
+cpdef bytes build_scan_descriptor(int32_t nitems, uint64_t op_addr, uint64_t comm_addr, uint64_t dtype_addr):
+    cdef ScanDescriptor desc = ScanDescriptor(
+        nitems, <MPI_Op> op_addr, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(ScanDescriptor)])
+
+
+cdef void mpi_scan(cudaStream_t* stream, void** buffers,
+                        const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, dtype_size
+    cdef size_t count
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
+
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
+
+    if opaque_len != sizeof(ScanDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef ScanDescriptor* desc = <ScanDescriptor*>(opaque)
+    cdef int32_t nitems = desc.nitems
+    cdef MPI_Op op = desc.op
+    cdef MPI_Comm comm = desc.comm
+    cdef MPI_Datatype dtype = desc.dtype
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(dtype, &dtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        count = dtype_size * nitems
+        in_buf = checked_malloc(count)
+        out_buf = checked_malloc(count)
+        checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_scan(in_buf, out_buf, nitems, dtype, op, comm, token)
+
+    if COPY_TO_HOST:
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
+
+    buffers[3] = token
+
+
+# Scatter
+
+cdef struct ScatterDescriptor:
+    int32_t sendcount
+    MPI_Datatype sendtype
+    int32_t recvcount
+    MPI_Datatype recvtype
+    int32_t root
+    MPI_Comm comm
+
+
+cpdef bytes build_scatter_descriptor(
+    int32_t sendcount, uint64_t sendtype_addr,
+    int32_t recvcount, uint64_t recvtype_addr,
+    int32_t root, uint64_t comm_addr
+):
+    cdef ScatterDescriptor desc = ScatterDescriptor(
+        sendcount, <MPI_Datatype> sendtype_addr,
+        recvcount, <MPI_Datatype> recvtype_addr,
+        root, <MPI_Comm> comm_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(ScatterDescriptor)])
+
+
+cdef void mpi_scatter(cudaStream_t* stream, void** buffers,
+                        const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, sendtype_size, recvtype_size
+    cdef size_t sendbytes, recvbytes
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+    cdef void* out_data = buffers[2]
+
+    cdef void* in_buf = data
+    cdef void* out_buf = out_data
+
+    if opaque_len != sizeof(ScatterDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef AlltoallDescriptor* desc = <AlltoallDescriptor*>(opaque)
+    cdef int32_t sendcount = desc.sendcount
+    cdef MPI_Datatype sendtype = desc.sendtype
+    cdef int32_t recvcount = desc.recvcount
+    cdef MPI_Datatype recvtype = desc.recvtype
+    cdef int32_t root = desc.root
+    cdef MPI_Comm comm = desc.comm
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(sendtype, &sendtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        sendbytes = sendtype_size * sendcount
+        in_buf = checked_malloc(sendbytes)
+
+        ierr = MPI_Type_size(recvtype, &recvtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        recvbyes = recvtype_size * recvcount
+        out_buf = checked_malloc(recvbyes)
+
+        checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_scatter(in_buf, out_buf, sendcount, dtype, op, root, comm, token)
+
+    if COPY_TO_HOST:
+        # copy back to device
+        checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
+        free(in_buf)
+        free(out_buf)
+
+    buffers[3] = token
+
+
+# Send
+
+cdef struct SendDescriptor:
+    int32_t nitems
+    int32_t dest
+    int32_t tag
+    MPI_Comm comm
+    MPI_Datatype dtype
+
+
+cpdef bytes build_send_descriptor(int32_t nitems, int32_t dest, int32_t tag, uint64_t comm_addr, uint64_t dtype_addr):
+    cdef SendDescriptor desc = SendDescriptor(
+        nitems, dest, tag, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+    )
+    return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
+
+
+cdef void mpi_send(cudaStream_t* stream, void** buffers,
+                   const char* opaque, size_t opaque_len) nogil except *:
+    cdef int ierr, dtype_size
+    cdef size_t count
+
+    #decode inputs
+    cdef void* data = buffers[0]
+    cdef void* token = buffers[1]
+
+    cdef void* sendbuf = data
+
+    if opaque_len != sizeof(SendDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef SendDescriptor* desc = <SendDescriptor*>(opaque)
+    cdef int32_t nitems = desc.nitems
+    cdef int32_t dest = desc.dest
+    cdef int32_t tag = desc.tag
+    cdef MPI_Comm comm = desc.comm
+    cdef MPI_Datatype dtype = desc.dtype
+
+    if COPY_TO_HOST:
+        # copy memory to host
+        ierr = MPI_Type_size(dtype, &dtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
+        count = dtype_size * nitems
+        sendbuf = checked_malloc(count)
+        checked_cuda_memcpy(sendbuf, data, count, cudaMemcpyDeviceToHost)
+
+    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm, token)
+
+    if COPY_TO_HOST:
+        free(sendbuf)
 
     buffers[2] = token
 
