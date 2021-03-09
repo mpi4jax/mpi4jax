@@ -13,6 +13,8 @@ The JAX framework `has great performance for scientific computing workloads <htt
 
 With ``mpi4jax``, you can scale your JAX-based simulations to *entire CPU and GPU clusters* (without ever leaving ``jax.jit``).
 
+In the spirit of differentiable programming, ``mpi4jax`` also supports differentiating through some MPI operations.
+
 
 Quick installation
 ------------------
@@ -63,6 +65,7 @@ Running this script on 4 processes gives:
 
 ``Allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here. <https://mpi4jax.readthedocs.org/en/latest/api.html>`_
 
+
 Contributing
 ------------
 
@@ -73,6 +76,7 @@ them, just run:
 
    $ pip install pre-commit
    $ pre-commit install
+
 
 Debugging
 ---------
@@ -86,6 +90,7 @@ jitted function. You will then see messages like this:
    $ MPI4JAX_DEBUG=1 mpirun -n 2 python send_recv.py
    r0 | MPI_Send -> 1 with tag 0 and token 7fd7abc5f5c0
    r1 | MPI_Recv <- 0 with tag -1 and token 7f9af7419ac0
+
 
 Contributors
 ------------

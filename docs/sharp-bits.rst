@@ -8,9 +8,11 @@ Read ahead for some pitfalls, counter-intuitive behavior, and sharp edges that w
 Token management
 ----------------
 
-Tokens are JAX's way to ensure that XLA (the underlying compiler) does not re-order statements with side effects. Re-ordering MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
+The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.Send` or :func:`~mpi4jax.Recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
 
-This means that you *have* to use proper token management to prevent this from happening. Every communication primitive in mpi4jax returns a token as the last return object, which you have to pass to subsequent primitives within the same JIT block.
+*Tokens* are JAX's way to ensure that XLA does not re-order statements with side effects by injecting a fake data dependency between them.
+
+This means that you *have* to use proper token management to prevent reordering from occurring. Every communication primitive in ``mpi4jax`` returns a token as the last return object, which you have to pass to subsequent primitives within the same JIT block, like this:
 
 .. code:: python
 
@@ -21,6 +23,8 @@ This means that you *have* to use proper token management to prevent this from h
     # INSTEAD, DO THIS
     token = mpi4jax.Send(arr, comm=comm)
     new_arr, token = mpi4jax.Recv(arr, comm=comm, token=token)
+
+Those functions will then be executed in the same order as the sequence of tokens, from first to last.
 
 
 No in-place operations in JAX

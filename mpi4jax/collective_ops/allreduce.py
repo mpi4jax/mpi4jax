@@ -36,6 +36,11 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
     """Perform an Allreduce operation.
 
+    .. note::
+
+       This primitive can be differentiated via :func:`jax.grad` and related functions
+       if ``op`` is :obj:`mpi4py.MPI.SUM`.
+
     Arguments:
         x: Array or scalar input.
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
