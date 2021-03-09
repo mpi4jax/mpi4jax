@@ -64,8 +64,7 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
 #
 
 cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                        MPI_Comm comm, void* token) nogil:
+                        void* recvbuf, MPI_Comm comm, void* token) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -73,7 +72,7 @@ cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
             print_debug(f"MPI_Allgather with token {<uint64_t>token:x}", comm)
 
     # MPI Call
-    ierr = libmpi.MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm)
+    ierr = libmpi.MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, sendcount, sendtype, comm)
     abort_on_error(ierr, comm, u"Allgather")
 
 

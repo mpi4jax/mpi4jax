@@ -5,7 +5,8 @@ from libc.stdlib cimport malloc, free
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
-    MPI_Comm_rank
+    MPI_Comm_rank,
+    MPI_Comm_size,
     MPI_Datatype,
     MPI_Op,
     MPI_Status,
@@ -85,19 +86,15 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count, 
 cdef struct AllgatherDescriptor:
     int32_t sendcount
     MPI_Datatype sendtype
-    int32_t recvcount
-    MPI_Datatype recvtype
     MPI_Comm comm
 
 
 cpdef bytes build_allgather_descriptor(
     int32_t sendcount, uint64_t sendtype_addr,
-    int32_t recvcount, uint64_t recvtype_addr,
     uint64_t comm_addr
 ):
     cdef AllgatherDescriptor desc = AllgatherDescriptor(
         sendcount, <MPI_Datatype> sendtype_addr,
-        recvcount, <MPI_Datatype> recvtype_addr,
         <MPI_Comm> comm_addr
     )
     return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
@@ -107,6 +104,7 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
                         const char* opaque, size_t opaque_len) nogil except *:
     cdef int ierr, sendtype_size, recvtype_size
     cdef size_t sendbytes, recvbytes
+    cdef int32_t comm_size
 
     #decode inputs
     cdef void* data = buffers[0]
@@ -123,8 +121,6 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
     cdef AllgatherDescriptor* desc = <AllgatherDescriptor*>(opaque)
     cdef int32_t sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
-    cdef MPI_Datatype recvtype = desc.recvtype
     cdef MPI_Comm comm = desc.comm
 
     if COPY_TO_HOST:
@@ -135,15 +131,15 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
         sendbytes = sendtype_size * sendcount
         in_buf = checked_malloc(sendbytes)
 
-        ierr = MPI_Type_size(recvtype, &recvtype_size)
-        abort_on_error(ierr, comm, u"Type_size")
+        ierr = MPI_Comm_size(comm, &comm_size)
+        abort_on_error(ierr, comm, u"Comm_size")
 
-        recvbyes = recvtype_size * recvcount
-        out_buf = checked_malloc(recvbyes)
+        recvbytes = sendbytes * comm_size
+        out_buf = checked_malloc(recvbytes)
 
         checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_allgather(in_buf, out_buf, sendcount, dtype, op, comm, token)
+    mpi_xla_bridge.mpi_allgather(in_buf, out_buf, sendcount, dtype, comm, token)
 
     if COPY_TO_HOST:
         # copy back to device

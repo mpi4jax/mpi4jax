@@ -40,6 +40,28 @@ def Gather(
     comm=_MPI.COMM_WORLD,
     token=None,
 ):
+    """Perform a Gather operation.
+
+    .. warning::
+
+        Unlike mpi4py's Gather, this returns a *new* array with the received data.
+
+    Arguments:
+        sendbuf: Array or scalar input to send.
+        recvbuf: Array or scalar input with the correct shape and dtype. This can
+           contain arbitrary data and will not be overwritten. Has only meaning on
+           root process.
+        root (int): Rank of the root MPI process.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
+
+    Returns:
+        Tuple[DeviceArray, Token]:
+            - Received data on root process, otherwise unmodified input.
+            - A new, modified token, that depends on this operation.
+    """
     if token is None:
         token = create_token(sendbuf)
 

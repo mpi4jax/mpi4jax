@@ -23,14 +23,12 @@ cdef void mpi_allgather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t sendcount = (<int32_t*>(data_ptr[0]))[0]
     cdef void* sendbuf = data_ptr[1]
     cdef MPI_Datatype sendtype = <MPI_Datatype>((<uint64_t*>(data_ptr[2]))[0])
-    cdef int32_t recvcount = (<int32_t*>(data_ptr[3]))[0]
-    cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
-    cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
+    cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
+    cdef void* token = data_ptr[4]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_allgather(
-        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, comm, token
     )
     out_ptr[1] = token
 

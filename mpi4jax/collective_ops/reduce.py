@@ -35,22 +35,22 @@ mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def Reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
-    """
-    Performs the reduce operation `op` on the input `x` using the
-    communicator `comm` which defaults to the world comunicator.
-    An optional token can be passed, which is used to force jax to execute
-    MPI operations in the correct order.
+    """Perform a Reduce operation.
 
     Arguments:
-        x: Array or scalar input.
-        op: The reduction operation `MPI.Op` (e.g: MPI.SUM)
-        comm: The communicator (defaults to MPI.COMM_WORLD)
-        token: token to force a sequential order in the operations (default=None)
+        x: Array or scalar input to send.
+        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
+        root (int): Rank of the root MPI process.
+        comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
+            :obj:`COMM_WORLD`).
+        token: XLA token to use to ensure correct execution order. If not given,
+            a new token is generated.
 
     Returns:
-        res: result of the reduce operation
-        new_token: a new, modified token, that depends on this operation.
-            This result can be ignored if result forces a data dependency.
+        Tuple[DeviceArray, Token]:
+            - Result of the reduce operation on root process, otherwise
+              unmodified input.
+            - A new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)
