@@ -4,7 +4,8 @@ from mpi4py.libmpi cimport MPI_Comm, MPI_Datatype, MPI_Status, MPI_Op
 cdef int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil
 
 cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                        void* recvbuf, MPI_Comm comm, void* token) nogil
+                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
+                        MPI_Comm comm, void* token) nogil
 
 cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm, void* token) nogil

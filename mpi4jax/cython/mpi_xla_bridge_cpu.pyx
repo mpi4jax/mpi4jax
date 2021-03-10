@@ -1,7 +1,6 @@
 from cpython.pycapsule cimport PyCapsule_New
 
 from libc.stdint cimport int32_t, uint64_t
-from libc.string cimport memcpy
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
@@ -9,7 +8,6 @@ from mpi4py.libmpi cimport (
     MPI_Datatype,
     MPI_Op,
     MPI_Status,
-    MPI_Type_size,
 )
 
 from . cimport mpi_xla_bridge
@@ -23,12 +21,14 @@ cdef void mpi_allgather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t sendcount = (<int32_t*>(data_ptr[0]))[0]
     cdef void* sendbuf = data_ptr[1]
     cdef MPI_Datatype sendtype = <MPI_Datatype>((<uint64_t*>(data_ptr[2]))[0])
-    cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
-    cdef void* token = data_ptr[4]
+    cdef int32_t recvcount = (<int32_t*>(data_ptr[3]))[0]
+    cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
+    cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[5]))[0])
+    cdef void* token = data_ptr[6]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_allgather(
-        sendbuf, sendcount, sendtype, recvbuf, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm, token
     )
     out_ptr[1] = token
 
@@ -66,7 +66,7 @@ cdef void mpi_alltoall_cpu(void** out_ptr, void** data_ptr) nogil:
 
 cdef void mpi_bcast_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t nitems = (<int32_t*>(data_ptr[0]))[0]
-    cdef void* send_buf = data_ptr[1]
+    cdef void* sendbuf = data_ptr[1]
     cdef int32_t root = (<int32_t*>(data_ptr[2]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
@@ -74,17 +74,17 @@ cdef void mpi_bcast_cpu(void** out_ptr, void** data_ptr) nogil:
 
     cdef void* recvbuf = out_ptr[0]
 
-    cdef int ierr, dtype_size, rank
+    cdef int ierr, rank
+    cdef void* buf
     ierr = MPI_Comm_rank(comm, &rank)
     mpi_xla_bridge.abort_on_error(ierr, comm, u"Comm_rank")
 
     if rank == root:
-        ierr = MPI_Type_size(dtype, &dtype_size)
-        mpi_xla_bridge.abort_on_error(ierr, comm, u"Type_size")
-        count = dtype_size * nitems
-        memcpy(recvbuf, send_buf, count)
+        buf = sendbuf
+    else:
+        buf = recvbuf
 
-    mpi_xla_bridge.mpi_bcast(recvbuf, nitems, dtype, root, comm, token)
+    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm, token)
     out_ptr[1] = token
 
 
@@ -99,9 +99,11 @@ cdef void mpi_gather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef void* token = data_ptr[7]
 
     cdef void* recvbuf = out_ptr[0]
+
     mpi_xla_bridge.mpi_gather(
         sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm, token
     )
+
     out_ptr[1] = token
 
 

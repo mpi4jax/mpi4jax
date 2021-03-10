@@ -86,15 +86,19 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count, 
 cdef struct AllgatherDescriptor:
     int32_t sendcount
     MPI_Datatype sendtype
+    int32_t recvcount
+    MPI_Datatype recvtype
     MPI_Comm comm
 
 
 cpdef bytes build_allgather_descriptor(
     int32_t sendcount, uint64_t sendtype_addr,
+    int32_t recvcount, uint64_t recvtype_addr,
     uint64_t comm_addr
 ):
     cdef AllgatherDescriptor desc = AllgatherDescriptor(
         sendcount, <MPI_Datatype> sendtype_addr,
+        recvcount, <MPI_Datatype> recvtype_addr,
         <MPI_Comm> comm_addr
     )
     return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
@@ -121,6 +125,8 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
     cdef AllgatherDescriptor* desc = <AllgatherDescriptor*>(opaque)
     cdef int32_t sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
+    cdef int32_t recvcount = desc.recvcount
+    cdef MPI_Datatype recvtype = desc.recvtype
     cdef MPI_Comm comm = desc.comm
 
     if COPY_TO_HOST:
@@ -131,15 +137,24 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
         sendbytes = sendtype_size * sendcount
         in_buf = checked_malloc(sendbytes)
 
+        ierr = MPI_Type_size(recvtype, &recvtype_size)
+        abort_on_error(ierr, comm, u"Type_size")
+
         ierr = MPI_Comm_size(comm, &comm_size)
         abort_on_error(ierr, comm, u"Comm_size")
 
-        recvbytes = sendbytes * comm_size
-        out_buf = checked_malloc(recvbytes)
+        # recvcount is received data *per process*
+        recvbyes = recvtype_size * recvcount * comm_size
+        out_buf = checked_malloc(recvbyes)
 
         checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_allgather(in_buf, out_buf, sendcount, dtype, comm, token)
+    mpi_xla_bridge.mpi_allgather(
+        in_buf, out_buf,
+        sendcount, sendtype,
+        recvcount, recvtype,
+        op, comm, token
+    )
 
     if COPY_TO_HOST:
         # copy back to device

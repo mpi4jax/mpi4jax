@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import xla  # , ad
+from jax.interpreters import xla
 from jax.lib import xla_client
 
 from jax.lax import create_token
@@ -58,8 +58,15 @@ def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
+    rank = comm.Get_rank()
+
     comm = wrap_as_hashable(comm)
-    return mpi_bcast_p.bind(x, token, root=root, comm=comm)
+    res, token = mpi_bcast_p.bind(x, token, root=root, comm=comm)
+
+    if rank == root:
+        return x, token
+
+    return res, token
 
 
 #  This function compiles the operation
@@ -76,6 +83,11 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     # compute total number of elements in array
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
     _dtype_ptr = dtype_ptr(dtype)
+
+    # output is not used on root, so prevent memory allocation
+    rank = comm.Get_rank()
+    if rank == root:
+        dims = (0,)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
@@ -113,6 +125,11 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
     _nitems = _np.prod(dims, dtype=int)
     _dtype_ptr = dtype_ptr(dtype)
 
+    # output is not used on root, so prevent memory allocation
+    rank = comm.Get_rank()
+    if rank == root:
+        dims = (0,)
+
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
@@ -145,25 +162,9 @@ def mpi_bcast_abstract_eval(xs, token, root, comm):
     )
 
 
-# def mpi_bcast_value_and_jvp(in_args, tan_args, root, comm):
-#    x, token = in_args
-#    x_tan, token_tan = tan_args
-#
-#    res = Bcast(x, token=token, dest=dest, comm=comm)
-#
-#    if comm.rank == root:
-#        jvp = (x_tan, token_tan)
-#    else:
-#        jvp = (None, token_tan)
-#
-#    return (res, jvp)
-
-
 mpi_bcast_p.multiple_results = True
 mpi_bcast_p.def_impl(mpi_bcast_impl)
 mpi_bcast_p.def_abstract_eval(mpi_bcast_abstract_eval)
-
-# ad.primitive_jvps[mpi_bcast_p] = mpi_bcast_value_and_jvp
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_bcast_p] = mpi_bcast_xla_encode_cpu
