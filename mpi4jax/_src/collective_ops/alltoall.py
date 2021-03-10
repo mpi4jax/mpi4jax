@@ -40,7 +40,7 @@ def alltoall(
     """Perform an alltoall operation.
 
     Arguments:
-        x: Array or scalar input to send.
+        x: Array input to send. Size must be divisible by the number of processes.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -97,8 +97,10 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
         _nitems_per_proc,
         x,
         _constant_u64_scalar(c, _send_dtype_ptr),
+        # we only support matching input and output arrays
         _nitems_per_proc,
         _constant_u64_scalar(c, _send_dtype_ptr),
+        #
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
     )
@@ -146,8 +148,10 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
     descriptor = build_alltoall_descriptor(
         _nitems_per_proc,
         _send_dtype_ptr,
+        # we only support matching input and output arrays
         _nitems_per_proc,
         _send_dtype_ptr,
+        #
         to_mpi_ptr(comm),
     )
 

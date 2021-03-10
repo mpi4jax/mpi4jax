@@ -54,14 +54,19 @@ def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
     if token is None:
         token = create_token(x)
 
+    rank = comm.Get_rank()
+
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
+    res, token = mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
+
+    if rank != root:
+        return x, token
+
+    return res, token
 
 
 # This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
 def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -76,8 +81,15 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
 
     _dtype_ptr = dtype_ptr(dtype)
 
+    rank = comm.Get_rank()
+    if rank != root:
+        dims = (0,)
+
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+        [
+            xla_client.Shape.array_shape(dtype, dims),
+            xla_client.Shape.token_shape(),
+        ]
     )
 
     return _ops.CustomCall(
@@ -113,8 +125,15 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 
     _dtype_ptr = dtype_ptr(dtype)
 
+    rank = comm.Get_rank()
+    if rank != root:
+        dims = (0,)
+
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+        [
+            xla_client.Shape.array_shape(dtype, dims),
+            xla_client.Shape.token_shape(),
+        ]
     )
 
     descriptor = build_reduce_descriptor(
@@ -139,7 +158,7 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_reduce_abstract_eval(xs, token, op, root, comm, transpose):
+def mpi_reduce_abstract_eval(xs, token, op, root, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         abstract_arrays.abstract_token,

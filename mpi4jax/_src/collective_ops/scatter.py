@@ -33,8 +33,7 @@ mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def scatter(
-    sendbuf,
-    recvbuf,
+    x,
     root,
     comm=_MPI.COMM_WORLD,
     token=None,
@@ -46,10 +45,10 @@ def scatter(
         Unlike mpi4py's scatter, this returns a *new* array with the received data.
 
     Arguments:
-        sendbuf: Array or scalar input to send. Has only meaning on
-           root process.
-        recvbuf: Array or scalar input with the correct shape and dtype. This can
-           contain arbitrary data and will not be overwritten.
+        x: Array or scalar input with the correct shape and dtype. On the root process,
+           this contains the data to send, and its size must be divisible by the number
+           of processes. On non-root processes, this may contain arbitrary data and will
+           not be overwritten.
         root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
@@ -62,36 +61,37 @@ def scatter(
             - A new, modified token, that depends on this operation.
     """
     if token is None:
-        token = create_token(sendbuf)
+        token = create_token(x)
+
+    rank = comm.Get_rank()
+    if rank == root:
+        size = comm.Get_size()
+        if x.shape[0] != size:
+            raise ValueError("Scatter input must have shape (nproc, ...)")
 
     comm = wrap_as_hashable(comm)
 
     return mpi_scatter_p.bind(
-        sendbuf,
-        recvbuf,
-        root,
+        x,
         token,
+        root=root,
         comm=comm,
     )
 
 
 #  This function compiles the operation
-def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
+def mpi_scatter_xla_encode_cpu(c, x, token, root, comm):
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
-    recv_shape = c.GetShape(recvbuf)
-    recv_dtype = recv_shape.element_type()
-    recv_dims = recv_shape.dimensions()
-
-    # compute total number of elements in array
-    _recv_nitems = _constant_s32_scalar(c, _np.prod(recv_dims, dtype=int))
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
-
-    send_shape = c.GetShape(sendbuf)
+    send_shape = c.GetShape(x)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
+
+    rank = comm.Get_rank()
+    if rank == root:
+        send_dims = send_dims[1:]
 
     # compute total number of elements in array
     _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
@@ -99,17 +99,19 @@ def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.array_shape(send_dtype, send_dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
     operands = (
         _send_nitems,
-        sendbuf,
+        x,
         _constant_u64_scalar(c, _send_dtype_ptr),
-        _recv_nitems,
-        _constant_u64_scalar(c, _recv_dtype_ptr),
+        # we only support matching input and output arrays
+        _send_nitems,
+        _constant_u64_scalar(c, _send_dtype_ptr),
+        #
         _constant_s32_scalar(c, root),
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
@@ -124,32 +126,28 @@ def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
     )
 
 
-def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
+def mpi_scatter_xla_encode_gpu(c, x, token, root, comm):
     from ..cython.mpi_xla_bridge_gpu import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
-    recv_shape = c.GetShape(recvbuf)
-    recv_dtype = recv_shape.element_type()
-    recv_dims = recv_shape.dimensions()
-
-    # compute total number of elements in recv array
-    _recv_nitems = _np.prod(recv_dims, dtype=int)
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
-
-    send_shape = c.GetShape(sendbuf)
+    send_shape = c.GetShape(x)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
-    # compute total number of elements in send array
-    _send_nitems = _np.prod(send_dims, dtype=int)
+    rank = comm.Get_rank()
+    if rank == root:
+        send_dims = send_dims[1:]
+
+    # compute total number of elements in array
+    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.array_shape(send_dtype, send_dims),
             xla_client.Shape.token_shape(),
         ]
     )
@@ -157,8 +155,10 @@ def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
     descriptor = build_scatter_descriptor(
         _send_nitems,
         _send_dtype_ptr,
-        _recv_nitems,
-        _recv_dtype_ptr,
+        # we only support matching input and output arrays
+        _send_nitems,
+        _send_dtype_ptr,
+        #
         root,
         to_mpi_ptr(comm),
     )
@@ -167,7 +167,7 @@ def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
         c,
         b"mpi_scatter",
         operands=(
-            sendbuf,
+            x,
             token,
         ),
         shape=sh,
@@ -177,9 +177,16 @@ def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_scatter_abstract_eval(sendbuf, recvbuf, root, token, comm):
+def mpi_scatter_abstract_eval(x, token, root, comm):
+    comm = unpack_hashable(comm)
+    rank = comm.Get_rank()
+    if rank == root:
+        out_shape = x.shape[1:]
+    else:
+        out_shape = x.shape
+
     return (
-        abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
+        abstract_arrays.ShapedArray(out_shape, x.dtype),
         abstract_arrays.abstract_token,
     )
 
