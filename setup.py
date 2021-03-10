@@ -200,6 +200,6 @@ setup(
         write_to="mpi4jax/_version.py",
     ),
     python_requires=">=3.6",
-    install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
+    install_requires=["jax", "jaxlib>=0.1.62", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest", "black", "flake8==3.8.3", "pre-commit>=2"]},
 )
