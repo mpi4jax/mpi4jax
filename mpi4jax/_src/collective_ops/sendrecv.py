@@ -37,7 +37,7 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Sendrecv(
+def sendrecv(
     sendbuf,
     recvbuf,
     source,

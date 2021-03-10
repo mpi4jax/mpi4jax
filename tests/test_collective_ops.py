@@ -31,87 +31,87 @@ print("MPI size = ", size)
 
 
 def test_allreduce():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, token = Allreduce(arr, op=MPI.SUM)
+    res, token = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
 
 def test_allreduce_jit():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
 
 def test_allreduce_scalar():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = 1
     _arr = 1
 
-    res, token = Allreduce(arr, op=MPI.SUM)
+    res, token = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
 
 def test_allreduce_scalar_jit():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = 1
     _arr = 1
 
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
 
 def test_allreduceT():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, _ = Allreduce(arr, op=MPI.SUM, _transpose=True)
+    res, _ = allreduce(arr, op=MPI.SUM, _transpose=True)
     assert jnp.array_equal(_arr, res)
 
 
 def test_allreduceT_jit():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, _ = jax.jit(lambda x: Allreduce(x, op=MPI.SUM, _transpose=True))(arr)
+    res, _ = jax.jit(lambda x: allreduce(x, op=MPI.SUM, _transpose=True))(arr)
     assert jnp.array_equal(_arr, res)
 
 
 def test_allreduce_transpose():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    (res,) = jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(_arr)
+    (res,) = jax.linear_transpose(lambda x: allreduce(x, op=MPI.SUM)[0], arr)(_arr)
     assert jnp.array_equal(_arr, res)
 
 
 def test_allreduce_transpose_jit():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     def f(x):
-        (res,) = jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(x)
+        (res,) = jax.linear_transpose(lambda x: allreduce(x, op=MPI.SUM)[0], arr)(x)
         return res
 
     res = jax.jit(f)(arr)
@@ -120,73 +120,73 @@ def test_allreduce_transpose_jit():
 
 def test_allreduce_transpose2():
     # test transposing twice
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
     _arr2 = arr.copy()
 
     def lt(y):
-        return jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
+        return jax.linear_transpose(lambda x: allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
 
     (res,) = jax.linear_transpose(lt, _arr)(_arr2)
-    expected, _ = Allreduce(_arr2, op=MPI.SUM)
+    expected, _ = allreduce(_arr2, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
 def test_allreduce_transpose2_jit():
     # test transposing twice
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
     _arr2 = arr.copy()
 
     def lt(y):
-        return jax.linear_transpose(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
+        return jax.linear_transpose(lambda x: allreduce(x, op=MPI.SUM)[0], arr)(y)[0]
 
     def f(x):
         (res,) = jax.linear_transpose(lt, _arr)(x)
         return res
 
     res = jax.jit(f)(_arr2)
-    expected, _ = Allreduce(_arr2, op=MPI.SUM)
+    expected, _ = allreduce(_arr2, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
 def test_allreduceT_transpose():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     (res,) = jax.linear_transpose(
-        lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+        lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
     )(_arr)
-    expected, _ = Allreduce(_arr, op=MPI.SUM)
+    expected, _ = allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
 def test_allreduceT_transpose_jit():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     def f(x):
         (res,) = jax.linear_transpose(
-            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+            lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
         )(x)
         return res
 
     res = jax.jit(f)(_arr)
-    expected, _ = Allreduce(_arr, op=MPI.SUM)
+    expected, _ = allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
 def test_allreduceT_transpose2():
     # test transposing twice
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -194,7 +194,7 @@ def test_allreduceT_transpose2():
 
     def lt(y):
         return jax.linear_transpose(
-            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+            lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
         )(y)[0]
 
     (res,) = jax.linear_transpose(lt, _arr)(_arr2)
@@ -203,7 +203,7 @@ def test_allreduceT_transpose2():
 
 def test_allreduceT_transpose2_jit():
     # test transposing twice
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -211,7 +211,7 @@ def test_allreduceT_transpose2_jit():
 
     def lt(y):
         return jax.linear_transpose(
-            lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
+            lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0], arr
         )(y)[0]
 
     def f(x):
@@ -223,25 +223,25 @@ def test_allreduceT_transpose2_jit():
 
 
 def test_allreduce_grad():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, grad = jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())(arr)
+    res, grad = jax.value_and_grad(lambda x: allreduce(x, op=MPI.SUM)[0].sum())(arr)
     assert jnp.array_equal(res, arr.sum() * size)
     assert jnp.array_equal(_arr, grad)
 
     res, grad = jax.jit(
-        jax.value_and_grad(lambda x: Allreduce(x, op=MPI.SUM)[0].sum())
+        jax.value_and_grad(lambda x: allreduce(x, op=MPI.SUM)[0].sum())
     )(arr)
     assert jnp.array_equal(res, arr.sum() * size)
     assert jnp.array_equal(_arr, grad)
 
     def testfun(x):
-        y, token = Allreduce(x, op=MPI.SUM)
+        y, token = allreduce(x, op=MPI.SUM)
         z = x + 2 * y  # noqa: F841
-        res, token2 = Allreduce(x, op=MPI.SUM)
+        res, token2 = allreduce(x, op=MPI.SUM)
         return res.sum()
 
     res, grad = jax.jit(jax.value_and_grad(testfun))(arr)
@@ -250,41 +250,41 @@ def test_allreduce_grad():
 
 
 def test_allreduce_jvp():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, jvp = jax.jvp(lambda x: Allreduce(x, op=MPI.SUM)[0], (arr,), (_arr,))
+    res, jvp = jax.jvp(lambda x: allreduce(x, op=MPI.SUM)[0], (arr,), (_arr,))
 
-    expected, _ = Allreduce(arr, op=MPI.SUM)
+    expected, _ = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
-    expected, _ = Allreduce(_arr, op=MPI.SUM)
+    expected, _ = allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, jvp)
 
 
 def test_allreduce_vjp():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, vjp_fun = jax.vjp(lambda x: Allreduce(x, op=MPI.SUM)[0], arr)
+    res, vjp_fun = jax.vjp(lambda x: allreduce(x, op=MPI.SUM)[0], arr)
     (vjp,) = vjp_fun(_arr)
 
-    expected, _ = Allreduce(arr, op=MPI.SUM)
+    expected, _ = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
     assert jnp.array_equal(_arr, vjp)
 
 
 def test_allreduceT_jvp():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
     res, jvp = jax.jvp(
-        lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0],
+        lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0],
         (arr,),
         (_arr,),
     )
@@ -293,21 +293,21 @@ def test_allreduceT_jvp():
 
 
 def test_allreduceT_vjp():
-    from mpi4jax import Allreduce
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, vjp_fun = jax.vjp(lambda x: Allreduce(x, op=MPI.SUM, _transpose=True)[0], arr)
+    res, vjp_fun = jax.vjp(lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0], arr)
     (vjp,) = vjp_fun(_arr)
 
     assert jnp.array_equal(arr, res)
-    expected, _ = Allreduce(_arr, op=MPI.SUM)
+    expected, _ = allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, vjp)
 
 
 def test_bcast():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -315,14 +315,14 @@ def test_bcast():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = Bcast(_arr, root=0)
+    res, token = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_jit():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -330,14 +330,14 @@ def test_bcast_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: Bcast(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: bcast(x, root=0)[0])(arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_scalar():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = 1
     _arr = 1
@@ -345,14 +345,14 @@ def test_bcast_scalar():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = Bcast(_arr, root=0)
+    res, token = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_scalar_jit():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = 1
     _arr = 1
@@ -360,7 +360,7 @@ def test_bcast_scalar_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: Bcast(x, root=0)[0])(_arr)
+    res = jax.jit(lambda x: bcast(x, root=0)[0])(_arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
@@ -368,53 +368,53 @@ def test_bcast_scalar_jit():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
     if rank == 0:
         for proc in range(1, size):
-            res, token = Recv(arr, source=proc, tag=proc)
+            res, token = recv(arr, source=proc, tag=proc)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
-        Send(arr, 0, tag=rank)
+        send(arr, 0, tag=rank)
         assert jnp.array_equal(_arr, arr)
 
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = 1 * rank
     _arr = 1 * rank
 
     if rank == 0:
         for proc in range(1, size):
-            res, token = Recv(arr, source=proc, tag=proc)
+            res, token = recv(arr, source=proc, tag=proc)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
-        Send(arr, 0, tag=rank)
+        send(arr, 0, tag=rank)
         assert jnp.array_equal(_arr, arr)
 
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_scalar_jit():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = 1 * rank
     _arr = 1 * rank
 
     @jax.jit
     def send_jit(x):
-        Send(x, 0, tag=rank)
+        send(x, 0, tag=rank)
         return x
 
     if rank == 0:
         for proc in range(1, size):
-            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc)[0])(arr)
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc)[0])(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -424,19 +424,19 @@ def test_send_recv_scalar_jit():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_jit():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
     @jax.jit
     def send_jit(x):
-        Send(x, 0, tag=rank)
+        send(x, 0, tag=rank)
         return x
 
     if rank == 0:
         for proc in range(1, size):
-            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc)[0])(arr)
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc)[0])(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -446,19 +446,19 @@ def test_send_recv_jit():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_send_recv_deadlock():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     # this deadlocks without proper token management
     @jax.jit
     def deadlock(arr):
         if rank == 0:
             # send, then receive
-            token = Send(arr, 1)
-            newarr, _ = Recv(arr, 1, token=token)
+            token = send(arr, 1)
+            newarr, _ = recv(arr, 1, token=token)
         else:
             # receive, then send
-            newarr, token = Recv(arr, 0)
-            Send(arr, 0, token=token)
+            newarr, token = recv(arr, 0)
+            send(arr, 0, token=token)
         return newarr
 
     arr = jnp.ones(10) * rank
@@ -468,7 +468,7 @@ def test_send_recv_deadlock():
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_status():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -476,31 +476,31 @@ def test_send_recv_status():
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res, token = Recv(arr, source=proc, tag=proc, status=status)
+            res, token = recv(arr, source=proc, tag=proc, status=status)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
             assert status.Get_source() == proc
     else:
-        Send(arr, 0, tag=rank)
+        send(arr, 0, tag=rank)
         assert jnp.array_equal(_arr, arr)
 
 
 @pytest.mark.skipif(size < 2, reason="need at least 2 processes to test send/recv")
 def test_send_recv_status_jit():
-    from mpi4jax import Recv, Send
+    from mpi4jax import recv, send
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
     @jax.jit
     def send_jit(x):
-        Send(x, 0, tag=rank)
+        send(x, 0, tag=rank)
         return x
 
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res = jax.jit(lambda x: Recv(x, source=proc, tag=proc, status=status)[0])(
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc, status=status)[0])(
                 arr
             )
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
@@ -513,14 +513,14 @@ def test_send_recv_status_jit():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
     other = 1 - rank
 
-    res, token = Sendrecv(arr, arr, source=other, dest=other)
+    res, token = sendrecv(arr, arr, source=other, dest=other)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -528,7 +528,7 @@ def test_sendrecv():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_status():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -536,7 +536,7 @@ def test_sendrecv_status():
     other = 1 - rank
 
     status = MPI.Status()
-    res, token = Sendrecv(arr, arr, source=other, dest=other, status=status)
+    res, token = sendrecv(arr, arr, source=other, dest=other, status=status)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -545,7 +545,7 @@ def test_sendrecv_status():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_status_jit():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -554,7 +554,7 @@ def test_sendrecv_status_jit():
 
     status = MPI.Status()
     res = jax.jit(
-        lambda x, y: Sendrecv(x, y, source=other, dest=other, status=status)[0]
+        lambda x, y: sendrecv(x, y, source=other, dest=other, status=status)[0]
     )(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
@@ -564,14 +564,14 @@ def test_sendrecv_status_jit():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_scalar():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = 1 * rank
     _arr = arr
 
     other = 1 - rank
 
-    res, token = Sendrecv(arr, arr, source=other, dest=other)
+    res, token = sendrecv(arr, arr, source=other, dest=other)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -579,14 +579,14 @@ def test_sendrecv_scalar():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_jit():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
 
     other = 1 - rank
 
-    res = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -594,14 +594,14 @@ def test_sendrecv_jit():
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_scalar_jit():
-    from mpi4jax import Sendrecv
+    from mpi4jax import sendrecv
 
     arr = 1 * rank
     _arr = arr
 
     other = 1 - rank
 
-    res = jax.jit(lambda x, y: Sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -665,7 +665,7 @@ def test_abort_on_error(tmp_path):
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Send
+        from mpi4jax import send
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
@@ -673,7 +673,7 @@ def test_abort_on_error(tmp_path):
         # send to non-existing rank
         @jax.jit
         def send_jit(x):
-            Send(x, dest=100, comm=comm)
+            send(x, dest=100, comm=comm)
 
         send_jit(jnp.ones(10))
     """
@@ -697,14 +697,14 @@ def test_deadlock_on_exit(tmp_path):
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Sendrecv
+        from mpi4jax import sendrecv
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
 
         # sendrecv to self
         jax.jit(
-            lambda x: Sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
+            lambda x: sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
         )(jnp.ones(10))
     """
     )
@@ -714,19 +714,19 @@ def test_deadlock_on_exit(tmp_path):
 
 
 def test_set_debug_logging(capsys):
-    from mpi4jax import Allreduce
-    from mpi4jax.cython.mpi_xla_bridge import set_logging
+    from mpi4jax import allreduce
+    from mpi4jax._src.cython.mpi_xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
     set_logging(True)
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr()
     assert captured.out.startswith(f"r{rank} | MPI_Allreduce with token")
 
     set_logging(False)
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr()

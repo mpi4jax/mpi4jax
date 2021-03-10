@@ -33,7 +33,7 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
+def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
     """Perform an Allreduce operation.
 
     .. note::
