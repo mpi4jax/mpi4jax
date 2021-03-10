@@ -27,21 +27,21 @@ def Allreduce(*args, **kwargs):
     return allreduce(*args, **kwargs)
 
 
-@deprecated_new_name("allreduce")
+@deprecated_new_name("bcast")
 def Bcast(*args, **kwargs):
     return bcast(*args, **kwargs)
 
 
-@deprecated_new_name("allreduce")
+@deprecated_new_name("send")
 def Send(*args, **kwargs):
     return send(*args, **kwargs)
 
 
-@deprecated_new_name("allreduce")
+@deprecated_new_name("recv")
 def Recv(*args, **kwargs):
     return recv(*args, **kwargs)
 
 
-@deprecated_new_name("allreduce")
+@deprecated_new_name("sendrecv")
 def Sendrecv(*args, **kwargs):
     return sendrecv(*args, **kwargs)
