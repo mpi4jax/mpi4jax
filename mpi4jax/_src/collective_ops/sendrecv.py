@@ -20,40 +20,50 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_scatter_p = Primitive("scatter_mpi")  # Create the primitive
-mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
+mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
+mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
-    root=(_np.integer),
+    source=_np.integer,
+    dest=_np.integer,
+    sendtag=_np.integer,
+    recvtag=_np.integer,
     comm=(_MPI.Intracomm, HashableMPIType),
+    status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Scatter(
+def sendrecv(
     sendbuf,
     recvbuf,
-    root,
+    source,
+    dest,
+    sendtag=0,
+    recvtag=_MPI.ANY_TAG,
     comm=_MPI.COMM_WORLD,
+    status=None,
     token=None,
 ):
-    """Perform a Scatter operation.
+    """Perform a sendrecv operation.
 
     .. warning::
 
-        Unlike mpi4py's Scatter, this returns a *new* array with the received data.
+        Unlike mpi4py's sendrecv, this returns a *new* array with the received data.
 
     Arguments:
-        sendbuf: Array or scalar input to send. Has only meaning on
-           root process.
+        sendbuf: Array or scalar input to send.
         recvbuf: Array or scalar input with the correct shape and dtype. This can
            contain arbitrary data and will not be overwritten.
-        root (int): Rank of the root MPI process.
+        source (int): Rank of the source MPI process.
+        dest (int): Rank of the destination MPI process.
+        sendtag (int): Tag of this message for sending.
+        recvtag (int): Tag of this message for receiving.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
+        status (mpi4py.MPI.Status): Status object, can be used for introspection.
         token: XLA token to use to ensure correct execution order. If not given,
             a new token is generated.
 
@@ -67,20 +77,30 @@ def Scatter(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_scatter_p.bind(
+    if status is not None:
+        status = wrap_as_hashable(status)
+
+    return mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        root,
         token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
         comm=comm,
+        status=status,
     )
 
 
 #  This function compiles the operation
-def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
-    warn_missing_omnistaging()
+def mpi_sendrecv_xla_encode_cpu(
+    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
 
     c = _unpack_builder(c)
 
@@ -107,32 +127,43 @@ def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
         ]
     )
 
+    if status is None:
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = to_mpi_ptr(status)
+
     operands = (
         _send_nitems,
         sendbuf,
+        _constant_s32_scalar(c, dest),
+        _constant_s32_scalar(c, sendtag),
         _constant_u64_scalar(c, _send_dtype_ptr),
         _recv_nitems,
+        _constant_s32_scalar(c, source),
+        _constant_s32_scalar(c, recvtag),
         _constant_u64_scalar(c, _recv_dtype_ptr),
-        _constant_s32_scalar(c, root),
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        _constant_u64_scalar(c, _status),
         token,
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_scatter",
+        b"mpi_sendrecv",
         operands=operands,
         shape=sh,
         has_side_effect=True,
     )
 
 
-def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_scatter_descriptor
-
-    warn_missing_omnistaging()
+def mpi_sendrecv_xla_encode_gpu(
+    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
+    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..cython.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
     comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
 
     c = _unpack_builder(c)
 
@@ -159,18 +190,27 @@ def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
         ]
     )
 
-    descriptor = build_scatter_descriptor(
+    if status is None:
+        _status = MPI_STATUS_IGNORE_ADDR
+    else:
+        _status = to_mpi_ptr(status)
+
+    descriptor = build_sendrecv_descriptor(
         _send_nitems,
+        dest,
+        sendtag,
         _send_dtype_ptr,
         _recv_nitems,
+        source,
+        recvtag,
         _recv_dtype_ptr,
-        root,
         to_mpi_ptr(comm),
+        _status,
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_scatter",
+        b"mpi_sendrecv",
         operands=(
             sendbuf,
             token,
@@ -182,17 +222,19 @@ def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_scatter_abstract_eval(sendbuf, recvbuf, root, token, comm):
+def mpi_sendrecv_abstract_eval(
+    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+):
     return (
         abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
         abstract_arrays.abstract_token,
     )
 
 
-mpi_scatter_p.multiple_results = True
-mpi_scatter_p.def_impl(mpi_scatter_impl)
-mpi_scatter_p.def_abstract_eval(mpi_scatter_abstract_eval)
+mpi_sendrecv_p.multiple_results = True
+mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
+mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_scatter_p] = mpi_scatter_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_scatter_p] = mpi_scatter_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode_gpu

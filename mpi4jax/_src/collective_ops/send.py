@@ -4,9 +4,9 @@ from mpi4py import MPI as _MPI
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
+from jax.lax import create_token
 from jax.lib import xla_client
 
-from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
     _constant_s32_scalar,
@@ -20,48 +20,43 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_scan_p = Primitive("scan_mpi")  # Create the primitive
-mpi_scan_impl = default_primitive_impl(mpi_scan_p)
+mpi_send_p = Primitive("send_mpi")  # Create the primitive
+mpi_send_impl = default_primitive_impl(mpi_send_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
-    op=(_MPI.Op, HashableMPIType),
+    dest=_np.integer,
+    tag=_np.integer,
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Scan(x, op, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a Scan operation.
+def send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a send operation.
 
     Arguments:
         x: Array or scalar input to send.
-        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
+        dest (int): Rank of the destination MPI process.
+        tag (int): Tag of this message.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
             a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Result of the scan operation.
-            - A new, modified token, that depends on this operation.
+        Token: A new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)
 
-    op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_scan_p.bind(x, token, op=op, comm=comm)
+    return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
 
 
-# This function compiles the operation
-def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
-    warn_missing_omnistaging()
-
-    op = unpack_hashable(op)
+#  This function compiles the operation
+def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -71,20 +66,19 @@ def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
 
     # compute total number of elements in array
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
-    return _ops.CustomCall(
+    out = _ops.CustomCall(
         c,
-        b"mpi_scan",
+        b"mpi_send",
         operands=(
             _nitems,
             x,
-            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_s32_scalar(c, dest),
+            _constant_s32_scalar(c, tag),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
             token,
@@ -93,13 +87,12 @@ def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
 
-def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
-    from mpi4jax.cython.mpi_xla_bridge_gpu import build_scan_descriptor
 
-    warn_missing_omnistaging()
+def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
+    from ..cython.mpi_xla_bridge_gpu import build_send_descriptor
 
-    op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -109,23 +102,22 @@ def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
 
     # compute total number of elements in array
     _nitems = _np.prod(dims, dtype=int)
-
     _dtype_ptr = dtype_ptr(dtype)
 
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
-    descriptor = build_scan_descriptor(
+    descriptor = build_send_descriptor(
         _nitems,
-        to_mpi_ptr(op),
+        dest,
+        tag,
         to_mpi_ptr(comm),
         _dtype_ptr,
     )
 
-    return _ops.CustomCall(
+    out = _ops.CustomCall(
         c,
-        b"mpi_scan",
+        b"mpi_send",
         operands=(
             x,
             token,
@@ -135,19 +127,17 @@ def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
+
 
 # This function evaluates only the shapes during AST construction
-def mpi_scan_abstract_eval(xs, token, op, comm):
-    return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
-    )
+def mpi_send_abstract_eval(xs, token, dest, tag, comm):
+    return abstract_arrays.abstract_token
 
 
-mpi_scan_p.multiple_results = True
-mpi_scan_p.def_impl(mpi_scan_impl)
-mpi_scan_p.def_abstract_eval(mpi_scan_abstract_eval)
+mpi_send_p.def_impl(mpi_send_impl)
+mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_scan_p] = mpi_scan_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_scan_p] = mpi_scan_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_send_p] = mpi_send_xla_encode_gpu

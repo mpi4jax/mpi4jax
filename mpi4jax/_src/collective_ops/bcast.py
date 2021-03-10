@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_bcast_p = Primitive("bcast_mpi")  # Create the primitive
@@ -33,12 +32,12 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a Bcast (broadcast) operation.
+def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a bcast (broadcast) operation.
 
     .. warning::
 
-        Unlike mpi4py's Bcast, this returns a *new* array with the received data.
+        Unlike mpi4py's bcast, this returns a *new* array with the received data.
 
     Arguments:
         x: Array or scalar input. Data is only read on root process. On non-root
@@ -71,8 +70,6 @@ def Bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
 
 #  This function compiles the operation
 def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
-    warn_missing_omnistaging()
-
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -111,8 +108,6 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
 
 def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
     from ..cython.mpi_xla_bridge_gpu import build_bcast_descriptor
-
-    warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
 

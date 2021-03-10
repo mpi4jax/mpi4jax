@@ -9,7 +9,7 @@ size = comm.Get_size()
 
 
 def test_bcast():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -17,14 +17,14 @@ def test_bcast():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = Bcast(_arr, root=0)
+    res, token = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_jit():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
@@ -32,14 +32,14 @@ def test_bcast_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: Bcast(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: bcast(x, root=0)[0])(arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_scalar():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = 1
     _arr = 1
@@ -47,14 +47,14 @@ def test_bcast_scalar():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = Bcast(_arr, root=0)
+    res, token = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
 
 
 def test_bcast_scalar_jit():
-    from mpi4jax import Bcast
+    from mpi4jax import bcast
 
     arr = 1
     _arr = 1
@@ -62,7 +62,7 @@ def test_bcast_scalar_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: Bcast(x, root=0)[0])(_arr)
+    res = jax.jit(lambda x: bcast(x, root=0)[0])(_arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)

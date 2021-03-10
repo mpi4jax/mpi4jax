@@ -1,27 +1,57 @@
 Communication primitives
 ========================
 
-Allreduce
+allgather
 ---------
 
-.. autofunction:: mpi4jax.Allreduce
+.. autofunction:: mpi4jax.allgather
 
-Bcast
------
+allreduce
+---------
 
-.. autofunction:: mpi4jax.Bcast
+.. autofunction:: mpi4jax.allreduce
 
-Recv
-----
-
-.. autofunction:: mpi4jax.Recv
-
-Send
-----
-
-.. autofunction:: mpi4jax.Send
-
-Sendrecv
+alltoall
 --------
 
-.. autofunction:: mpi4jax.Sendrecv
+.. autofunction:: mpi4jax.alltoall
+
+bcast
+-----
+
+.. autofunction:: mpi4jax.bcast
+
+gather
+------
+
+.. autofunction:: mpi4jax.gather
+
+recv
+----
+
+.. autofunction:: mpi4jax.recv
+
+reduce
+------
+
+.. autofunction:: mpi4jax.reduce
+
+scan
+----
+
+.. autofunction:: mpi4jax.scan
+
+scatter
+-------
+
+.. autofunction:: mpi4jax.scatter
+
+send
+----
+
+.. autofunction:: mpi4jax.send
+
+sendrecv
+--------
+
+.. autofunction:: mpi4jax.sendrecv

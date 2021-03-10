@@ -20,27 +20,24 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
-mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
+mpi_scan_p = Primitive("scan_mpi")  # Create the primitive
+mpi_scan_impl = default_primitive_impl(mpi_scan_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
-    root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a Reduce operation.
+def scan(x, op, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a scan operation.
 
     Arguments:
         x: Array or scalar input to send.
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
-        root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -48,8 +45,7 @@ def Reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
 
     Returns:
         Tuple[DeviceArray, Token]:
-            - Result of the reduce operation on root process, otherwise
-              unmodified input.
+            - Result of the scan operation.
             - A new, modified token, that depends on this operation.
     """
     if token is None:
@@ -57,15 +53,11 @@ def Reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
+    return mpi_scan_p.bind(x, token, op=op, comm=comm)
 
 
 # This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
-def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
-    warn_missing_omnistaging()
-
+def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -85,12 +77,11 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
 
     return _ops.CustomCall(
         c,
-        b"mpi_reduce",
+        b"mpi_scan",
         operands=(
             _nitems,
             x,
             _constant_u64_scalar(c, to_mpi_ptr(op)),
-            _constant_s32_scalar(c, root),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
             token,
@@ -100,10 +91,8 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
     )
 
 
-def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
-    from mpi4jax.cython.mpi_xla_bridge_gpu import build_reduce_descriptor
-
-    warn_missing_omnistaging()
+def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
+    from mpi4jax.cython.mpi_xla_bridge_gpu import build_scan_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -122,17 +111,16 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
-    descriptor = build_reduce_descriptor(
+    descriptor = build_scan_descriptor(
         _nitems,
         to_mpi_ptr(op),
-        root,
         to_mpi_ptr(comm),
         _dtype_ptr,
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_reduce",
+        b"mpi_scan",
         operands=(
             x,
             token,
@@ -144,17 +132,17 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_reduce_abstract_eval(xs, token, op, root, comm, transpose):
+def mpi_scan_abstract_eval(xs, token, op, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         abstract_arrays.abstract_token,
     )
 
 
-mpi_reduce_p.multiple_results = True
-mpi_reduce_p.def_impl(mpi_reduce_impl)
-mpi_reduce_p.def_abstract_eval(mpi_reduce_abstract_eval)
+mpi_scan_p.multiple_results = True
+mpi_scan_p.def_impl(mpi_scan_impl)
+mpi_scan_p.def_abstract_eval(mpi_scan_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_reduce_p] = mpi_reduce_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_reduce_p] = mpi_reduce_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_scan_p] = mpi_scan_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_scan_p] = mpi_scan_xla_encode_gpu

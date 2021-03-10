@@ -4,9 +4,9 @@ from mpi4py import MPI as _MPI
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
-from jax.lax import create_token
 from jax.lib import xla_client
 
+from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
     _constant_s32_scalar,
@@ -20,46 +20,50 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_send_p = Primitive("send_mpi")  # Create the primitive
-mpi_send_impl = default_primitive_impl(mpi_send_p)
+mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
+mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
-    dest=_np.integer,
-    tag=_np.integer,
+    op=(_MPI.Op, HashableMPIType),
+    root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a Send operation.
+def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a reduce operation.
 
     Arguments:
         x: Array or scalar input to send.
-        dest (int): Rank of the destination MPI process.
-        tag (int): Tag of this message.
+        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
+        root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
             a new token is generated.
 
     Returns:
-        Token: A new, modified token, that depends on this operation.
+        Tuple[DeviceArray, Token]:
+            - Result of the reduce operation on root process, otherwise
+              unmodified input.
+            - A new, modified token, that depends on this operation.
     """
     if token is None:
         token = create_token(x)
 
+    op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
+    return mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
 
 
-#  This function compiles the operation
-def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
-    warn_missing_omnistaging()
-
+# This function compiles the operation
+# transpose is a boolean flag that signals whever this is the forward pass
+# performing the MPI reduction, or the transposed pass, which is trivial
+def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
+    op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -69,19 +73,21 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
 
     # compute total number of elements in array
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+
     _dtype_ptr = dtype_ptr(dtype)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
 
-    out = _ops.CustomCall(
+    return _ops.CustomCall(
         c,
-        b"mpi_send",
+        b"mpi_reduce",
         operands=(
             _nitems,
             x,
-            _constant_s32_scalar(c, dest),
-            _constant_s32_scalar(c, tag),
+            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_s32_scalar(c, root),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
             token,
@@ -90,14 +96,11 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
         has_side_effect=True,
     )
 
-    return xla_client.ops.GetTupleElement(out, 0)
 
+def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
+    from mpi4jax.cython.mpi_xla_bridge_gpu import build_reduce_descriptor
 
-def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_send_descriptor
-
-    warn_missing_omnistaging()
-
+    op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -107,22 +110,24 @@ def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
 
     # compute total number of elements in array
     _nitems = _np.prod(dims, dtype=int)
+
     _dtype_ptr = dtype_ptr(dtype)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
 
-    descriptor = build_send_descriptor(
+    descriptor = build_reduce_descriptor(
         _nitems,
-        dest,
-        tag,
+        to_mpi_ptr(op),
+        root,
         to_mpi_ptr(comm),
         _dtype_ptr,
     )
 
-    out = _ops.CustomCall(
+    return _ops.CustomCall(
         c,
-        b"mpi_send",
+        b"mpi_reduce",
         operands=(
             x,
             token,
@@ -132,17 +137,19 @@ def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
         has_side_effect=True,
     )
 
-    return xla_client.ops.GetTupleElement(out, 0)
-
 
 # This function evaluates only the shapes during AST construction
-def mpi_send_abstract_eval(xs, token, dest, tag, comm):
-    return abstract_arrays.abstract_token
+def mpi_reduce_abstract_eval(xs, token, op, root, comm, transpose):
+    return (
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.abstract_token,
+    )
 
 
-mpi_send_p.def_impl(mpi_send_impl)
-mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
+mpi_reduce_p.multiple_results = True
+mpi_reduce_p.def_impl(mpi_reduce_impl)
+mpi_reduce_p.def_abstract_eval(mpi_reduce_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_send_p] = mpi_send_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_reduce_p] = mpi_reduce_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_reduce_p] = mpi_reduce_xla_encode_gpu

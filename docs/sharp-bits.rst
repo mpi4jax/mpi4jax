@@ -8,7 +8,7 @@ Read ahead for some pitfalls, counter-intuitive behavior, and sharp edges that w
 Token management
 ----------------
 
-The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.Send` or :func:`~mpi4jax.Recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
+The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.send` or :func:`~mpi4jax.recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
 
 *Tokens* are JAX's way to ensure that XLA does not re-order statements with side effects by injecting a fake data dependency between them.
 
@@ -17,12 +17,12 @@ This means that you *have* to use proper token management to prevent reordering 
 .. code:: python
 
     # DO NOT DO THIS
-    mpi4jax.Send(arr, comm=comm)
-    new_arr, _ = mpi4jax.Recv(arr, comm=comm)
+    mpi4jax.send(arr, comm=comm)
+    new_arr, _ = mpi4jax.recv(arr, comm=comm)
 
     # INSTEAD, DO THIS
-    token = mpi4jax.Send(arr, comm=comm)
-    new_arr, token = mpi4jax.Recv(arr, comm=comm, token=token)
+    token = mpi4jax.send(arr, comm=comm)
+    new_arr, token = mpi4jax.recv(arr, comm=comm, token=token)
 
 Those functions will then be executed in the same order as the sequence of tokens, from first to last.
 
@@ -30,7 +30,7 @@ Those functions will then be executed in the same order as the sequence of token
 No in-place operations in JAX
 -----------------------------
 
-JAX arrays are immutable, which means that functions cannot modify their input arguments. Therefore, unlike in ``mpi4py``, operations like :func:`mpi4jax.Recv` use their first argument only to determine the correct shape and dtype of the output, but do not populate it with data.
+JAX arrays are immutable, which means that functions cannot modify their input arguments. Therefore, unlike in ``mpi4py``, operations like :func:`mpi4jax.recv` use their first argument only to determine the correct shape and dtype of the output, but do not populate it with data.
 
 This means that you *cannot* do:
 
@@ -38,16 +38,16 @@ This means that you *cannot* do:
 
     # DO NOT DO THIS
     recv_arr = jnp.zeros((10, 10))
-    mpi4jax.Recv(recv_arr, comm=comm)
+    mpi4jax.recv(recv_arr, comm=comm)
     # recv_arr still only contains 0
 
-Instead, you need to use the returned array from :func:`mpi4jax.Recv`:
+Instead, you need to use the returned array from :func:`mpi4jax.recv`:
 
 .. code:: python
 
     # INSTEAD, DO THIS
     recv_arr = jnp.zeros((10, 10))
-    recv_arr, _ = mpi4jax.Recv(recv_arr, comm=comm)
+    recv_arr, _ = mpi4jax.recv(recv_arr, comm=comm)
 
 .. _gpu-usage:
 
@@ -97,13 +97,13 @@ Consider the following example, where one process sends some Python data via ``m
     arr_jax = jnp.zeros((10, 10))
 
     if rank == 0:
-        mpi4jax.Send(arr_jax, comm=comm)
-        comm.Send(arr_np)
+        mpi4jax.send(arr_jax, comm=comm)
+        comm.send(arr_np)
     else:
-        arr_jax = mpi4jax.Recv(arr_jax, comm=comm)
-        arr = comm.Recv(arr_np)
+        arr_jax = mpi4jax.recv(arr_jax, comm=comm)
+        arr = comm.recv(arr_np)
 
-Because everything is lazily executed in JAX, we cannot rely on a particular execution order. Specifically, we don't know whether the function ``mpi4jax.Send`` wille be executed before or after the ``comm.Send`` call. In the worst case, this creates a deadlock.
+Because everything is lazily executed in JAX, we cannot rely on a particular execution order. Specifically, we don't know whether the function ``mpi4jax.send`` wille be executed before or after the ``comm.send`` call. In the worst case, this creates a deadlock.
 
 The simplest solution is therefore to stick to *either* ``mpi4py`` *or* ``mpi4jax``. But if you have to use both, make sure that they use different communicators:
 
@@ -127,10 +127,10 @@ The simplest solution is therefore to stick to *either* ``mpi4py`` *or* ``mpi4ja
     arr_jax = jnp.zeros((10, 10))
 
     if rank == 0:
-        mpi4jax.Send(arr_jax, comm=comm_jax)
-        comm.Send(arr_np)
+        mpi4jax.send(arr_jax, comm=comm_jax)
+        comm.send(arr_np)
     else:
-        arr_jax = mpi4jax.Recv(arr_jax, comm=comm_jax)
-        arr = comm.Recv(arr_np)
+        arr_jax = mpi4jax.recv(arr_jax, comm=comm_jax)
+        arr = comm.recv(arr_np)
 
     comm_jax.Free()

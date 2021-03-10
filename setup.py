@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
 try:
@@ -9,6 +9,9 @@ except ImportError:
     HAS_CYTHON = False
 else:
     HAS_CYTHON = True
+
+CYTHON_SUBMODULE_NAME = "mpi4jax._src.cython"
+CYTHON_SUBMODULE_PATH = "mpi4jax/_src/cython"
 
 
 #######
@@ -143,8 +146,8 @@ def get_extensions():
 
     extensions = [
         Extension(
-            name=f"mpi4jax.cython.{mod}",
-            sources=[f"mpi4jax/cython/{mod}.{ext_suffix}"],
+            name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
+            sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.{ext_suffix}"],
             include_dirs=mpi_info("compile"),
             library_dirs=mpi_info("libdirs"),
             libraries=mpi_info("libs"),
@@ -156,8 +159,8 @@ def get_extensions():
     if cuda_info("compile"):
         extensions.append(
             Extension(
-                name="mpi4jax.cython.mpi_xla_bridge_gpu",
-                sources=[f"mpi4jax/cython/mpi_xla_bridge_gpu.{ext_suffix}"],
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu.{ext_suffix}"],
                 include_dirs=mpi_info("compile") + cuda_info("compile"),
                 library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
                 libraries=mpi_info("libs") + cuda_info("libs"),
@@ -194,12 +197,12 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
+    packages=find_packages(),
     ext_modules=get_extensions(),
     use_scm_version=dict(
         write_to="mpi4jax/_version.py",
     ),
     python_requires=">=3.6",
-    install_requires=["jax", "jaxlib>=0.1.55", "mpi4py>=3.0.1", "numpy"],
+    install_requires=["jax", "jaxlib>=0.1.62", "mpi4py>=3.0.1", "numpy"],
     extras_require={"dev": ["pytest", "black", "flake8==3.8.3", "pre-commit>=2"]},
 )

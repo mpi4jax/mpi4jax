@@ -9,11 +9,11 @@ size = comm.Get_size()
 
 
 def test_gather():
-    from mpi4jax import Gather
+    from mpi4jax import gather
 
     arr = jnp.ones((3, 2)) * rank
 
-    res, _ = Gather(arr, root=0)
+    res, _ = gather(arr, root=0)
     if rank == 0:
         for p in range(size):
             assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
@@ -22,11 +22,11 @@ def test_gather():
 
 
 def test_gather_jit():
-    from mpi4jax import Gather
+    from mpi4jax import gather
 
     arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: Gather(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: gather(x, root=0)[0])(arr)
     if rank == 0:
         for p in range(size):
             assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
@@ -35,10 +35,10 @@ def test_gather_jit():
 
 
 def test_gather_scalar():
-    from mpi4jax import Gather
+    from mpi4jax import gather
 
     arr = rank
-    res, _ = Gather(arr, root=0)
+    res, _ = gather(arr, root=0)
     if rank == 0:
         assert jnp.array_equal(res, jnp.arange(size))
     else:
@@ -46,10 +46,10 @@ def test_gather_scalar():
 
 
 def test_gather_scalar_jit():
-    from mpi4jax import Gather
+    from mpi4jax import gather
 
     arr = rank
-    res = jax.jit(lambda x: Gather(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: gather(x, root=0)[0])(arr)
     if rank == 0:
         assert jnp.array_equal(res, jnp.arange(size))
     else:

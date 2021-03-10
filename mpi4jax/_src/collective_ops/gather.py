@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_gather_p = Primitive("gather_mpi")  # Create the primitive
@@ -33,13 +32,13 @@ mpi_gather_impl = default_primitive_impl(mpi_gather_p)
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Gather(
+def gather(
     x,
     root,
     comm=_MPI.COMM_WORLD,
     token=None,
 ):
-    """Perform a Gather operation.
+    """Perform a gather operation.
 
     .. warning::
 
@@ -85,8 +84,6 @@ def Gather(
 
 #  This function compiles the operation
 def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
-    warn_missing_omnistaging()
-
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -137,8 +134,6 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
 
 def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
     from ..cython.mpi_xla_bridge_gpu import build_gather_descriptor
-
-    warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
 

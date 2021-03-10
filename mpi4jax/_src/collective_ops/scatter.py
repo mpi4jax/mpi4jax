@@ -20,27 +20,37 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
-mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
+mpi_scatter_p = Primitive("scatter_mpi")  # Create the primitive
+mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
+    root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Alltoall(
-    x,
+def scatter(
+    sendbuf,
+    recvbuf,
+    root,
     comm=_MPI.COMM_WORLD,
     token=None,
 ):
-    """Perform an Alltoall operation.
+    """Perform a scatter operation.
+
+    .. warning::
+
+        Unlike mpi4py's scatter, this returns a *new* array with the received data.
 
     Arguments:
-        x: Array or scalar input to send.
+        sendbuf: Array or scalar input to send. Has only meaning on
+           root process.
+        recvbuf: Array or scalar input with the correct shape and dtype. This can
+           contain arbitrary data and will not be overwritten.
+        root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -52,78 +62,84 @@ def Alltoall(
             - A new, modified token, that depends on this operation.
     """
     if token is None:
-        token = create_token(x)
+        token = create_token(sendbuf)
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_alltoall_p.bind(
-        x,
+    return mpi_scatter_p.bind(
+        sendbuf,
+        recvbuf,
+        root,
         token,
         comm=comm,
     )
 
 
 #  This function compiles the operation
-def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
-    warn_missing_omnistaging()
-
+def mpi_scatter_xla_encode_cpu(c, sendbuf, recvbuf, root, token, comm):
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
+    recv_shape = c.GetShape(recvbuf)
+    recv_dtype = recv_shape.element_type()
+    recv_dims = recv_shape.dimensions()
+
+    # compute total number of elements in array
+    _recv_nitems = _constant_s32_scalar(c, _np.prod(recv_dims, dtype=int))
+    _recv_dtype_ptr = dtype_ptr(recv_dtype)
+
+    send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _np.prod(send_dims, dtype=int)
+    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(recv_dtype, recv_dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
-    size = comm.Get_size()
-    if _send_nitems % size != 0:
-        raise ValueError(
-            f"Size of input array to be sent ({_send_nitems}) must be divisible "
-            f"by number of processes ({size})."
-        )
-
-    _nitems_per_proc = _constant_s32_scalar(c, _send_nitems // size)
-
     operands = (
-        _nitems_per_proc,
-        x,
+        _send_nitems,
+        sendbuf,
         _constant_u64_scalar(c, _send_dtype_ptr),
-        _nitems_per_proc,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        _recv_nitems,
+        _constant_u64_scalar(c, _recv_dtype_ptr),
+        _constant_s32_scalar(c, root),
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_alltoall",
+        b"mpi_scatter",
         operands=operands,
         shape=sh,
         has_side_effect=True,
     )
 
 
-def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_alltoall_descriptor
-
-    warn_missing_omnistaging()
+def mpi_scatter_xla_encode_gpu(c, sendbuf, recvbuf, root, token, comm):
+    from ..cython.mpi_xla_bridge_gpu import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
+    recv_shape = c.GetShape(recvbuf)
+    recv_dtype = recv_shape.element_type()
+    recv_dims = recv_shape.dimensions()
+
+    # compute total number of elements in recv array
+    _recv_nitems = _np.prod(recv_dims, dtype=int)
+    _recv_dtype_ptr = dtype_ptr(recv_dtype)
+
+    send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
@@ -133,33 +149,25 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(recv_dtype, recv_dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
-    size = comm.Get_size()
-    if _send_nitems % size != 0:
-        raise ValueError(
-            f"Size of input array to be sent ({_send_nitems}) must be divisible "
-            f"by number of processes ({size})."
-        )
-
-    _nitems_per_proc = _send_nitems // size
-
-    descriptor = build_alltoall_descriptor(
-        _nitems_per_proc,
+    descriptor = build_scatter_descriptor(
+        _send_nitems,
         _send_dtype_ptr,
-        _nitems_per_proc,
-        _send_dtype_ptr,
+        _recv_nitems,
+        _recv_dtype_ptr,
+        root,
         to_mpi_ptr(comm),
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_alltoall",
+        b"mpi_scatter",
         operands=(
-            x,
+            sendbuf,
             token,
         ),
         shape=sh,
@@ -169,17 +177,17 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_alltoall_abstract_eval(xs, token, comm):
+def mpi_scatter_abstract_eval(sendbuf, recvbuf, root, token, comm):
     return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
         abstract_arrays.abstract_token,
     )
 
 
-mpi_alltoall_p.multiple_results = True
-mpi_alltoall_p.def_impl(mpi_alltoall_impl)
-mpi_alltoall_p.def_abstract_eval(mpi_alltoall_abstract_eval)
+mpi_scatter_p.multiple_results = True
+mpi_scatter_p.def_impl(mpi_scatter_impl)
+mpi_scatter_p.def_abstract_eval(mpi_scatter_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_alltoall_p] = mpi_alltoall_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_alltoall_p] = mpi_alltoall_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_scatter_p] = mpi_scatter_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_scatter_p] = mpi_scatter_xla_encode_gpu

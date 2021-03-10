@@ -68,7 +68,7 @@ def test_abort_on_error(tmp_path):
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Send
+        from mpi4jax import send
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
@@ -76,7 +76,7 @@ def test_abort_on_error(tmp_path):
         # send to non-existing rank
         @jax.jit
         def send_jit(x):
-            Send(x, dest=100, comm=comm)
+            send(x, dest=100, comm=comm)
 
         send_jit(jnp.ones(10))
     """
@@ -100,14 +100,14 @@ def test_deadlock_on_exit(tmp_path):
         import jax.numpy as jnp
 
         from mpi4py import MPI
-        from mpi4jax import Sendrecv
+        from mpi4jax import sendrecv
 
         comm = MPI.COMM_WORLD
         assert comm.Get_size() == 1
 
         # sendrecv to self
         jax.jit(
-            lambda x: Sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
+            lambda x: sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
         )(jnp.ones(10))
     """
     )
@@ -117,19 +117,19 @@ def test_deadlock_on_exit(tmp_path):
 
 
 def test_set_debug_logging(capsys):
-    from mpi4jax import Allreduce
-    from mpi4jax.cython.mpi_xla_bridge import set_logging
+    from mpi4jax import allreduce
+    from mpi4jax._src.cython.mpi_xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
     set_logging(True)
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr()
     assert captured.out == f"r{rank} | MPI_Allreduce with {arr.size} items\n"
 
     set_logging(False)
-    res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr()

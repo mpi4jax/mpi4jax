@@ -45,7 +45,7 @@ Example usage
    @jax.jit
    def foo(arr):
       arr = arr + rank
-      arr_sum, _ = mpi4jax.Allreduce(arr, op=MPI.SUM, comm=comm)
+      arr_sum, _ = mpi4jax.allreduce(arr, op=MPI.SUM, comm=comm)
       return arr_sum
 
    a = jnp.zeros((3, 3))
@@ -63,7 +63,7 @@ Running this script on 4 processes gives:
     [6. 6. 6.]
     [6. 6. 6.]]
 
-``Allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here. <https://mpi4jax.readthedocs.org/en/latest/api.html>`_
+``allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here. <https://mpi4jax.readthedocs.org/en/latest/api.html>`_
 
 
 Contributing

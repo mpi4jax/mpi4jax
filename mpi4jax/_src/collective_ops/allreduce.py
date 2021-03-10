@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -33,8 +32,8 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
-    """Perform an Allreduce operation.
+def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
+    """Perform an allreduce operation.
 
     .. note::
 
@@ -59,7 +58,7 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
 
     # The extra argument _transpose is an implementation detail. It is used to
     # keep track of whever we are computing the forward or transposition of
-    # Allreduce, because we are 'cheating' and not performing MPI operations
+    # allreduce, because we are 'cheating' and not performing MPI operations
     # on the tranposed (even though, in principle, we should) in order
     # to be more efficient.
 
@@ -75,8 +74,6 @@ def Allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
-    warn_missing_omnistaging()
-
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -97,7 +94,7 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     if transpose:
         if op != _MPI.SUM:
             raise NotImplementedError(
-                "The linear transpose of Allreduce for {} is not defined".format(op)
+                "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
         return _ops.Tuple(c, [x, token])
@@ -120,8 +117,6 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
 
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     from mpi4jax.cython.mpi_xla_bridge_gpu import build_allreduce_descriptor
-
-    warn_missing_omnistaging()
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -150,7 +145,7 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     if transpose:
         if op != _MPI.SUM:
             raise NotImplementedError(
-                "The linear transpose of Allreduce for {} is not defined".format(op)
+                "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
         return _ops.Tuple(c, [x, token])
