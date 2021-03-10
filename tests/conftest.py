@@ -4,7 +4,8 @@ def pytest_report_header(config):
     comm = MPI.COMM_WORLD
     return [
         f"MPI vendor: {MPI.get_vendor()}",
-        f"MPI rank: {comm.Get_rank()}/{comm.Get_size()}",
+        f"MPI rank: {comm.Get_rank()}",
+        f"MPI size: {comm.Get_size()}",
     ]
 
 

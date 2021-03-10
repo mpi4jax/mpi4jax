@@ -35,6 +35,6 @@ def test_alltoall_wrong_size():
 
     arr = jnp.ones((size + 1,)) * rank
     with pytest.raises(ValueError) as excinfo:
-        res, _ = alltoall(arr)
+        alltoall(arr)
 
     assert "must be divisible by number of processes" in str(excinfo.value)
