@@ -112,7 +112,6 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -153,7 +152,7 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
         in_buf, out_buf,
         sendcount, sendtype,
         recvcount, recvtype,
-        op, comm, token
+        op, comm
     )
 
     if COPY_TO_HOST:
@@ -161,8 +160,6 @@ cdef void mpi_allgather(cudaStream_t* stream, void** buffers,
         checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Allreduce
@@ -188,7 +185,6 @@ cdef void mpi_allreduce(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -214,15 +210,13 @@ cdef void mpi_allreduce(cudaStream_t* stream, void** buffers,
         out_buf = checked_malloc(count)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_allreduce(in_buf, out_buf, nitems, dtype, op, comm, token)
+    mpi_xla_bridge.mpi_allreduce(in_buf, out_buf, nitems, dtype, op, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Alltoall
@@ -255,7 +249,6 @@ cdef void mpi_alltoall(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -288,15 +281,13 @@ cdef void mpi_alltoall(cudaStream_t* stream, void** buffers,
 
         checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_alltoall(in_buf, out_buf, sendcount, dtype, op, comm, token)
+    mpi_xla_bridge.mpi_alltoall(in_buf, out_buf, sendcount, dtype, op, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Bcast
@@ -322,7 +313,6 @@ cdef void mpi_bcast(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* buf = out_data
@@ -353,14 +343,12 @@ cdef void mpi_bcast(cudaStream_t* stream, void** buffers,
         if rank == root:
             checked_cuda_memcpy(buf, data, count, cudaMemcpyDeviceToDevice)
 
-    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm, token)
+    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, buf, count, cudaMemcpyHostToDevice)
         free(buf)
-
-    buffers[3] = token
 
 
 # Gather
@@ -394,7 +382,6 @@ cdef void mpi_gather(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -428,15 +415,13 @@ cdef void mpi_gather(cudaStream_t* stream, void** buffers,
 
         checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_gather(in_buf, out_buf, sendcount, dtype, op, root, comm, token)
+    mpi_xla_bridge.mpi_gather(in_buf, out_buf, sendcount, dtype, op, root, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Recv
@@ -464,7 +449,6 @@ cdef void mpi_recv(cudaStream_t* stream, void** buffers,
     cdef size_t count
 
     #decode inputs
-    cdef void* token = buffers[0]
     cdef void* out_buf = buffers[1]
 
     cdef void* recvbuf = out_buf
@@ -489,13 +473,11 @@ cdef void mpi_recv(cudaStream_t* stream, void** buffers,
         count = dtype_size * nitems
         recvbuf = checked_malloc(count)
 
-    mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status, token)
+    mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status)
 
     if COPY_TO_HOST:
         checked_cuda_memcpy(out_buf, recvbuf, count, cudaMemcpyHostToDevice)
         free(recvbuf)
-
-    buffers[2] = token
 
 
 # Reduce
@@ -522,7 +504,6 @@ cdef void mpi_reduce(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -549,15 +530,13 @@ cdef void mpi_reduce(cudaStream_t* stream, void** buffers,
         out_buf = checked_malloc(count)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_reduce(in_buf, out_buf, nitems, dtype, op, root, comm, token)
+    mpi_xla_bridge.mpi_reduce(in_buf, out_buf, nitems, dtype, op, root, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Scan
@@ -583,7 +562,6 @@ cdef void mpi_scan(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -609,15 +587,13 @@ cdef void mpi_scan(cudaStream_t* stream, void** buffers,
         out_buf = checked_malloc(count)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_scan(in_buf, out_buf, nitems, dtype, op, comm, token)
+    mpi_xla_bridge.mpi_scan(in_buf, out_buf, nitems, dtype, op, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Scatter
@@ -651,7 +627,6 @@ cdef void mpi_scatter(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_data = buffers[2]
 
     cdef void* in_buf = data
@@ -685,15 +660,13 @@ cdef void mpi_scatter(cudaStream_t* stream, void** buffers,
 
         checked_cuda_memcpy(in_buf, data, sendcount, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_scatter(in_buf, out_buf, sendcount, dtype, op, root, comm, token)
+    mpi_xla_bridge.mpi_scatter(in_buf, out_buf, sendcount, dtype, op, root, comm)
 
     if COPY_TO_HOST:
         # copy back to device
         checked_cuda_memcpy(out_data, out_buf, recvcount, cudaMemcpyHostToDevice)
         free(in_buf)
         free(out_buf)
-
-    buffers[3] = token
 
 
 # Send
@@ -720,7 +693,6 @@ cdef void mpi_send(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* data = buffers[0]
-    cdef void* token = buffers[1]
 
     cdef void* sendbuf = data
 
@@ -744,12 +716,10 @@ cdef void mpi_send(cudaStream_t* stream, void** buffers,
         sendbuf = checked_malloc(count)
         checked_cuda_memcpy(sendbuf, data, count, cudaMemcpyDeviceToHost)
 
-    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm, token)
+    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm)
 
     if COPY_TO_HOST:
         free(sendbuf)
-
-    buffers[2] = token
 
 
 # Sendrecv
@@ -785,7 +755,6 @@ cdef void mpi_sendrecv(cudaStream_t* stream, void** buffers,
 
     #decode inputs
     cdef void* in_buf = buffers[0]
-    cdef void* token = buffers[1]
     cdef void* out_buf = buffers[2]
 
     cdef void* sendbuf = in_buf
@@ -824,14 +793,12 @@ cdef void mpi_sendrecv(cudaStream_t* stream, void** buffers,
     mpi_xla_bridge.mpi_sendrecv(
         sendbuf, sendcount, sendtype, dest, sendtag,
         recvbuf, recvcount, recvtype, source, recvtag,
-        comm, status, token
+        comm, status
     )
 
     if COPY_TO_HOST:
         checked_cuda_memcpy(out_buf, recvbuf, bytes_recv, cudaMemcpyHostToDevice)
         free(recvbuf)
-
-    buffers[3] = token
 
 
 gpu_custom_call_targets = {}

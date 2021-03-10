@@ -65,12 +65,12 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
 
 cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
                         void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                        MPI_Comm comm, void* token) nogil:
+                        MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Allgather with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Allgather sending {sendcount}, receiving {recvcount} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm)
@@ -78,12 +78,12 @@ cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
 
 
 cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
-                        MPI_Datatype dtype, MPI_Op op, MPI_Comm comm, void* token) nogil:
+                        MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Allreduce with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Allreduce with {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Allreduce(sendbuf, recvbuf, nitems, dtype, op, comm)
@@ -92,12 +92,12 @@ cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
 
 cdef void mpi_alltoall(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                       MPI_Comm comm, void* token) nogil:
+                       MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Alltoall with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Alltoall sending {sendcount}, receiving {recvcount} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm)
@@ -105,12 +105,12 @@ cdef void mpi_alltoall(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
 
 
 cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
-                   int32_t root, MPI_Comm comm, void* token) nogil:
+                   int32_t root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Bcast -> {root} with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Bcast -> {root} with {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Bcast(sendrecvbuf, nitems, dtype, root, comm)
@@ -119,12 +119,12 @@ cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
 
 cdef void mpi_gather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
                      void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                     int32_t root, MPI_Comm comm, void* token) nogil:
+                     int32_t root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Gather -> {root} with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Gather -> {root} sending {sendcount}, receiving {recvcount} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm)
@@ -132,12 +132,12 @@ cdef void mpi_gather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
 
 
 cdef void mpi_recv(void* recvbuf, int32_t nitems, MPI_Datatype dtype, int32_t source,
-                   int32_t tag, MPI_Comm comm, MPI_Status* status, void* token) nogil:
+                   int32_t tag, MPI_Comm comm, MPI_Status* status) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Recv <- {source} with tag {tag} and token {<uint64_t> token:x}", comm)
+            print_debug(f"MPI_Recv <- {source} with tag {tag} and {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Recv(recvbuf, nitems, dtype, source, tag, comm, status)
@@ -146,12 +146,12 @@ cdef void mpi_recv(void* recvbuf, int32_t nitems, MPI_Datatype dtype, int32_t so
 
 cdef void mpi_reduce(void* sendbuf, void* recvbuf, int32_t nitems,
                      MPI_Datatype dtype, MPI_Op op, int32_t root,
-                     MPI_Comm comm, void* token) nogil:
+                     MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Reduce -> {root} with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Reduce -> {root} with {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Reduce(sendbuf, recvbuf, nitems, dtype, op, root, comm)
@@ -159,12 +159,12 @@ cdef void mpi_reduce(void* sendbuf, void* recvbuf, int32_t nitems,
 
 
 cdef void mpi_scan(void* sendbuf, void* recvbuf, int32_t nitems,
-                   MPI_Datatype dtype, MPI_Op op, MPI_Comm comm, void* token) nogil:
+                   MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Scan with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Scan with {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Scan(sendbuf, recvbuf, nitems, dtype, op, comm)
@@ -173,12 +173,12 @@ cdef void mpi_scan(void* sendbuf, void* recvbuf, int32_t nitems,
 
 cdef void mpi_scatter(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
                       void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                      int32_t root, MPI_Comm comm, void* token) nogil:
+                      int32_t root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Scatter -> {root} with token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Scatter -> {root} sending {sendcount}, receiving {recvcount} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Scatter(
@@ -190,12 +190,12 @@ cdef void mpi_scatter(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
 
 
 cdef void mpi_send(void* sendbuf, int32_t nitems, MPI_Datatype dtype,
-                   int32_t destination, int32_t tag, MPI_Comm comm, void* token) nogil:
+                   int32_t destination, int32_t tag, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Send -> {destination} with tag {tag} and token {<uint64_t>token:x}", comm)
+            print_debug(f"MPI_Send -> {destination} with tag {tag} and {nitems} items", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Send(sendbuf, nitems, dtype, destination, tag, comm)
@@ -204,14 +204,14 @@ cdef void mpi_send(void* sendbuf, int32_t nitems, MPI_Datatype dtype,
 
 cdef void mpi_sendrecv(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype, int32_t dest, int32_t sendtag,
                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype, int32_t source, int32_t recvtag,
-                       MPI_Comm comm, MPI_Status* status, void* token) nogil:
+                       MPI_Comm comm, MPI_Status* status) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
             print_debug(
-                f"MPI_Sendrecv <- {source} (tag {recvtag}) / -> {dest} (tag {sendtag}) "
-                f"with token {<uint64_t>token:x}", comm
+                f"MPI_Sendrecv <- {source} (tag {recvtag}, {recvcount} items) / "
+                f"-> {dest} (tag {sendtag}, {sendcount} items) ", comm
             )
 
     # MPI Call

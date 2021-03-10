@@ -126,7 +126,7 @@ def test_set_debug_logging(capsys):
     res.block_until_ready()
 
     captured = capsys.readouterr()
-    assert captured.out.startswith(f"r{rank} | MPI_Allreduce with token")
+    assert captured.out == f"r{rank} | MPI_Allreduce with {arr.size} items\n"
 
     set_logging(False)
     res = jax.jit(lambda x: Allreduce(x, op=MPI.SUM)[0])(arr)

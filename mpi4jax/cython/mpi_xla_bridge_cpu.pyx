@@ -24,13 +24,11 @@ cdef void mpi_allgather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t recvcount = (<int32_t*>(data_ptr[3]))[0]
     cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_allgather(
-        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_allreduce_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -39,13 +37,11 @@ cdef void mpi_allreduce_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Op op = <MPI_Op>((<uint64_t*>(data_ptr[2]))[0])
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
-    cdef void* token = data_ptr[5]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_allreduce(
-        sendbuf, recvbuf, nitems, dtype, op, comm, token
+        sendbuf, recvbuf, nitems, dtype, op, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_alltoall_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -55,13 +51,11 @@ cdef void mpi_alltoall_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t recvcount = (<int32_t*>(data_ptr[3]))[0]
     cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_alltoall(
-        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_bcast_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -70,7 +64,6 @@ cdef void mpi_bcast_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t root = (<int32_t*>(data_ptr[2]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
-    cdef void* token = data_ptr[5]
 
     cdef void* recvbuf = out_ptr[0]
 
@@ -84,8 +77,7 @@ cdef void mpi_bcast_cpu(void** out_ptr, void** data_ptr) nogil:
     else:
         buf = recvbuf
 
-    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm, token)
-    out_ptr[1] = token
+    mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm)
 
 
 cdef void mpi_gather_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -96,15 +88,13 @@ cdef void mpi_gather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
     cdef int32_t root = (<int32_t*>(data_ptr[5]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[6]))[0])
-    cdef void* token = data_ptr[7]
 
     cdef void* recvbuf = out_ptr[0]
 
     mpi_xla_bridge.mpi_gather(
-        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm
     )
 
-    out_ptr[1] = token
 
 
 cdef void mpi_recv_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -114,11 +104,9 @@ cdef void mpi_recv_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
     cdef MPI_Status* status = <MPI_Status*>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
 
     cdef void* recvbuf = out_ptr[0]
-    mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status, token)
-    out_ptr[1] = token
+    mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status)
 
 
 cdef void mpi_reduce_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -128,13 +116,11 @@ cdef void mpi_reduce_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t root = (<int32_t*>(data_ptr[3]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[4]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_reduce(
-        sendbuf, recvbuf, nitems, dtype, op, root, comm, token
+        sendbuf, recvbuf, nitems, dtype, op, root, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_scan_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -143,13 +129,11 @@ cdef void mpi_scan_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Op op = <MPI_Op>((<uint64_t*>(data_ptr[2]))[0])
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[3]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
-    cdef void* token = data_ptr[5]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_scan(
-        sendbuf, recvbuf, nitems, dtype, op, comm, token
+        sendbuf, recvbuf, nitems, dtype, op, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_scatter_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -160,13 +144,11 @@ cdef void mpi_scatter_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Datatype recvtype = <MPI_Datatype>((<uint64_t*>(data_ptr[4]))[0])
     cdef int32_t root = (<int32_t*>(data_ptr[5]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[6]))[0])
-    cdef void* token = data_ptr[7]
 
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_scatter(
-        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm, token
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm
     )
-    out_ptr[1] = token
 
 
 cdef void mpi_send_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -176,10 +158,8 @@ cdef void mpi_send_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int32_t tag = (<int32_t*>(data_ptr[3]))[0]
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[4]))[0])
     cdef MPI_Datatype dtype = <MPI_Datatype>((<uint64_t*>(data_ptr[5]))[0])
-    cdef void* token = data_ptr[6]
 
-    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, destination, tag, comm, token)
-    out_ptr[0] = token
+    mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, destination, tag, comm)
 
 
 cdef void mpi_sendrecv_cpu(void** out_ptr, void** data_ptr) nogil:
@@ -197,15 +177,12 @@ cdef void mpi_sendrecv_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Comm comm = <MPI_Comm>((<uint64_t*>(data_ptr[9]))[0])
     cdef MPI_Status* status = <MPI_Status*>((<uint64_t*>(data_ptr[10]))[0])
 
-    cdef void* token = data_ptr[11]
-
     cdef void* recvbuf = out_ptr[0]
     mpi_xla_bridge.mpi_sendrecv(
         sendbuf, sendcount, sendtype, dest, sendtag,
         recvbuf, recvcount, recvtype, source, recvtag,
-        comm, status, token
+        comm, status
     )
-    out_ptr[1] = token
 
 
 cpu_custom_call_targets = {}

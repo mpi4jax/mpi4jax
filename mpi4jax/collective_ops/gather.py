@@ -45,6 +45,12 @@ def Gather(
 
        ``x`` must have the same shape and dtype on all processes.
 
+    .. warning::
+
+        The shape of the returned data varies between ranks. On the root process,
+        it is ``(nproc, *input_shape)``. On all other processes the output is
+        identical to the input.
+
     Arguments:
         x: Array or scalar input to send.
         root (int): Rank of the root MPI process.
