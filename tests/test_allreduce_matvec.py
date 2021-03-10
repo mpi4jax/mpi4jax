@@ -18,7 +18,7 @@ import jax.numpy as jnp  # noqa: E402
 jax.config.enable_omnistaging()
 
 from mpi4py import MPI  # noqa: E402
-from mpi4jax import Allreduce  # noqa: E402
+from mpi4jax import allreduce  # noqa: E402
 
 print(MPI.get_vendor())
 
@@ -59,13 +59,13 @@ ATvprime_local = (A.T @ vprime)[start_local:end_local]
 
 
 def allreduce_sum(x):
-    res, token = Allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
+    res, token = allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
     return res
 
 
 # this is just an identity
 def allreduce_sumT(y):
-    res, token = Allreduce(y, op=MPI.SUM, comm=MPI.COMM_WORLD, _transpose=True)
+    res, token = allreduce(y, op=MPI.SUM, comm=MPI.COMM_WORLD, _transpose=True)
     return res
 
 
