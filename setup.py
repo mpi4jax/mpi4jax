@@ -1,6 +1,6 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
 try:
@@ -194,7 +194,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    packages=["mpi4jax", "mpi4jax.collective_ops", "mpi4jax.cython"],
+    packages=find_packages(),
     ext_modules=get_extensions(),
     use_scm_version=dict(
         write_to="mpi4jax/_version.py",
