@@ -39,6 +39,10 @@ def Allgather(
 ):
     """Perform an Allgather operation.
 
+    .. warning::
+
+       ``x`` must have the same shape and dtype on all processes.
+
     Arguments:
         x: Array or scalar input to send.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
@@ -93,6 +97,10 @@ def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):
         _send_nitems,
         sendbuf,
         _constant_u64_scalar(c, _send_dtype_ptr),
+        # we only support matching input and output arrays
+        _send_nitems,
+        _constant_u64_scalar(c, _send_dtype_ptr),
+        #
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
     )
@@ -106,7 +114,7 @@ def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):
     )
 
 
-def mpi_allgather_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
+def mpi_allgather_xla_encode_gpu(c, sendbuf, token, comm):
     from ..cython.mpi_xla_bridge_gpu import build_allgather_descriptor
 
     warn_missing_omnistaging()
@@ -114,14 +122,6 @@ def mpi_allgather_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
-
-    recv_shape = c.GetShape(recvbuf)
-    recv_dtype = recv_shape.element_type()
-    recv_dims = recv_shape.dimensions()
-
-    # compute total number of elements in recv array
-    _recv_nitems = _np.prod(recv_dims, dtype=int)
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
 
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
@@ -131,9 +131,11 @@ def mpi_allgather_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
     _send_nitems = _np.prod(send_dims, dtype=int)
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
+    size = comm.Get_size()
+    out_shape = (size, *send_dims)
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.array_shape(send_dtype, out_shape),
             xla_client.Shape.token_shape(),
         ]
     )
@@ -141,8 +143,10 @@ def mpi_allgather_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
     descriptor = build_allgather_descriptor(
         _send_nitems,
         _send_dtype_ptr,
-        _recv_nitems,
-        _recv_dtype_ptr,
+        # we only support matching input and output arrays
+        _send_nitems,
+        _send_dtype_ptr,
+        #
         to_mpi_ptr(comm),
     )
 

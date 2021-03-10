@@ -58,8 +58,6 @@ def Scan(x, op, comm=_MPI.COMM_WORLD, token=None):
 
 
 # This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
 def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
     warn_missing_omnistaging()
 
@@ -139,7 +137,7 @@ def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_scan_abstract_eval(xs, token, op, comm, transpose):
+def mpi_scan_abstract_eval(xs, token, op, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         abstract_arrays.abstract_token,

@@ -33,21 +33,14 @@ mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def Alltoall(
-    sendbuf,
-    recvbuf,
+    x,
     comm=_MPI.COMM_WORLD,
     token=None,
 ):
     """Perform an Alltoall operation.
 
-    .. warning::
-
-        Unlike mpi4py's Alltoall, this returns a *new* array with the received data.
-
     Arguments:
-        sendbuf: Array or scalar input to send.
-        recvbuf: Array or scalar input with the correct shape and dtype. This can
-           contain arbitrary data and will not be overwritten.
+        x: Array or scalar input to send.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -59,55 +52,55 @@ def Alltoall(
             - A new, modified token, that depends on this operation.
     """
     if token is None:
-        token = create_token(sendbuf)
+        token = create_token(x)
 
     comm = wrap_as_hashable(comm)
 
     return mpi_alltoall_p.bind(
-        sendbuf,
-        recvbuf,
+        x,
         token,
         comm=comm,
     )
 
 
 #  This function compiles the operation
-def mpi_alltoall_xla_encode_cpu(c, sendbuf, recvbuf, token, comm):
+def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
 
-    recv_shape = c.GetShape(recvbuf)
-    recv_dtype = recv_shape.element_type()
-    recv_dims = recv_shape.dimensions()
-
-    # compute total number of elements in array
-    _recv_nitems = _constant_s32_scalar(c, _np.prod(recv_dims, dtype=int))
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
-
-    send_shape = c.GetShape(sendbuf)
+    send_shape = c.GetShape(x)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
+    _send_nitems = _np.prod(send_dims, dtype=int)
     _send_dtype_ptr = dtype_ptr(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.array_shape(send_dtype, send_dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
+    size = comm.Get_size()
+    if _send_nitems % size != 0:
+        raise ValueError(
+            f"Size of input array to be sent ({_send_nitems}) must be divisible "
+            f"by number of processes ({size})."
+        )
+
+    _nitems_per_proc = _constant_s32_scalar(c, _send_nitems // size)
+
     operands = (
-        _send_nitems,
-        sendbuf,
+        _nitems_per_proc,
+        x,
         _constant_u64_scalar(c, _send_dtype_ptr),
-        _recv_nitems,
-        _constant_u64_scalar(c, _recv_dtype_ptr),
+        _nitems_per_proc,
+        _constant_u64_scalar(c, _send_dtype_ptr),
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
     )
@@ -121,7 +114,7 @@ def mpi_alltoall_xla_encode_cpu(c, sendbuf, recvbuf, token, comm):
     )
 
 
-def mpi_alltoall_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
+def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
     from ..cython.mpi_xla_bridge_gpu import build_alltoall_descriptor
 
     warn_missing_omnistaging()
@@ -130,15 +123,7 @@ def mpi_alltoall_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
 
     c = _unpack_builder(c)
 
-    recv_shape = c.GetShape(recvbuf)
-    recv_dtype = recv_shape.element_type()
-    recv_dims = recv_shape.dimensions()
-
-    # compute total number of elements in recv array
-    _recv_nitems = _np.prod(recv_dims, dtype=int)
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
-
-    send_shape = c.GetShape(sendbuf)
+    send_shape = c.GetShape(x)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
@@ -148,16 +133,25 @@ def mpi_alltoall_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(recv_dtype, recv_dims),
+            xla_client.Shape.array_shape(send_dtype, send_dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
+    size = comm.Get_size()
+    if _send_nitems % size != 0:
+        raise ValueError(
+            f"Size of input array to be sent ({_send_nitems}) must be divisible "
+            f"by number of processes ({size})."
+        )
+
+    _nitems_per_proc = _send_nitems // size
+
     descriptor = build_alltoall_descriptor(
-        _send_nitems,
+        _nitems_per_proc,
         _send_dtype_ptr,
-        _recv_nitems,
-        _recv_dtype_ptr,
+        _nitems_per_proc,
+        _send_dtype_ptr,
         to_mpi_ptr(comm),
     )
 
@@ -165,7 +159,7 @@ def mpi_alltoall_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
         c,
         b"mpi_alltoall",
         operands=(
-            sendbuf,
+            x,
             token,
         ),
         shape=sh,
@@ -175,9 +169,9 @@ def mpi_alltoall_xla_encode_gpu(c, sendbuf, recvbuf, token, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_alltoall_abstract_eval(sendbuf, recvbuf, token, comm):
+def mpi_alltoall_abstract_eval(xs, token, comm):
     return (
-        abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         abstract_arrays.abstract_token,
     )
 
