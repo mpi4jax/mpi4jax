@@ -3,10 +3,10 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import xla
-from jax.lax import create_token
+from jax.interpreters import xla  # , ad
 from jax.lib import xla_client
 
+from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
     _constant_s32_scalar,
@@ -23,41 +23,47 @@ from ..validation import enforce_types
 from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
-mpi_send_p = Primitive("send_mpi")  # Create the primitive
-mpi_send_impl = default_primitive_impl(mpi_send_p)
+mpi_bcast_p = Primitive("bcast_mpi")  # Create the primitive
+mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
-    dest=_np.integer,
-    tag=_np.integer,
+    root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Send(x, dest, tag=0, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a Send operation.
+def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a Bcast (broadcast) operation.
+
+    .. warning::
+
+        Unlike mpi4py's Bcast, this returns a *new* array with the received data.
 
     Arguments:
-        x: Array or scalar input to send.
-        dest (int): Rank of the destination MPI process.
-        tag (int): Tag of this message.
+        x: Array or scalar input. Data is only read on root process. On non-root
+           processes, this is used to determine the shape and dtype of the result.
+        root (int): The process to use as source.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
             a new token is generated.
 
     Returns:
-        Token: A new, modified token, that depends on this operation.
+        Tuple[DeviceArray, Token]:
+            - Received data.
+            - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(x)
 
     comm = wrap_as_hashable(comm)
-    return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
+    return mpi_bcast_p.bind(x, token, root=root, comm=comm)
 
 
 #  This function compiles the operation
-def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
+def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     warn_missing_omnistaging()
 
     comm = unpack_hashable(comm)
@@ -71,17 +77,17 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
     _dtype_ptr = dtype_ptr(dtype)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
 
-    out = _ops.CustomCall(
+    return _ops.CustomCall(
         c,
-        b"mpi_send",
+        b"mpi_bcast",
         operands=(
             _nitems,
             x,
-            _constant_s32_scalar(c, dest),
-            _constant_s32_scalar(c, tag),
+            _constant_s32_scalar(c, root),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
             token,
@@ -90,11 +96,9 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
         has_side_effect=True,
     )
 
-    return xla_client.ops.GetTupleElement(out, 0)
 
-
-def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_send_descriptor
+def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
+    from ..cython.mpi_xla_bridge_gpu import build_bcast_descriptor
 
     warn_missing_omnistaging()
 
@@ -109,20 +113,20 @@ def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
     _nitems = _np.prod(dims, dtype=int)
     _dtype_ptr = dtype_ptr(dtype)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    sh = xla_client.Shape.tuple_shape(
+        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+    )
 
-    descriptor = build_send_descriptor(
+    descriptor = build_bcast_descriptor(
         _nitems,
-        dest,
-        tag,
+        root,
         to_mpi_ptr(comm),
         _dtype_ptr,
     )
 
-    out = _ops.CustomCall(
+    return _ops.CustomCall(
         c,
-        b"mpi_send",
+        b"mpi_bcast",
         operands=(
             x,
             token,
@@ -132,17 +136,35 @@ def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
         has_side_effect=True,
     )
 
-    return xla_client.ops.GetTupleElement(out, 0)
-
 
 # This function evaluates only the shapes during AST construction
-def mpi_send_abstract_eval(xs, token, dest, tag, comm):
-    return abstract_arrays.abstract_token
+def mpi_bcast_abstract_eval(xs, token, root, comm):
+    return (
+        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.abstract_token,
+    )
 
 
-mpi_send_p.def_impl(mpi_send_impl)
-mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
+# def mpi_bcast_value_and_jvp(in_args, tan_args, root, comm):
+#    x, token = in_args
+#    x_tan, token_tan = tan_args
+#
+#    res = Bcast(x, token=token, dest=dest, comm=comm)
+#
+#    if comm.rank == root:
+#        jvp = (x_tan, token_tan)
+#    else:
+#        jvp = (None, token_tan)
+#
+#    return (res, jvp)
+
+
+mpi_bcast_p.multiple_results = True
+mpi_bcast_p.def_impl(mpi_bcast_impl)
+mpi_bcast_p.def_abstract_eval(mpi_bcast_abstract_eval)
+
+# ad.primitive_jvps[mpi_bcast_p] = mpi_bcast_value_and_jvp
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_send_p] = mpi_send_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_bcast_p] = mpi_bcast_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_bcast_p] = mpi_bcast_xla_encode_gpu

@@ -35,7 +35,7 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def Recv(
+def recv(
     x,
     source=_MPI.ANY_SOURCE,
     tag=_MPI.ANY_TAG,
