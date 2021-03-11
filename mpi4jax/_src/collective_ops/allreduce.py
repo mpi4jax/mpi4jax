@@ -98,25 +98,25 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
             )
 
         return _ops.Tuple(c, [x, token])
-    else:
-        return _ops.CustomCall(
-            c,
-            b"mpi_allreduce",
-            operands=(
-                _nitems,
-                x,
-                _constant_u64_scalar(c, to_mpi_ptr(op)),
-                _constant_u64_scalar(c, to_mpi_ptr(comm)),
-                _constant_u64_scalar(c, _dtype_ptr),
-                token,
-            ),
-            shape=sh,
-            has_side_effect=True,
-        )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_allreduce",
+        operands=(
+            _nitems,
+            x,
+            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_u64_scalar(c, to_mpi_ptr(comm)),
+            _constant_u64_scalar(c, _dtype_ptr),
+            token,
+        ),
+        shape=sh,
+        has_side_effect=True,
+    )
 
 
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
-    from mpi4jax.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -149,18 +149,18 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
             )
 
         return _ops.Tuple(c, [x, token])
-    else:
-        return _ops.CustomCall(
-            c,
-            b"mpi_allreduce",
-            operands=(
-                x,
-                token,
-            ),
-            shape=sh,
-            opaque=descriptor,
-            has_side_effect=True,
-        )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_allreduce",
+        operands=(
+            x,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
+        has_side_effect=True,
+    )
 
 
 # This function evaluates only the shapes during AST construction

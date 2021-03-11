@@ -3,7 +3,7 @@
 from mpi4py import MPI  # noqa: F401
 
 # this registers our custom XLA functions
-from . import cython  # noqa: F401
+from . import xla_bridge  # noqa: F401
 
 from .collective_ops.allgather import allgather  # noqa: F401
 from .collective_ops.allreduce import allreduce  # noqa: F401

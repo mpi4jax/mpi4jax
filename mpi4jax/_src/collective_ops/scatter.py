@@ -142,7 +142,7 @@ def mpi_scatter_xla_encode_gpu(c, x, token, root, comm):
         dims = dims[1:]
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+    _nitems = _np.prod(dims, dtype=int)
     _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(

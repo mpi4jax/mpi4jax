@@ -110,7 +110,7 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
 
 
 def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
-    from mpi4jax.xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)

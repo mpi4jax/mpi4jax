@@ -92,7 +92,7 @@ def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
 
 
 def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
-    from mpi4jax.xla_bridge.mpi_xla_bridge_gpu import build_scan_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_scan_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
