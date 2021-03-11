@@ -77,7 +77,7 @@ def recv(
 
 #  This function compiles the operation
 def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -122,8 +122,8 @@ def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
 
 
 def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..cython.mpi_xla_bridge_gpu import build_recv_descriptor
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)

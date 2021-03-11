@@ -112,7 +112,7 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
 
 
 def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_alltoall_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
 
     comm = unpack_hashable(comm)
 

@@ -107,7 +107,7 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
 
 
 def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_bcast_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
 
     comm = unpack_hashable(comm)
 

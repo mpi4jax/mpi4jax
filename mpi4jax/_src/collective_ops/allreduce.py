@@ -116,7 +116,7 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
 
 
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
-    from mpi4jax.cython.mpi_xla_bridge_gpu import build_allreduce_descriptor
+    from mpi4jax.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)

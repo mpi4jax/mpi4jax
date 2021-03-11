@@ -97,7 +97,7 @@ def sendrecv(
 def mpi_sendrecv_xla_encode_cpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -159,8 +159,8 @@ def mpi_sendrecv_xla_encode_cpu(
 def mpi_sendrecv_xla_encode_gpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..cython.mpi_xla_bridge_gpu import build_sendrecv_descriptor
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)

@@ -91,7 +91,7 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
 
 
 def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_send_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_send_descriptor
 
     comm = unpack_hashable(comm)
 

@@ -127,7 +127,7 @@ def mpi_scatter_xla_encode_cpu(c, x, token, root, comm):
 
 
 def mpi_scatter_xla_encode_gpu(c, x, token, root, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_scatter_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 

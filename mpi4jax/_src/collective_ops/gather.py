@@ -133,7 +133,7 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
 
 
 def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
-    from ..cython.mpi_xla_bridge_gpu import build_gather_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_gather_descriptor
 
     comm = unpack_hashable(comm)
 
