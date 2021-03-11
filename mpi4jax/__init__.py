@@ -30,3 +30,22 @@ __all__ = [
     "send",
     "sendrecv",
 ]
+
+# TODO: remove in next minor release
+from ._deprecations import (
+    Allreduce,
+    Bcast,
+    Recv,
+    Send,
+    Sendrecv,
+)
+
+__all__.extend(
+    [
+        Allreduce,
+        Bcast,
+        Recv,
+        Send,
+        Sendrecv,
+    ]
+)
