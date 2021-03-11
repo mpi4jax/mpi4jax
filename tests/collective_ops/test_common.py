@@ -35,6 +35,7 @@ def run_in_subprocess(code, test_file, timeout=10):
     # force MPI to initialize again
     env = dict(
         PATH=os.getenv("PATH", ""),
+        PYTHONPATH=os.getenv("PYTHONPATH", ""),
         COVERAGE_PROCESS_START="pyproject.toml",
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
         LD_LIBRARY_PATH=os.getenv("LD_LIBRARY_PATH", ""),

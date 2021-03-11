@@ -68,7 +68,7 @@ def test_allreduceT_jit():
     arr = jnp.ones((3, 2))
     _arr = arr.copy()
 
-    res, _ = jax.jit(lambda x: allreduce(x, op=MPI.SUM, _transpose=True))(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM, _transpose=True)[0])(arr)
     assert jnp.array_equal(_arr, res)
 
 
