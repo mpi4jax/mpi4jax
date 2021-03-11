@@ -46,9 +46,9 @@ def scatter(
 
     Arguments:
         x: Array or scalar input with the correct shape and dtype. On the root process,
-           this contains the data to send, and its size must be divisible by the number
-           of processes. On non-root processes, this may contain arbitrary data and will
-           not be overwritten.
+           this contains the data to send, and its first axis must have size ``nproc``.
+           On non-root processes, this may contain arbitrary data and will not be
+           overwritten.
         root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
@@ -85,32 +85,32 @@ def mpi_scatter_xla_encode_cpu(c, x, token, root, comm):
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    shape = c.GetShape(x)
+    dtype = shape.element_type()
+    dims = shape.dimensions()
 
     rank = comm.Get_rank()
     if rank == root:
-        send_dims = send_dims[1:]
+        dims = dims[1:]
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+    _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(dtype, dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
     operands = (
-        _send_nitems,
+        _nitems,
         x,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        _constant_u64_scalar(c, _dtype_ptr),
         # we only support matching input and output arrays
-        _send_nitems,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        _nitems,
+        _constant_u64_scalar(c, _dtype_ptr),
         #
         _constant_s32_scalar(c, root),
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
@@ -133,31 +133,31 @@ def mpi_scatter_xla_encode_gpu(c, x, token, root, comm):
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    shape = c.GetShape(x)
+    dtype = shape.element_type()
+    dims = shape.dimensions()
 
     rank = comm.Get_rank()
     if rank == root:
-        send_dims = send_dims[1:]
+        dims = dims[1:]
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+    _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(dtype, dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
     descriptor = build_scatter_descriptor(
-        _send_nitems,
-        _send_dtype_ptr,
+        _nitems,
+        _dtype_ptr,
         # we only support matching input and output arrays
-        _send_nitems,
-        _send_dtype_ptr,
+        _nitems,
+        _dtype_ptr,
         #
         root,
         to_mpi_ptr(comm),

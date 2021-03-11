@@ -40,7 +40,7 @@ def alltoall(
     """Perform an alltoall operation.
 
     Arguments:
-        x: Array input to send. Size must be divisible by the number of processes.
+        x: Array input to send. First axis must have size ``nproc``.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -53,6 +53,10 @@ def alltoall(
     """
     if token is None:
         token = create_token(x)
+
+    size = comm.Get_size()
+    if x.shape[0] != size:
+        raise ValueError("Alltoall input must have shape (nproc, ...)")
 
     comm = wrap_as_hashable(comm)
 
@@ -69,37 +73,30 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    shape = c.GetShape(x)
+    dtype = shape.element_type()
+    dims = shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _np.prod(send_dims, dtype=int)
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    size = comm.Get_size()
+    assert dims[0] == size
+    _nitems_per_proc = _np.prod(dims[1:], dtype=int)
+    _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(dtype, dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
-    size = comm.Get_size()
-    if _send_nitems % size != 0:
-        raise ValueError(
-            f"Size of input array to be sent ({_send_nitems}) must be divisible "
-            f"by number of processes ({size})."
-        )
-
-    _nitems_per_proc = _constant_s32_scalar(c, _send_nitems // size)
-
     operands = (
-        _nitems_per_proc,
+        _constant_s32_scalar(c, _nitems_per_proc),
         x,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        _constant_u64_scalar(c, _dtype_ptr),
         # we only support matching input and output arrays
-        _nitems_per_proc,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        _constant_s32_scalar(c, _nitems_per_proc),
+        _constant_u64_scalar(c, _dtype_ptr),
         #
         _constant_u64_scalar(c, to_mpi_ptr(comm)),
         token,
@@ -121,36 +118,29 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
 
     c = _unpack_builder(c)
 
-    send_shape = c.GetShape(x)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    shape = c.GetShape(x)
+    dtype = shape.element_type()
+    dims = shape.dimensions()
 
     # compute total number of elements in send array
-    _send_nitems = _np.prod(send_dims, dtype=int)
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    size = comm.Get_size()
+    assert dims[0] == size
+    _nitems_per_proc = _np.prod(dims[1:], dtype=int)
+    _dtype_ptr = dtype_ptr(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
-            xla_client.Shape.array_shape(send_dtype, send_dims),
+            xla_client.Shape.array_shape(dtype, dims),
             xla_client.Shape.token_shape(),
         ]
     )
 
-    size = comm.Get_size()
-    if _send_nitems % size != 0:
-        raise ValueError(
-            f"Size of input array to be sent ({_send_nitems}) must be divisible "
-            f"by number of processes ({size})."
-        )
-
-    _nitems_per_proc = _send_nitems // size
-
     descriptor = build_alltoall_descriptor(
         _nitems_per_proc,
-        _send_dtype_ptr,
+        _dtype_ptr,
         # we only support matching input and output arrays
         _nitems_per_proc,
-        _send_dtype_ptr,
+        _dtype_ptr,
         #
         to_mpi_ptr(comm),
     )

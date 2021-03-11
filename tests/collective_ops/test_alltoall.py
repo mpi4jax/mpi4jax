@@ -30,7 +30,6 @@ def test_alltoall_jit():
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
 
-@pytest.mark.skipif(size < 2, reason="Needs at least 2 processes")
 def test_alltoall_wrong_size():
     from mpi4jax import alltoall
 
@@ -38,4 +37,4 @@ def test_alltoall_wrong_size():
     with pytest.raises(ValueError) as excinfo:
         alltoall(arr)
 
-    assert "must be divisible by number of processes" in str(excinfo.value)
+    assert "must have shape (nproc, ...)" in str(excinfo.value)
