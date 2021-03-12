@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -43,11 +42,11 @@ def recv(
     status=None,
     token=None,
 ):
-    """Perform a Recv (receive) operation.
+    """Perform a recv (receive) operation.
 
     .. warning::
 
-        Unlike mpi4py's Recv, this returns a *new* array with the received data.
+        Unlike mpi4py's recv, this returns a *new* array with the received data.
 
     Arguments:
         x: Array or scalar input with the correct shape and dtype. This can contain
@@ -78,9 +77,7 @@ def recv(
 
 #  This function compiles the operation
 def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    warn_missing_omnistaging()
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -125,10 +122,8 @@ def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
 
 
 def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..cython.mpi_xla_bridge_gpu import build_recv_descriptor
-
-    warn_missing_omnistaging()
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)

@@ -1,32 +1,12 @@
-#!/usr/bin/env python
+import jax
+import jax.numpy as jnp
 
-"""
-Run with
+from mpi4py import MPI
+from mpi4jax import allreduce
 
-$ mpirun -n <nproc> python -m pytest .
-"""
-
-# don't hog memory if running on GPU
-import os
-
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-
-import jax  # noqa: E402
-import jax.config  # noqa: E402
-import jax.numpy as jnp  # noqa: E402
-
-jax.config.enable_omnistaging()
-
-from mpi4py import MPI  # noqa: E402
-from mpi4jax import allreduce  # noqa: E402
-
-print(MPI.get_vendor())
-
-rank = MPI.COMM_WORLD.Get_rank()
-size = MPI.COMM_WORLD.Get_size()
-
-print("MPI rank = ", rank)
-print("MPI size = ", size)
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
 
 
 seed = 123

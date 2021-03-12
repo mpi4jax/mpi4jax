@@ -38,7 +38,7 @@ def test_enforce_types_generic():
     # ok
     foo(1)
     foo(np.uint64(1))
-    foo(np.int(1))
+    foo(np.int32(1))
 
     # not ok
     with pytest.raises(TypeError) as exc:

@@ -22,27 +22,24 @@ from ..utils import (
 from ..validation import enforce_types
 
 # The Jax primitive
-mpi_bcast_p = Primitive("bcast_mpi")  # Create the primitive
-mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
+mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
+mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
+    op=(_MPI.Op, HashableMPIType),
     root=(_np.integer),
     comm=(_MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
-    """Perform a bcast (broadcast) operation.
-
-    .. warning::
-
-        Unlike mpi4py's bcast, this returns a *new* array with the received data.
+def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
+    """Perform a reduce operation.
 
     Arguments:
-        x: Array or scalar input. Data is only read on root process. On non-root
-           processes, this is used to determine the shape and dtype of the result.
-        root (int): The process to use as source.
+        x: Array or scalar input to send.
+        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
+        root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             :obj:`COMM_WORLD`).
         token: XLA token to use to ensure correct execution order. If not given,
@@ -50,26 +47,28 @@ def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
 
     Returns:
         Tuple[DeviceArray, Token]:
-            - Received data.
+            - Result of the reduce operation on root process, otherwise
+              unmodified input.
             - A new, modified token, that depends on this operation.
-
     """
     if token is None:
         token = create_token(x)
 
     rank = comm.Get_rank()
 
+    op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    res, token = mpi_bcast_p.bind(x, token, root=root, comm=comm)
+    res, token = mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
 
-    if rank == root:
+    if rank != root:
         return x, token
 
     return res, token
 
 
-#  This function compiles the operation
-def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
+# This function compiles the operation
+def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
+    op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -79,23 +78,27 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
 
     # compute total number of elements in array
     _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+
     _dtype_ptr = dtype_ptr(dtype)
 
-    # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
-    if rank == root:
+    if rank != root:
         dims = (0,)
 
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+        [
+            xla_client.Shape.array_shape(dtype, dims),
+            xla_client.Shape.token_shape(),
+        ]
     )
 
     return _ops.CustomCall(
         c,
-        b"mpi_bcast",
+        b"mpi_reduce",
         operands=(
             _nitems,
             x,
+            _constant_u64_scalar(c, to_mpi_ptr(op)),
             _constant_s32_scalar(c, root),
             _constant_u64_scalar(c, to_mpi_ptr(comm)),
             _constant_u64_scalar(c, _dtype_ptr),
@@ -106,9 +109,10 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     )
 
 
-def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
+def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
 
+    op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     c = _unpack_builder(c)
@@ -118,19 +122,23 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 
     # compute total number of elements in array
     _nitems = _np.prod(dims, dtype=int)
+
     _dtype_ptr = dtype_ptr(dtype)
 
-    # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
-    if rank == root:
+    if rank != root:
         dims = (0,)
 
     sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
+        [
+            xla_client.Shape.array_shape(dtype, dims),
+            xla_client.Shape.token_shape(),
+        ]
     )
 
-    descriptor = build_bcast_descriptor(
+    descriptor = build_reduce_descriptor(
         _nitems,
+        to_mpi_ptr(op),
         root,
         to_mpi_ptr(comm),
         _dtype_ptr,
@@ -138,7 +146,7 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 
     return _ops.CustomCall(
         c,
-        b"mpi_bcast",
+        b"mpi_reduce",
         operands=(
             x,
             token,
@@ -150,17 +158,17 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_bcast_abstract_eval(xs, token, root, comm):
+def mpi_reduce_abstract_eval(xs, token, op, root, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         abstract_arrays.abstract_token,
     )
 
 
-mpi_bcast_p.multiple_results = True
-mpi_bcast_p.def_impl(mpi_bcast_impl)
-mpi_bcast_p.def_abstract_eval(mpi_bcast_abstract_eval)
+mpi_reduce_p.multiple_results = True
+mpi_reduce_p.def_impl(mpi_reduce_impl)
+mpi_reduce_p.def_abstract_eval(mpi_reduce_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_bcast_p] = mpi_bcast_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_bcast_p] = mpi_bcast_xla_encode_gpu
+xla.backend_specific_translations["cpu"][mpi_reduce_p] = mpi_reduce_xla_encode_cpu
+xla.backend_specific_translations["gpu"][mpi_reduce_p] = mpi_reduce_xla_encode_gpu

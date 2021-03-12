@@ -39,7 +39,7 @@ Most MPI libraries supply a wrapper executable ``mpirun`` to execute a script on
 
 The result is an array full of the value 6, because each process adds its rank to the result (4 processes with ranks 0, 1, 2, 3).
 
-Basic example: Sending and receiving
+Basic example: sending and receiving
 ------------------------------------
 
 ``mpi4jax`` can of course also send and receive data without performing an operation on it. For this, you can use :func:`~mpi4jax.send` and :func:`~mpi4jax.recv`:

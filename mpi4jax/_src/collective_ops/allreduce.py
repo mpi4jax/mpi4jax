@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -34,7 +33,7 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
     token=(type(None), xla.Token, core.Tracer),
 )
 def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
-    """Perform an Allreduce operation.
+    """Perform an allreduce operation.
 
     .. note::
 
@@ -59,7 +58,7 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
 
     # The extra argument _transpose is an implementation detail. It is used to
     # keep track of whever we are computing the forward or transposition of
-    # Allreduce, because we are 'cheating' and not performing MPI operations
+    # allreduce, because we are 'cheating' and not performing MPI operations
     # on the tranposed (even though, in principle, we should) in order
     # to be more efficient.
 
@@ -75,8 +74,6 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
-    warn_missing_omnistaging()
-
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -97,39 +94,29 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     if transpose:
         if op != _MPI.SUM:
             raise NotImplementedError(
-                "The linear transpose of Allreduce for {} is not defined".format(op)
+                "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
         return _ops.Tuple(c, [x, token])
-    else:
-        return _ops.CustomCall(
-            c,
-            b"mpi_allreduce",
-            operands=(
-                _nitems,
-                x,
-                _constant_u64_scalar(c, to_mpi_ptr(op)),
-                _constant_u64_scalar(c, to_mpi_ptr(comm)),
-                _constant_u64_scalar(c, _dtype_ptr),
-                token,
-            ),
-            shape=sh,
-            has_side_effect=True,
-        )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_allreduce",
+        operands=(
+            _nitems,
+            x,
+            _constant_u64_scalar(c, to_mpi_ptr(op)),
+            _constant_u64_scalar(c, to_mpi_ptr(comm)),
+            _constant_u64_scalar(c, _dtype_ptr),
+            token,
+        ),
+        shape=sh,
+        has_side_effect=True,
+    )
 
 
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
-    from mpi4jax.cython import HAS_GPU_EXT
-
-    if not HAS_GPU_EXT:
-        raise RuntimeError(
-            "mpi4jax GPU extensions failed to build, "
-            "so it cannot be used in GPU contexts"
-        )
-
-    from mpi4jax.cython.mpi_xla_bridge_gpu import build_allreduce_descriptor
-
-    warn_missing_omnistaging()
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -158,22 +145,22 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     if transpose:
         if op != _MPI.SUM:
             raise NotImplementedError(
-                "The linear transpose of Allreduce for {} is not defined".format(op)
+                "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
         return _ops.Tuple(c, [x, token])
-    else:
-        return _ops.CustomCall(
-            c,
-            b"mpi_allreduce",
-            operands=(
-                x,
-                token,
-            ),
-            shape=sh,
-            opaque=descriptor,
-            has_side_effect=True,
-        )
+
+    return _ops.CustomCall(
+        c,
+        b"mpi_allreduce",
+        operands=(
+            x,
+            token,
+        ),
+        shape=sh,
+        opaque=descriptor,
+        has_side_effect=True,
+    )
 
 
 # This function evaluates only the shapes during AST construction

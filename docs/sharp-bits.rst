@@ -8,7 +8,7 @@ Read ahead for some pitfalls, counter-intuitive behavior, and sharp edges that w
 Token management
 ----------------
 
-The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.Send` or :func:`~mpi4jax.recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
+The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.send` or :func:`~mpi4jax.recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
 
 *Tokens* are JAX's way to ensure that XLA does not re-order statements with side effects by injecting a fake data dependency between them.
 
@@ -98,12 +98,12 @@ Consider the following example, where one process sends some Python data via ``m
 
     if rank == 0:
         mpi4jax.send(arr_jax, comm=comm)
-        comm.Send(arr_np)
+        comm.send(arr_np)
     else:
         arr_jax = mpi4jax.recv(arr_jax, comm=comm)
-        arr = comm.Recv(arr_np)
+        arr = comm.recv(arr_np)
 
-Because everything is lazily executed in JAX, we cannot rely on a particular execution order. Specifically, we don't know whether the function ``mpi4jax.send`` wille be executed before or after the ``comm.Send`` call. In the worst case, this creates a deadlock.
+Because everything is lazily executed in JAX, we cannot rely on a particular execution order. Specifically, we don't know whether the function ``mpi4jax.send`` wille be executed before or after the ``comm.send`` call. In the worst case, this creates a deadlock.
 
 The simplest solution is therefore to stick to *either* ``mpi4py`` *or* ``mpi4jax``. But if you have to use both, make sure that they use different communicators:
 
@@ -128,9 +128,9 @@ The simplest solution is therefore to stick to *either* ``mpi4py`` *or* ``mpi4ja
 
     if rank == 0:
         mpi4jax.send(arr_jax, comm=comm_jax)
-        comm.Send(arr_np)
+        comm.send(arr_np)
     else:
         arr_jax = mpi4jax.recv(arr_jax, comm=comm_jax)
-        arr = comm.Recv(arr_np)
+        arr = comm.recv(arr_np)
 
     comm_jax.Free()

@@ -20,7 +20,6 @@ from ..utils import (
     wrap_as_hashable,
 )
 from ..validation import enforce_types
-from ..warn import warn_missing_omnistaging
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -48,11 +47,11 @@ def sendrecv(
     status=None,
     token=None,
 ):
-    """Perform a Sendrecv operation.
+    """Perform a sendrecv operation.
 
     .. warning::
 
-        Unlike mpi4py's Sendrecv, this returns a *new* array with the received data.
+        Unlike mpi4py's sendrecv, this returns a *new* array with the received data.
 
     Arguments:
         sendbuf: Array or scalar input to send.
@@ -98,9 +97,7 @@ def sendrecv(
 def mpi_sendrecv_xla_encode_cpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    warn_missing_omnistaging()
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -162,10 +159,8 @@ def mpi_sendrecv_xla_encode_cpu(
 def mpi_sendrecv_xla_encode_gpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
-    from ..cython.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..cython.mpi_xla_bridge_gpu import build_sendrecv_descriptor
-
-    warn_missing_omnistaging()
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)

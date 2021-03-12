@@ -10,8 +10,8 @@ except ImportError:
 else:
     HAS_CYTHON = True
 
-CYTHON_SUBMODULE_NAME = "mpi4jax._src.cython"
-CYTHON_SUBMODULE_PATH = "mpi4jax/_src/cython"
+CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
+CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 
 
 #######
