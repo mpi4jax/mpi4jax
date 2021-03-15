@@ -8,7 +8,7 @@ A shallow-water model simulates the evolution of the sea surface if temperature 
 .. raw:: html
 
     <video width="80%" style="margin: 1em auto; display: block;" controls>
-        <source src="_static/shallow_water/shallow-water.mp4" type="video/mp4">
+        <source src="_static/shallow-water.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
 
