@@ -6,6 +6,7 @@
 
    installation
    usage
+   demo
    sharp-bits
    api
 
