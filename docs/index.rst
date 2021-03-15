@@ -6,6 +6,7 @@
 
    installation
    usage
+   shallow-water
    sharp-bits
    api
 
