@@ -266,7 +266,7 @@ def enforce_boundaries(arr, grid, token=None):
 ModelState = namedtuple("ModelState", "h, u, v, dh, du, dv")
 
 
-@partial(jax.jit, static_argnums=(2,))
+@partial(jax.jit, static_argnums=(1,))
 def shallow_water_step(state, is_first_step):
     """Perform one step of the shallow-water model.
 
@@ -454,7 +454,7 @@ def solve_shallow_water(t1, num_multisteps=10):
     end = time.perf_counter()
 
     if mpi_rank == 0:
-        print(f"Solution took {end - start:.2f}s")
+        print(f"\nSolution took {end - start:.2f}s")
 
     return sol
 
