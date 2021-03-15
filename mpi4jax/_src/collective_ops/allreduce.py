@@ -4,18 +4,14 @@ from mpi4py import MPI as _MPI
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import ad, xla
+from jax.lax import create_token
 from jax.lib import xla_client
 
-from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
 )
@@ -77,15 +73,12 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
@@ -97,17 +90,17 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
                 "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
-        return _ops.Tuple(c, [x, token])
+        return xla_client.ops.Tuple(c, [x, token])
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_allreduce",
         operands=(
-            _nitems,
+            xla_client.ops.Constant(c, _np.intc(nitems)),
             x,
-            _constant_u64_scalar(c, to_mpi_ptr(op)),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, _dtype_ptr),
+            xla_client.ops.Constant(c, to_mpi_handle(op)),
+            xla_client.ops.Constant(c, to_mpi_handle(comm)),
+            xla_client.ops.Constant(c, to_dtype_handle(dtype)),
             token,
         ),
         shape=sh,
@@ -121,25 +114,22 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _np.prod(dims, dtype=int)
-
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     descriptor = build_allreduce_descriptor(
-        _nitems,
-        to_mpi_ptr(op),
-        to_mpi_ptr(comm),
-        _dtype_ptr,
+        _np.intc(nitems),
+        to_mpi_handle(op),
+        to_mpi_handle(comm),
+        to_dtype_handle(dtype),
     )
 
     if transpose:
@@ -148,9 +138,9 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
                 "The linear transpose of allreduce for {} is not defined".format(op)
             )
 
-        return _ops.Tuple(c, [x, token])
+        return xla_client.ops.Tuple(c, [x, token])
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_allreduce",
         operands=(

@@ -1,6 +1,6 @@
 from cpython.pycapsule cimport PyCapsule_New
 
-from libc.stdint cimport int32_t, uint64_t
+from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc, free
 
 from mpi4py.libmpi cimport (
@@ -102,22 +102,22 @@ cdef inline cudaError_t checked_cuda_stream_synchronize(cudaStream_t stream) nog
 # Allgather
 
 cdef struct AllgatherDescriptor:
-    int32_t sendcount
+    int sendcount
     MPI_Datatype sendtype
-    int32_t recvcount
+    int recvcount
     MPI_Datatype recvtype
     MPI_Comm comm
 
 
 cpdef bytes build_allgather_descriptor(
-    int32_t sendcount, uint64_t sendtype_addr,
-    int32_t recvcount, uint64_t recvtype_addr,
-    uint64_t comm_addr
+    int sendcount, uintptr_t sendtype_handle,
+    int recvcount, uintptr_t recvtype_addr,
+    uintptr_t comm_handle
 ):
     cdef AllgatherDescriptor desc = AllgatherDescriptor(
-        sendcount, <MPI_Datatype> sendtype_addr,
+        sendcount, <MPI_Datatype> sendtype_handle,
         recvcount, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_addr
+        <MPI_Comm> comm_handle
     )
     return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
 
@@ -139,9 +139,9 @@ cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef AllgatherDescriptor* desc = <AllgatherDescriptor*>(opaque)
-    cdef int32_t sendcount = desc.sendcount
+    cdef int sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
+    cdef int recvcount = desc.recvcount
     cdef MPI_Datatype recvtype = desc.recvtype
     cdef MPI_Comm comm = desc.comm
 
@@ -182,21 +182,21 @@ cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
 # Allreduce
 
 cdef struct AllreduceDescriptor:
-    int32_t nitems
+    int nitems
     MPI_Op op
     MPI_Comm comm
     MPI_Datatype dtype
 
 
-cpdef bytes build_allreduce_descriptor(int32_t nitems, uint64_t op_addr, uint64_t comm_addr, uint64_t dtype_addr):
+cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle, uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef AllreduceDescriptor desc = AllreduceDescriptor(
-        nitems, <MPI_Op> op_addr, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+        nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(AllreduceDescriptor)])
 
 
 cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
-                        const char* opaque, size_t opaque_len) nogil except *:
+                            const char* opaque, size_t opaque_len) nogil except *:
     cdef int ierr, dtype_size
     cdef size_t count
 
@@ -212,7 +212,7 @@ cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef AllreduceDescriptor* desc = <AllreduceDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
+    cdef int nitems = desc.nitems
     cdef MPI_Op op = desc.op
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
@@ -240,22 +240,22 @@ cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
 # Alltoall
 
 cdef struct AlltoallDescriptor:
-    int32_t sendcount
+    int sendcount
     MPI_Datatype sendtype
-    int32_t recvcount
+    int recvcount
     MPI_Datatype recvtype
     MPI_Comm comm
 
 
 cpdef bytes build_alltoall_descriptor(
-    int32_t sendcount, uint64_t sendtype_addr,
-    int32_t recvcount, uint64_t recvtype_addr,
-    uint64_t comm_addr
+    int sendcount, uintptr_t sendtype_handle,
+    int recvcount, uintptr_t recvtype_addr,
+    uintptr_t comm_handle
 ):
     cdef AlltoallDescriptor desc = AlltoallDescriptor(
-        sendcount, <MPI_Datatype> sendtype_addr,
+        sendcount, <MPI_Datatype> sendtype_handle,
         recvcount, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_addr
+        <MPI_Comm> comm_handle
     )
     return bytes((<char*> &desc)[:sizeof(AlltoallDescriptor)])
 
@@ -277,9 +277,9 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef AlltoallDescriptor* desc = <AlltoallDescriptor*>(opaque)
-    cdef int32_t sendcount = desc.sendcount
+    cdef int sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
+    cdef int recvcount = desc.recvcount
     cdef MPI_Datatype recvtype = desc.recvtype
     cdef MPI_Comm comm = desc.comm
 
@@ -321,15 +321,15 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
 # Bcast
 
 cdef struct BcastDescriptor:
-    int32_t nitems
-    int32_t root
+    int nitems
+    int root
     MPI_Comm comm
     MPI_Datatype dtype
 
 
-cpdef bytes build_bcast_descriptor(int32_t nitems, int32_t root, uint64_t comm_addr, uint64_t dtype_addr):
+cpdef bytes build_bcast_descriptor(int nitems, int root, uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef BcastDescriptor desc = BcastDescriptor(
-        nitems, root, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+        nitems, root, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(BcastDescriptor)])
 
@@ -350,8 +350,8 @@ cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef BcastDescriptor* desc = <BcastDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
-    cdef int32_t root = desc.root
+    cdef int nitems = desc.nitems
+    cdef int root = desc.root
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
@@ -383,23 +383,23 @@ cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
 # Gather
 
 cdef struct GatherDescriptor:
-    int32_t sendcount
+    int sendcount
     MPI_Datatype sendtype
-    int32_t recvcount
+    int recvcount
     MPI_Datatype recvtype
-    int32_t root
+    int root
     MPI_Comm comm
 
 
 cpdef bytes build_gather_descriptor(
-    int32_t sendcount, uint64_t sendtype_addr,
-    int32_t recvcount, uint64_t recvtype_addr,
-    int32_t root, uint64_t comm_addr
+    int sendcount, uintptr_t sendtype_handle,
+    int recvcount, uintptr_t recvtype_addr,
+    int root, uintptr_t comm_handle
 ):
     cdef GatherDescriptor desc = GatherDescriptor(
-        sendcount, <MPI_Datatype> sendtype_addr,
+        sendcount, <MPI_Datatype> sendtype_handle,
         recvcount, <MPI_Datatype> recvtype_addr,
-        root, <MPI_Comm> comm_addr
+        root, <MPI_Comm> comm_handle
     )
     return bytes((<char*> &desc)[:sizeof(GatherDescriptor)])
 
@@ -421,11 +421,11 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef GatherDescriptor* desc = <GatherDescriptor*>(opaque)
-    cdef int32_t sendcount = desc.sendcount
+    cdef int sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
+    cdef int recvcount = desc.recvcount
     cdef MPI_Datatype recvtype = desc.recvtype
-    cdef int32_t root = desc.root
+    cdef int root = desc.root
     cdef MPI_Comm comm = desc.comm
 
     if COPY_TO_HOST:
@@ -471,18 +471,18 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
 # Recv
 
 cdef struct RecvDescriptor:
-    int32_t nitems
-    int32_t source
-    int32_t tag
+    int nitems
+    int source
+    int tag
     MPI_Comm comm
     MPI_Datatype dtype
     MPI_Status* status
 
 
-cpdef bytes build_recv_descriptor(int32_t nitems, int32_t dest, int32_t tag, uint64_t comm_addr,
-                                  uint64_t dtype_addr, uint64_t status_addr):
+cpdef bytes build_recv_descriptor(int nitems, int dest, int tag, uintptr_t comm_handle,
+                                  uintptr_t dtype_handle, uintptr_t status_addr):
     cdef RecvDescriptor desc = RecvDescriptor(
-        nitems, dest, tag, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr, <MPI_Status*> status_addr
+        nitems, dest, tag, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle, <MPI_Status*> status_addr
     )
     return bytes((<char*> &desc)[:sizeof(RecvDescriptor)])
 
@@ -502,9 +502,9 @@ cdef void mpi_recv_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef RecvDescriptor* desc = <RecvDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
-    cdef int32_t source = desc.source
-    cdef int32_t tag = desc.tag
+    cdef int nitems = desc.nitems
+    cdef int source = desc.source
+    cdef int tag = desc.tag
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
     cdef MPI_Status* status = desc.status
@@ -528,16 +528,16 @@ cdef void mpi_recv_gpu(cudaStream_t stream, void** buffers,
 # Reduce
 
 cdef struct ReduceDescriptor:
-    int32_t nitems
+    int nitems
     MPI_Op op
-    int32_t root
+    int root
     MPI_Comm comm
     MPI_Datatype dtype
 
 
-cpdef bytes build_reduce_descriptor(int32_t nitems, uint64_t op_addr, int32_t root, uint64_t comm_addr, uint64_t dtype_addr):
+cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root, uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef ReduceDescriptor desc = ReduceDescriptor(
-        nitems, <MPI_Op> op_addr, root, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+        nitems, <MPI_Op> op_handle, root, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
@@ -559,9 +559,9 @@ cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef ReduceDescriptor* desc = <ReduceDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
+    cdef int nitems = desc.nitems
     cdef MPI_Op op = desc.op
-    cdef int32_t root = desc.root
+    cdef int root = desc.root
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
@@ -593,15 +593,15 @@ cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
 # Scan
 
 cdef struct ScanDescriptor:
-    int32_t nitems
+    int nitems
     MPI_Op op
     MPI_Comm comm
     MPI_Datatype dtype
 
 
-cpdef bytes build_scan_descriptor(int32_t nitems, uint64_t op_addr, uint64_t comm_addr, uint64_t dtype_addr):
+cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle, uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef ScanDescriptor desc = ScanDescriptor(
-        nitems, <MPI_Op> op_addr, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+        nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(ScanDescriptor)])
 
@@ -623,7 +623,7 @@ cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef ScanDescriptor* desc = <ScanDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
+    cdef int nitems = desc.nitems
     cdef MPI_Op op = desc.op
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
@@ -651,23 +651,23 @@ cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
 # Scatter
 
 cdef struct ScatterDescriptor:
-    int32_t sendcount
+    int sendcount
     MPI_Datatype sendtype
-    int32_t recvcount
+    int recvcount
     MPI_Datatype recvtype
-    int32_t root
+    int root
     MPI_Comm comm
 
 
 cpdef bytes build_scatter_descriptor(
-    int32_t sendcount, uint64_t sendtype_addr,
-    int32_t recvcount, uint64_t recvtype_addr,
-    int32_t root, uint64_t comm_addr
+    int sendcount, uintptr_t sendtype_handle,
+    int recvcount, uintptr_t recvtype_addr,
+    int root, uintptr_t comm_handle
 ):
     cdef ScatterDescriptor desc = ScatterDescriptor(
-        sendcount, <MPI_Datatype> sendtype_addr,
+        sendcount, <MPI_Datatype> sendtype_handle,
         recvcount, <MPI_Datatype> recvtype_addr,
-        root, <MPI_Comm> comm_addr
+        root, <MPI_Comm> comm_handle
     )
     return bytes((<char*> &desc)[:sizeof(ScatterDescriptor)])
 
@@ -689,11 +689,11 @@ cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef ScatterDescriptor* desc = <ScatterDescriptor*>(opaque)
-    cdef int32_t sendcount = desc.sendcount
+    cdef int sendcount = desc.sendcount
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
+    cdef int recvcount = desc.recvcount
     cdef MPI_Datatype recvtype = desc.recvtype
-    cdef int32_t root = desc.root
+    cdef int root = desc.root
     cdef MPI_Comm comm = desc.comm
 
     if COPY_TO_HOST:
@@ -738,16 +738,16 @@ cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
 # Send
 
 cdef struct SendDescriptor:
-    int32_t nitems
-    int32_t dest
-    int32_t tag
+    int nitems
+    int dest
+    int tag
     MPI_Comm comm
     MPI_Datatype dtype
 
 
-cpdef bytes build_send_descriptor(int32_t nitems, int32_t dest, int32_t tag, uint64_t comm_addr, uint64_t dtype_addr):
+cpdef bytes build_send_descriptor(int nitems, int dest, int tag, uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef SendDescriptor desc = SendDescriptor(
-        nitems, dest, tag, <MPI_Comm> comm_addr, <MPI_Datatype> dtype_addr
+        nitems, dest, tag, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
 
@@ -767,9 +767,9 @@ cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef SendDescriptor* desc = <SendDescriptor*>(opaque)
-    cdef int32_t nitems = desc.nitems
-    cdef int32_t dest = desc.dest
-    cdef int32_t tag = desc.tag
+    cdef int nitems = desc.nitems
+    cdef int dest = desc.dest
+    cdef int tag = desc.tag
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
@@ -792,25 +792,25 @@ cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
 # Sendrecv
 
 cdef struct SendrecvDescriptor:
-    int32_t sendcount
-    int32_t dest
-    int32_t sendtag
+    int sendcount
+    int dest
+    int sendtag
     MPI_Datatype sendtype
-    int32_t recvcount
-    int32_t source
-    int32_t recvtag
+    int recvcount
+    int source
+    int recvtag
     MPI_Datatype recvtype
     MPI_Comm comm
     MPI_Status* status
 
 
-cpdef bytes build_sendrecv_descriptor(int32_t sendcount, int32_t dest, int32_t sendtag, uint64_t sendtype_addr,
-                                      int32_t recvcount, int32_t source, int32_t recvtag, uint64_t recvtype_addr,
-                                      uint64_t comm_addr, uint64_t status_addr):
+cpdef bytes build_sendrecv_descriptor(int sendcount, int dest, int sendtag, uintptr_t sendtype_handle,
+                                      int recvcount, int source, int recvtag, uintptr_t recvtype_addr,
+                                      uintptr_t comm_handle, uintptr_t status_addr):
     cdef SendrecvDescriptor desc = SendrecvDescriptor(
-        sendcount, dest, sendtag, <MPI_Datatype> sendtype_addr,
+        sendcount, dest, sendtag, <MPI_Datatype> sendtype_handle,
         recvcount, source, recvtag, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_addr, <MPI_Status*> status_addr
+        <MPI_Comm> comm_handle, <MPI_Status*> status_addr
     )
     return bytes((<char*> &desc)[:sizeof(SendrecvDescriptor)])
 
@@ -832,13 +832,13 @@ cdef void mpi_sendrecv_gpu(cudaStream_t stream, void** buffers,
             raise RuntimeError("got wrong size of opaque argument")
 
     cdef SendrecvDescriptor* desc = <SendrecvDescriptor*>(opaque)
-    cdef int32_t sendcount = desc.sendcount
-    cdef int32_t dest = desc.dest
-    cdef int32_t sendtag = desc.sendtag
+    cdef int sendcount = desc.sendcount
+    cdef int dest = desc.dest
+    cdef int sendtag = desc.sendtag
     cdef MPI_Datatype sendtype = desc.sendtype
-    cdef int32_t recvcount = desc.recvcount
-    cdef int32_t source = desc.source
-    cdef int32_t recvtag = desc.recvtag
+    cdef int recvcount = desc.recvcount
+    cdef int source = desc.source
+    cdef int recvtag = desc.recvtag
     cdef MPI_Datatype recvtype = desc.recvtype
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Status* status = desc.status

@@ -9,12 +9,9 @@ from jax.lib import xla_client
 
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
@@ -82,35 +79,34 @@ def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     if status is None:
-        _status = MPI_STATUS_IGNORE_ADDR
+        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
     else:
-        _status = to_mpi_ptr(status)
+        status_ptr = to_mpi_ptr(status)
 
     operands = (
-        _nitems,
-        _constant_s32_scalar(c, source),
-        _constant_s32_scalar(c, tag),
-        _constant_u64_scalar(c, to_mpi_ptr(comm)),
-        _constant_u64_scalar(c, _dtype_ptr),
-        _constant_u64_scalar(c, _status),
+        xla_client.ops.Constant(c, _np.intc(nitems)),
+        xla_client.ops.Constant(c, _np.intc(source)),
+        xla_client.ops.Constant(c, _np.intc(tag)),
+        xla_client.ops.Constant(c, to_mpi_handle(comm)),
+        xla_client.ops.Constant(c, dtype_handle),
+        xla_client.ops.Constant(c, status_ptr),
         token,
     )
 
-    out = _ops.CustomCall(
+    out = xla_client.ops.CustomCall(
         c,
         b"mpi_recv",
         operands=operands,
@@ -128,34 +124,33 @@ def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _np.prod(dims, dtype=int)
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     if status is None:
-        _status = MPI_STATUS_IGNORE_ADDR
+        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
     else:
-        _status = to_mpi_ptr(status)
+        status_ptr = to_mpi_ptr(status)
 
     descriptor = build_recv_descriptor(
-        _nitems,
+        nitems,
         source,
         tag,
-        to_mpi_ptr(comm),
-        _dtype_ptr,
-        _status,
+        to_mpi_handle(comm),
+        dtype_handle,
+        status_ptr,
     )
 
-    out = _ops.CustomCall(
+    out = xla_client.ops.CustomCall(
         c,
         b"mpi_recv",
         operands=(token,),

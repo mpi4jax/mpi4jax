@@ -9,13 +9,9 @@ from jax.lib import xla_client
 
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
 )
@@ -86,16 +82,13 @@ def gather(
 def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
-
     # compute total number of elements in array
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
 
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -111,19 +104,19 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     )
 
     operands = (
-        _send_nitems,
+        xla_client.ops.Constant(c, _np.intc(send_nitems)),
         sendbuf,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        xla_client.ops.Constant(c, to_dtype_handle(send_dtype)),
         # we only support matching input and output arrays
-        _send_nitems,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        xla_client.ops.Constant(c, _np.intc(send_nitems)),
+        xla_client.ops.Constant(c, to_dtype_handle(send_dtype)),
         #
-        _constant_s32_scalar(c, root),
-        _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        xla_client.ops.Constant(c, _np.intc(root)),
+        xla_client.ops.Constant(c, to_mpi_handle(comm)),
         token,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_gather",
         operands=operands,
@@ -137,15 +130,13 @@ def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
 
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
-
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in send array
-    _send_nitems = _np.prod(send_dims, dtype=int)
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -161,17 +152,17 @@ def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
     )
 
     descriptor = build_gather_descriptor(
-        _send_nitems,
-        _send_dtype_ptr,
+        send_nitems,
+        send_dtype_handle,
         # we only support matching input and output arrays
-        _send_nitems,
-        _send_dtype_ptr,
+        send_nitems,
+        send_dtype_handle,
         #
         root,
-        to_mpi_ptr(comm),
+        to_mpi_handle(comm),
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_gather",
         operands=(

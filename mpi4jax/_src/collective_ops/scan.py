@@ -9,13 +9,9 @@ from jax.lib import xla_client
 from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
 )
@@ -61,29 +57,28 @@ def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
+    nitems = _np.prod(dims, dtype=int)
 
-    _dtype_ptr = dtype_ptr(dtype)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_scan",
         operands=(
-            _nitems,
+            xla_client.ops.Constant(c, _np.intc(nitems)),
             x,
-            _constant_u64_scalar(c, to_mpi_ptr(op)),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, _dtype_ptr),
+            xla_client.ops.Constant(c, to_mpi_handle(op)),
+            xla_client.ops.Constant(c, to_mpi_handle(comm)),
+            xla_client.ops.Constant(c, dtype_handle),
             token,
         ),
         shape=sh,
@@ -97,28 +92,27 @@ def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _np.prod(dims, dtype=int)
+    nitems = _np.prod(dims, dtype=int)
 
-    _dtype_ptr = dtype_ptr(dtype)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     descriptor = build_scan_descriptor(
-        _nitems,
-        to_mpi_ptr(op),
-        to_mpi_ptr(comm),
-        _dtype_ptr,
+        nitems,
+        to_mpi_handle(op),
+        to_mpi_handle(comm),
+        dtype_handle,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_scan",
         operands=(

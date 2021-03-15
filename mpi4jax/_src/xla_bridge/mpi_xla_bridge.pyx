@@ -1,6 +1,6 @@
 import sys
 
-from libc.stdint cimport int32_t, uint64_t
+from libc.stdint cimport uintptr_t
 
 cimport mpi4py.libmpi as libmpi
 from mpi4py.libmpi cimport (
@@ -18,7 +18,7 @@ from mpi4py.libmpi cimport (
 # export its memory address as Python int here.
 # This can then be passed to all functions that expect
 # MPI_Status* instead of a pointer to a real status object.
-MPI_STATUS_IGNORE_ADDR = int(<uint64_t>MPI_STATUS_IGNORE)
+MPI_STATUS_IGNORE_ADDR = int(<uintptr_t>MPI_STATUS_IGNORE)
 
 
 #
@@ -63,8 +63,8 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
 # Wrapped MPI primitives
 #
 
-cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                        void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
+cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                        void* recvbuf, int recvcount, MPI_Datatype recvtype,
                         MPI_Comm comm) nogil:
     cdef int ierr
 
@@ -77,7 +77,7 @@ cdef void mpi_allgather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
     abort_on_error(ierr, comm, u"Allgather")
 
 
-cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
+cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
@@ -90,8 +90,8 @@ cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int32_t nitems,
     abort_on_error(ierr, comm, u"Allreduce")
 
 
-cdef void mpi_alltoall(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                       void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
+cdef void mpi_alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                       void* recvbuf, int recvcount, MPI_Datatype recvtype,
                        MPI_Comm comm) nogil:
     cdef int ierr
 
@@ -104,8 +104,8 @@ cdef void mpi_alltoall(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
     abort_on_error(ierr, comm, u"Alltoall")
 
 
-cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
-                   int32_t root, MPI_Comm comm) nogil:
+cdef void mpi_bcast(void* sendrecvbuf, int nitems, MPI_Datatype dtype,
+                   int root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -117,9 +117,9 @@ cdef void mpi_bcast(void* sendrecvbuf, int32_t nitems, MPI_Datatype dtype,
     abort_on_error(ierr, comm, u"Bcast")
 
 
-cdef void mpi_gather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                     void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                     int32_t root, MPI_Comm comm) nogil:
+cdef void mpi_gather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                     void* recvbuf, int recvcount, MPI_Datatype recvtype,
+                     int root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -131,8 +131,8 @@ cdef void mpi_gather(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
     abort_on_error(ierr, comm, u"Gather")
 
 
-cdef void mpi_recv(void* recvbuf, int32_t nitems, MPI_Datatype dtype, int32_t source,
-                   int32_t tag, MPI_Comm comm, MPI_Status* status) nogil:
+cdef void mpi_recv(void* recvbuf, int nitems, MPI_Datatype dtype, int source,
+                   int tag, MPI_Comm comm, MPI_Status* status) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -144,8 +144,8 @@ cdef void mpi_recv(void* recvbuf, int32_t nitems, MPI_Datatype dtype, int32_t so
     abort_on_error(ierr, comm, u"Recv")
 
 
-cdef void mpi_reduce(void* sendbuf, void* recvbuf, int32_t nitems,
-                     MPI_Datatype dtype, MPI_Op op, int32_t root,
+cdef void mpi_reduce(void* sendbuf, void* recvbuf, int nitems,
+                     MPI_Datatype dtype, MPI_Op op, int root,
                      MPI_Comm comm) nogil:
     cdef int ierr
 
@@ -158,7 +158,7 @@ cdef void mpi_reduce(void* sendbuf, void* recvbuf, int32_t nitems,
     abort_on_error(ierr, comm, u"Reduce")
 
 
-cdef void mpi_scan(void* sendbuf, void* recvbuf, int32_t nitems,
+cdef void mpi_scan(void* sendbuf, void* recvbuf, int nitems,
                    MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
@@ -171,9 +171,9 @@ cdef void mpi_scan(void* sendbuf, void* recvbuf, int32_t nitems,
     abort_on_error(ierr, comm, u"Scan")
 
 
-cdef void mpi_scatter(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
-                      void* recvbuf, int32_t recvcount, MPI_Datatype recvtype,
-                      int32_t root, MPI_Comm comm) nogil:
+cdef void mpi_scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+                      void* recvbuf, int recvcount, MPI_Datatype recvtype,
+                      int root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -189,8 +189,8 @@ cdef void mpi_scatter(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype,
     abort_on_error(ierr, comm, u"Scatter")
 
 
-cdef void mpi_send(void* sendbuf, int32_t nitems, MPI_Datatype dtype,
-                   int32_t destination, int32_t tag, MPI_Comm comm) nogil:
+cdef void mpi_send(void* sendbuf, int nitems, MPI_Datatype dtype,
+                   int destination, int tag, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -202,8 +202,8 @@ cdef void mpi_send(void* sendbuf, int32_t nitems, MPI_Datatype dtype,
     abort_on_error(ierr, comm, u"Send")
 
 
-cdef void mpi_sendrecv(void* sendbuf, int32_t sendcount, MPI_Datatype sendtype, int32_t dest, int32_t sendtag,
-                       void* recvbuf, int32_t recvcount, MPI_Datatype recvtype, int32_t source, int32_t recvtag,
+cdef void mpi_sendrecv(void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+                       void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
                        MPI_Comm comm, MPI_Status* status) nogil:
     cdef int ierr
 

@@ -9,13 +9,9 @@ from jax.lib import xla_client
 
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
 )
@@ -71,8 +67,6 @@ def alltoall(
 def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
-
     shape = c.GetShape(x)
     dtype = shape.element_type()
     dims = shape.dimensions()
@@ -81,7 +75,7 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     size = comm.Get_size()
     assert dims[0] == size
     _nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    _dtype_ptr = dtype_ptr(dtype)
+    _dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -91,18 +85,18 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     )
 
     operands = (
-        _constant_s32_scalar(c, _nitems_per_proc),
+        xla_client.ops.Constant(c, _np.intc(_nitems_per_proc)),
         x,
-        _constant_u64_scalar(c, _dtype_ptr),
+        xla_client.ops.Constant(c, _dtype_handle),
         # we only support matching input and output arrays
-        _constant_s32_scalar(c, _nitems_per_proc),
-        _constant_u64_scalar(c, _dtype_ptr),
+        xla_client.ops.Constant(c, _np.intc(_nitems_per_proc)),
+        xla_client.ops.Constant(c, _dtype_handle),
         #
-        _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        xla_client.ops.Constant(c, to_mpi_handle(comm)),
         token,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_alltoall",
         operands=operands,
@@ -116,8 +110,6 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
 
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
-
     shape = c.GetShape(x)
     dtype = shape.element_type()
     dims = shape.dimensions()
@@ -126,7 +118,7 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
     size = comm.Get_size()
     assert dims[0] == size
     _nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    _dtype_ptr = dtype_ptr(dtype)
+    _dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -137,15 +129,15 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
 
     descriptor = build_alltoall_descriptor(
         _nitems_per_proc,
-        _dtype_ptr,
+        _dtype_handle,
         # we only support matching input and output arrays
         _nitems_per_proc,
-        _dtype_ptr,
+        _dtype_handle,
         #
-        to_mpi_ptr(comm),
+        to_mpi_handle(comm),
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_alltoall",
         operands=(

@@ -1,70 +1,60 @@
 import functools
 
-import numpy as _np
-from jax.interpreters import xla
-from jax.lib import xla_client
 from mpi4py import MPI as _MPI
 
-_ops = xla_client.ops
+import numpy as _np
+from jax.interpreters import xla
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
 
 
+def to_mpi_handle(mpi_obj):
+    """
+    Returns the handle of the underlying C mpi object.
+
+    Only defined for some MPI types (such as MPI_Comm), throws NotImplementedError
+    otherwise.
+
+    Note: This is not a pointer, but the actual C integer representation of the object.
+    """
+    return _np.uintp(_MPI._handleof(mpi_obj))
+
+
 def to_mpi_ptr(mpi_obj):
     """
-    to_mpi_ptr(mpi_obj)
-
-    Returns the ptr to the underlying C mpi object
+    Returns a pointer to the underlying C MPI object
     """
-    try:
-        addr = _MPI._handleof(mpi_obj)
-    except NotImplementedError:
-        # some objects like Status only work with addressof
-        addr = _MPI._addressof(mpi_obj)
-
-    return _np.uint64(addr)
+    return _np.uintp(_MPI._addressof(mpi_obj))
 
 
-def dtype_ptr(dtype):
+MPI_TYPE_MAP = {
+    _np.dtype(_np.float32): _MPI.FLOAT,
+    _np.dtype(_np.float64): _MPI.DOUBLE,
+    _np.dtype(_np.float128): _MPI.LONG_DOUBLE,
+    _np.dtype(_np.complex64): _MPI.COMPLEX,
+    _np.dtype(_np.complex128): _MPI.DOUBLE_COMPLEX,
+    _np.dtype(_np.int8): _MPI.INT8_T,
+    _np.dtype(_np.int16): _MPI.INT16_T,
+    _np.dtype(_np.int32): _MPI.INT32_T,
+    _np.dtype(_np.int64): _MPI.INT64_T,
+    _np.dtype(_np.uint8): _MPI.UINT8_T,
+    _np.dtype(_np.uint16): _MPI.UINT16_T,
+    _np.dtype(_np.uint32): _MPI.UINT32_T,
+    _np.dtype(_np.uint64): _MPI.UINT64_T,
+    _np.dtype(_np.bool_): _MPI.BOOL,
+}
+
+
+def to_dtype_handle(dtype):
     """
-    dtype_ptr(dtype)
-
     Returns the pointer to the MPI dtype of the input numpy dtype
     """
-    if dtype == _np.float32:
-        _dtype = to_mpi_ptr(_MPI.FLOAT)
-    elif dtype == _np.float64:
-        _dtype = to_mpi_ptr(_MPI.DOUBLE)
-    elif dtype == _np.float128:
-        _dtype = to_mpi_ptr(_MPI.LONG_DOUBLE)
-    elif dtype == _np.complex64:
-        _dtype = to_mpi_ptr(_MPI.COMPLEX)
-    elif dtype == _np.complex128:
-        _dtype = to_mpi_ptr(_MPI.DOUBLE_COMPLEX)
-    elif dtype == _np.int8:
-        _dtype = to_mpi_ptr(_MPI.INT8_T)
-    elif dtype == _np.int16:
-        _dtype = to_mpi_ptr(_MPI.INT16_T)
-    elif dtype == _np.int32:
-        _dtype = to_mpi_ptr(_MPI.INT32_T)
-    elif dtype == _np.int64:
-        _dtype = to_mpi_ptr(_MPI.INT64_T)
-    elif dtype == _np.uint8:
-        _dtype = to_mpi_ptr(_MPI.UINT8_T)
-    elif dtype == _np.uint16:
-        _dtype = to_mpi_ptr(_MPI.UINT16_T)
-    elif dtype == _np.uint32:
-        _dtype = to_mpi_ptr(_MPI.UINT32_T)
-    elif dtype == _np.uint64:
-        _dtype = to_mpi_ptr(_MPI.UINT64_T)
-    elif dtype == _np.bool:
-        _dtype = to_mpi_ptr(_MPI.BOOL)
-    else:
-        raise RuntimeError("Unknown MPI type for numpy type {}".format(dtype))
+    if dtype not in MPI_TYPE_MAP:
+        raise RuntimeError("Unknown MPI type for dtype {}".format(type(dtype)))
 
-    return _dtype
+    return to_mpi_handle(MPI_TYPE_MAP[dtype])
 
 
 # Helpers to make MPI objects hashable
@@ -90,27 +80,3 @@ def unpack_hashable(obj):
         return obj.wrapped
 
     return obj
-
-
-# Helper functions
-
-
-def _constant_s32_scalar(c, x):
-    return _ops.Constant(c, _np.int32(x))
-
-
-def _constant_s64_scalar(c, x):
-    return _ops.Constant(c, _np.int64(x))
-
-
-def _constant_u32_scalar(c, x):
-    return _ops.Constant(c, _np.uint32(x))
-
-
-def _constant_u64_scalar(c, x):
-    return _ops.Constant(c, _np.uint64(x))
-
-
-def _unpack_builder(c):
-    # If `c` is a ComputationBuilder object, extracts the underlying XlaBuilder.
-    return getattr(c, "_builder", c)
