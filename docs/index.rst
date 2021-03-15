@@ -6,7 +6,7 @@
 
    installation
    usage
-   demo
+   shallow-water
    sharp-bits
    api
 

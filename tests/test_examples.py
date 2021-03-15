@@ -5,9 +5,8 @@ import pytest
 def add_examples_to_path():
     import os
     import sys
-    import mpi4jax
 
-    rootpath = os.path.dirname(mpi4jax.__file__)
+    rootpath = os.path.dirname(__file__)
     demopath = os.path.join(rootpath, "..", "examples")
     sys.path.append(demopath)
 

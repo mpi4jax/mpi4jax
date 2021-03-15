@@ -444,6 +444,7 @@ def solve_shallow_water(t1, num_multisteps=10):
     with pbar:
         while t < t1:
             state = do_multistep(state, num_multisteps)
+            state[0].block_until_ready()
             sol.append(state)
 
             t += dt * num_multisteps
