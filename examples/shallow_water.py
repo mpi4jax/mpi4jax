@@ -267,11 +267,13 @@ ModelState = namedtuple("ModelState", "h, u, v, dh, du, dv")
 
 
 @partial(jax.jit, static_argnums=(2,))
-def shallow_water_step(state, token, is_first_step):
+def shallow_water_step(state, is_first_step):
     """Perform one step of the shallow-water model.
 
     Returns modified model state.
     """
+    token = jax.lax.create_token()
+
     h, u, v, dh, du, dv = state
 
     hc = jnp.pad(h[1:-1, 1:-1], 1, "edge")
@@ -399,20 +401,15 @@ def shallow_water_step(state, token, is_first_step):
             )
         )
 
-    return ModelState(h, u, v, dh_new, du_new, dv_new), token
+    return ModelState(h, u, v, dh_new, du_new, dv_new)
 
 
 @partial(jax.jit, static_argnums=(1,))
 def do_multistep(state, num_steps):
     """Perform multiple model steps back-to-back."""
-    token = jax.lax.create_token()
-
-    def loop_func(i, args):
-        state, token = args
-        return shallow_water_step(state, token, False)
-
-    final_state, _ = jax.lax.fori_loop(0, num_steps, loop_func, (state, token))
-    return final_state
+    return jax.lax.fori_loop(
+        0, num_steps, lambda s: shallow_water_step(s, False), state
+    )
 
 
 def solve_shallow_water(t1, num_multisteps=10):
@@ -424,8 +421,7 @@ def solve_shallow_water(t1, num_multisteps=10):
     state = ModelState(h, u, v, dh, du, dv)
     sol = [state]
 
-    token = jax.lax.create_token()
-    state, token = shallow_water_step(state, token, True)
+    state = shallow_water_step(state, True)
     sol.append(state)
     t = dt
 
