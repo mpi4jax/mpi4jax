@@ -1,23 +1,50 @@
+"""mpi4jax demo application -- shallow water
+
+A non-linear shallow water solver, adapted from
+
+https://github.com/dionhaefner/shallow-water
+
+Usage examples:
+
+    # runs demo on 4 processes
+    $ mpirun -n 4 python demo.py
+
+    # saves output animation as demo.mp4
+    $ mpirun -n 4 python demo.py --save-animation
+
+    # runs demo as a benchmark (no output)
+    $ mpirun -n 4 python demo.py --benchmark
+
+"""
+
+import os
+import sys
 import math
+import time
 from collections import namedtuple
 from functools import partial
 
 import numpy as np
 import tqdm
 
-import jax
-import jax.numpy as jnp
-
 from mpi4py import MPI
-import mpi4jax
-
-#
-# MPI setup
-#
 
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
+
+# on GPU, put each process on its own device
+os.environ["CUDA_VISIBLE_DEVICES"] = str(mpi_rank)
+
+import jax  # noqa: E402
+import jax.numpy as jnp  # noqa: E402
+
+import mpi4jax  # noqa: E402
+
+
+#
+# MPI setup
+#
 
 supported_nproc = (1, 2, 4, 6, 8, 16)
 if mpi_size not in supported_nproc:
@@ -417,6 +444,7 @@ def solve_shallow_water(t1, num_multisteps=10):
     # pre-compile JAX kernel
     do_multistep(state, num_multisteps)
 
+    start = time.perf_counter()
     with pbar:
         while t < t1:
             state = do_multistep(state, num_multisteps)
@@ -426,6 +454,11 @@ def solve_shallow_water(t1, num_multisteps=10):
 
             if t < t1:
                 pbar.update(num_multisteps)
+
+    end = time.perf_counter()
+
+    if mpi_rank == 0:
+        print(f"Solution took {end - start:.2f}s")
 
     return sol
 
@@ -524,8 +557,8 @@ def animate_shallow_water(sol):
         cs.set_array(eta[1:-1, 1:-1].flatten())
         cq.set_UVC(state.u[quiver_stride], state.v[quiver_stride])
 
-        time = PLOT_EVERY * dt * i
-        t.set_text(f"t = {time / DAY_IN_SECONDS:.2f} days")
+        current_time = PLOT_EVERY * dt * i
+        t.set_text(f"t = {current_time / DAY_IN_SECONDS:.2f} days")
         return (cs, cq, t)
 
     anim = animation.FuncAnimation(
@@ -535,9 +568,12 @@ def animate_shallow_water(sol):
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    benchmark_mode = "--benchmark" in sys.argv
 
     sol = solve_shallow_water(t1=10 * DAY_IN_SECONDS, num_multisteps=PLOT_EVERY)
+
+    if benchmark_mode:
+        sys.exit(0)
 
     # copy solution to mpi_rank 0
     full_sol_arr, _ = mpi4jax.gather(jnp.asarray(sol), root=0, comm=mpi_comm)
@@ -549,7 +585,10 @@ if __name__ == "__main__":
 
         anim = animate_shallow_water(full_sol)
 
-        # uncomment to save animation as MP4 (requires ffmpeg)
-        anim.save("demo.mp4", writer="ffmpeg", dpi=100)
+        if "--save-animation" in sys.argv:
+            # save animation as MP4 video (requires ffmpeg)
+            anim.save("shallow-water.mp4", writer="ffmpeg", dpi=100)
+        else:
+            import matplotlib.pyplot as plt
 
-        plt.show()
+            plt.show()
