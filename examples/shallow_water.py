@@ -1,19 +1,19 @@
-"""mpi4jax demo application -- shallow water
+"""mpi4jax demo application -- Shallow water
 
-A non-linear shallow water solver, adapted from
+A non-linear shallow water solver, adapted from:
 
 https://github.com/dionhaefner/shallow-water
 
 Usage examples:
 
     # runs demo on 4 processes
-    $ mpirun -n 4 python demo.py
+    $ mpirun -n 4 python shallow_water.py
 
-    # saves output animation as demo.mp4
-    $ mpirun -n 4 python demo.py --save-animation
+    # saves output animation as shallow-water.mp4
+    $ mpirun -n 4 python shallow_water.py --save-animation
 
     # runs demo as a benchmark (no output)
-    $ mpirun -n 4 python demo.py --benchmark
+    $ mpirun -n 4 python shallow_water.py --benchmark
 
 """
 
