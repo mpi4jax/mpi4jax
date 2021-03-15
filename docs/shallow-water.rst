@@ -89,3 +89,6 @@ Using the shallow water solver, we can observe how the performance behaves when 
     $ JAX_PLATFORM_NAME=gpu MPI4JAX_USE_CUDA_MPI=1 mpirun -n 2 -- python examples/shallow_water.py --benchmark
     92%|█████████▏| 0.09/0.10 [00:07<00:00, 76.28s/model day]
     Solution took 3.89s
+
+
+Using pure NumPy, the same model takes over 12 minutes (770s) to execute on 1 process, which goes to show how efficient JAX is for this kind of workload.
