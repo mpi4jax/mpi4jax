@@ -408,7 +408,7 @@ def shallow_water_step(state, is_first_step):
 def do_multistep(state, num_steps):
     """Perform multiple model steps back-to-back."""
     return jax.lax.fori_loop(
-        0, num_steps, lambda s: shallow_water_step(s, False), state
+        0, num_steps, lambda _, s: shallow_water_step(s, False), state
     )
 
 
