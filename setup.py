@@ -20,6 +20,14 @@ except ImportError:
 else:
     HAS_CYTHON = True
 
+try:
+    import mpi4py
+except ImportError:
+    HAS_MPI4PY = False
+else:
+    HAS_MPI4PY = True
+
+
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
 CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 
@@ -50,8 +58,6 @@ def print_warning(*lines):
 
 
 def mpi_info(cmd):
-    import mpi4py
-
     config = mpi4py.get_config()
     cmd_compile = " ".join([config["mpicc"], "-show"])
     out_stream = os.popen(cmd_compile)
@@ -69,6 +75,7 @@ def mpi_info(cmd):
     for flag in flags:
         if flag.startswith(startwith):
             out.append(flag[2:])
+
     return out
 
 
@@ -134,9 +141,16 @@ def cuda_info(cmd):
 
 
 def get_extensions():
+    if not HAS_MPI4PY:
+        print_warning("mpi4py could not be imported", "(extensions will not be built)")
+        return []
+
     if HAS_CYTHON:
         ext_suffix = "pyx"
     else:
+        print_warning(
+            "cython could not be imported", "(building only existing C files)"
+        )
         ext_suffix = "c"
 
     def _env_to_bool(envvar):
@@ -172,6 +186,8 @@ def get_extensions():
                 define_macros=macros,
             )
         )
+    else:
+        print_warning("CUDA path not found", "(GPU extensions will not be built)")
 
     if HAS_CYTHON:
         compiler_directives = {"linetrace": activate_tracing}
