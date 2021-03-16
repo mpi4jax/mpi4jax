@@ -1,5 +1,7 @@
 from mpi4py.libmpi cimport MPI_Comm, MPI_Datatype, MPI_Status, MPI_Op
 
+cdef int abort(int ierr, MPI_Comm comm, unicode message) nogil
+
 cdef int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil
 
 cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,

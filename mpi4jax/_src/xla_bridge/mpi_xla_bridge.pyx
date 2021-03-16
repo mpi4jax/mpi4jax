@@ -44,6 +44,14 @@ cdef inline void print_debug(unicode message, MPI_Comm comm) nogil:
 # Error handling
 #
 
+cdef inline int abort(int ierr, MPI_Comm comm, unicode message) nogil:
+    with gil:
+        sys.stderr.write(message)
+        sys.stderr.flush()
+
+    return MPI_Abort(comm, ierr)
+
+
 cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
     if ierr == MPI_SUCCESS:
         return 0
@@ -52,11 +60,9 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
     MPI_Comm_rank(comm, &rank)
 
     with gil:
-        sys.stderr.write(
-            f'r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n'
-        )
-        sys.stderr.flush()
-        return MPI_Abort(comm, ierr)
+        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n'
+
+    return abort(ierr, comm, message)
 
 
 #
