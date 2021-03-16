@@ -2,7 +2,6 @@ import sys
 
 from libc.stdint cimport uintptr_t
 
-cimport mpi4py.libmpi as libmpi
 from mpi4py.libmpi cimport (
     MPI_Abort,
     MPI_Comm,
@@ -13,6 +12,8 @@ from mpi4py.libmpi cimport (
     MPI_STATUS_IGNORE,
     MPI_SUCCESS,
 )
+
+cimport mpi4py.libmpi as libmpi
 
 # MPI_STATUS_IGNORE is not exposed to Python by mpi4py, so we
 # export its memory address as Python int here.
@@ -76,10 +77,15 @@ cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Allgather sending {sendcount}, receiving {recvcount} items", comm)
+            print_debug(
+                f"MPI_Allgather sending {sendcount}, receiving {recvcount} items",
+                comm
+            )
 
     # MPI Call
-    ierr = libmpi.MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm)
+    ierr = libmpi.MPI_Allgather(
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
+    )
     abort_on_error(ierr, comm, u"Allgather")
 
 
@@ -103,15 +109,20 @@ cdef void mpi_alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Alltoall sending {sendcount}, receiving {recvcount} items", comm)
+            print_debug(
+                f"MPI_Alltoall sending {sendcount}, receiving {recvcount} items",
+                comm
+            )
 
     # MPI Call
-    ierr = libmpi.MPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm)
+    ierr = libmpi.MPI_Alltoall(
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
+    )
     abort_on_error(ierr, comm, u"Alltoall")
 
 
 cdef void mpi_bcast(void* sendrecvbuf, int nitems, MPI_Datatype dtype,
-                   int root, MPI_Comm comm) nogil:
+                    int root, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
@@ -130,10 +141,15 @@ cdef void mpi_gather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Gather -> {root} sending {sendcount}, receiving {recvcount} items", comm)
+            print_debug(
+                f"MPI_Gather -> {root} sending {sendcount}, "
+                f"receiving {recvcount} items", comm
+            )
 
     # MPI Call
-    ierr = libmpi.MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm)
+    ierr = libmpi.MPI_Gather(
+        sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm
+    )
     abort_on_error(ierr, comm, u"Gather")
 
 
@@ -184,7 +200,10 @@ cdef void mpi_scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Scatter -> {root} sending {sendcount}, receiving {recvcount} items", comm)
+            print_debug(
+                f"MPI_Scatter -> {root} sending {sendcount}, "
+                f"receiving {recvcount} items", comm
+            )
 
     # MPI Call
     ierr = libmpi.MPI_Scatter(
@@ -201,16 +220,20 @@ cdef void mpi_send(void* sendbuf, int nitems, MPI_Datatype dtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Send -> {destination} with tag {tag} and {nitems} items", comm)
+            print_debug(
+                f"MPI_Send -> {destination} with tag {tag} and {nitems} items", comm
+            )
 
     # MPI Call
     ierr = libmpi.MPI_Send(sendbuf, nitems, dtype, destination, tag, comm)
     abort_on_error(ierr, comm, u"Send")
 
 
-cdef void mpi_sendrecv(void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag,
-                       void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
-                       MPI_Comm comm, MPI_Status* status) nogil:
+cdef void mpi_sendrecv(
+    void* sendbuf, int sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+    void* recvbuf, int recvcount, MPI_Datatype recvtype, int source, int recvtag,
+    MPI_Comm comm, MPI_Status* status
+) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:

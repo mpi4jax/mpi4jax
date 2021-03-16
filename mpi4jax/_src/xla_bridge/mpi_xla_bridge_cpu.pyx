@@ -96,7 +96,6 @@ cdef void mpi_gather_cpu(void** out_ptr, void** data_ptr) nogil:
     )
 
 
-
 cdef void mpi_recv_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int nitems = (<int*>(data_ptr[0]))[0]
     cdef int source = (<int*>(data_ptr[1]))[0]

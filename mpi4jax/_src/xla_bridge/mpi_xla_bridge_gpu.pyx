@@ -86,7 +86,9 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count,
     return ierr
 
 
-cdef inline cudaError_t checked_cuda_stream_synchronize(cudaStream_t stream, MPI_Comm comm) nogil:
+cdef inline cudaError_t checked_cuda_stream_synchronize(
+    cudaStream_t stream, MPI_Comm comm
+) nogil:
     cdef cudaError_t ierr
     ierr = cudaStreamSynchronize(stream)
 
@@ -136,7 +138,7 @@ cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -198,8 +200,8 @@ cdef struct AllreduceDescriptor:
     MPI_Datatype dtype
 
 
-cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle, uintptr_t comm_handle,
-                                       uintptr_t dtype_handle):
+cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle,
+                                       uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef AllreduceDescriptor desc = AllreduceDescriptor(
         nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
@@ -211,7 +213,7 @@ cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, dtype_size
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -277,7 +279,7 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -351,7 +353,7 @@ cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, dtype_size, rank
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -422,7 +424,7 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -476,7 +478,9 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
     if COPY_TO_HOST:
         if rank == root:
             # copy back to device
-            checked_cuda_memcpy(out_data, out_buf, recvbytes, cudaMemcpyHostToDevice, comm)
+            checked_cuda_memcpy(
+                out_data, out_buf, recvbytes, cudaMemcpyHostToDevice, comm
+            )
 
         free(in_buf)
         free(out_buf)
@@ -505,11 +509,11 @@ cpdef bytes build_recv_descriptor(int nitems, int dest, int tag, uintptr_t comm_
 
 
 cdef void mpi_recv_gpu(cudaStream_t stream, void** buffers,
-                   const char* opaque, size_t opaque_len) nogil:
+                       const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* out_buf = buffers[1]
 
     cdef void* recvbuf = out_buf
@@ -556,7 +560,8 @@ cdef struct ReduceDescriptor:
 cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
                                     uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef ReduceDescriptor desc = ReduceDescriptor(
-        nitems, <MPI_Op> op_handle, root, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
+        nitems, <MPI_Op> op_handle, root, <MPI_Comm> comm_handle,
+        <MPI_Datatype> dtype_handle
     )
     return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
@@ -566,7 +571,7 @@ cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, dtype_size, rank
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -619,8 +624,8 @@ cdef struct ScanDescriptor:
     MPI_Datatype dtype
 
 
-cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle, uintptr_t comm_handle,
-                                  uintptr_t dtype_handle):
+cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle,
+                                  uintptr_t comm_handle, uintptr_t dtype_handle):
     cdef ScanDescriptor desc = ScanDescriptor(
         nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
     )
@@ -628,11 +633,11 @@ cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle, uintptr_t com
 
 
 cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
-                        const char* opaque, size_t opaque_len) nogil:
+                       const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -699,7 +704,7 @@ cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
 
@@ -777,11 +782,11 @@ cpdef bytes build_send_descriptor(int nitems, int dest, int tag, uintptr_t comm_
 
 
 cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
-                   const char* opaque, size_t opaque_len) nogil:
+                       const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
 
-    #decode inputs
+    # decode inputs
     cdef void* data = buffers[0]
 
     cdef void* sendbuf = data
@@ -829,9 +834,11 @@ cdef struct SendrecvDescriptor:
     MPI_Status* status
 
 
-cpdef bytes build_sendrecv_descriptor(int sendcount, int dest, int sendtag, uintptr_t sendtype_handle,
-                                      int recvcount, int source, int recvtag, uintptr_t recvtype_addr,
-                                      uintptr_t comm_handle, uintptr_t status_addr):
+cpdef bytes build_sendrecv_descriptor(
+    int sendcount, int dest, int sendtag, uintptr_t sendtype_handle,
+    int recvcount, int source, int recvtag, uintptr_t recvtype_addr,
+    uintptr_t comm_handle, uintptr_t status_addr
+):
     cdef SendrecvDescriptor desc = SendrecvDescriptor(
         sendcount, dest, sendtag, <MPI_Datatype> sendtype_handle,
         recvcount, source, recvtag, <MPI_Datatype> recvtype_addr,
@@ -841,11 +848,11 @@ cpdef bytes build_sendrecv_descriptor(int sendcount, int dest, int sendtag, uint
 
 
 cdef void mpi_sendrecv_gpu(cudaStream_t stream, void** buffers,
-                       const char* opaque, size_t opaque_len) nogil:
+                           const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, send_dtype_size, recv_dtype_size
     cdef size_t bytes_send, bytes_recv
 
-    #decode inputs
+    # decode inputs
     cdef void* in_buf = buffers[0]
     cdef void* out_buf = buffers[2]
 
