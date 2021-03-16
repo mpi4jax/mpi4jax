@@ -216,5 +216,6 @@ setup(
         write_to="mpi4jax/_version.py",
     ),
     python_requires=">=3.6",
+    setup_requires=["setuptools_scm", "setuptools_scm_git_archive"],
     install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
 )

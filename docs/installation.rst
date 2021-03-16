@@ -4,28 +4,33 @@ Installation
 Basic installation
 ------------------
 
-.. warning::
+Start by `installing a suitable version of JAX and jaxlib <https://github.com/google/jax#installation>`_. If you don't plan on using ``mpi4jax`` on GPU, the following will do:
 
-   Much of the functionality we need has recently been added to JAX, which itself is changing frequently. Therefore, ``mpi4jax`` has somewhat strict requirements on the supported versions of JAX and jaxlib.
+.. code:: bash
 
-We recommend that you use ``pip`` to install mpi4jax, however a distribution is also available on ``conda``:
+   $ pip install jax jaxlib
+
+.. note::
+
+   Much of the functionality we need has recently been added to JAX, which itself is changing frequently. Therefore, ``mpi4jax`` has somewhat strict requirements on the supported versions of JAX and jaxlib. Be prepared to upgrade!
+
+We recommend that you use ``pip`` to install mpi4jax (but a distribution is also available via ``conda``):
 
 .. code:: bash
 
    $ pip install mpi4jax
    $ conda install -c conda-forge mpi4jax
 
-Installing via ``pip`` usually requires a working installation of MPI to succeed. If you don't already have MPI and want to get started as quickly as possible, try ``conda``, which bundles the MPI library.
+Installing via ``pip`` requires a working installation of MPI to succeed. If you don't already have MPI and want to get started as quickly as possible, try ``conda``, which bundles the MPI library.
+
+.. warning::
+
+   We advise against using the conda installation in HPC environments because it is not possible to change the MPI library ``mpi4py`` is linked against.
 
 And that is it! If you are familiar with MPI, you should in principle be able to get started right away. However, we recommend that you have a look at :doc:`sharp-bits`, to make sure that you are aware of some of the pitfalls of ``mpi4jax``.
 
 Selecting the MPI distribution
 ------------------------------
-
-.. warning::
-
-	We advise against using the conda installation in HPC environments
-	because it is not possible to change the MPI library ``mpi4py`` is linked against.
 
 ``mpi4jax`` will use the MPI distribution with which ``mpi4py`` was built.
 If ``mpi4py`` is not installed, it will be installed automatically before
@@ -38,11 +43,13 @@ prompt.
 
 	$ python -c "import mpi4py; print(mpi4py.get_config())"
 
-If you wish to use a specific MPI library (only possible when using ``pip``), it is 
-usually sufficient to specify the ``MPICC`` environment variable `before` installing 
-```mpi4py``. 
-However we advise you to read carefully
-`mpi4py documentation <https://mpi4py.readthedocs.io/en/stable/install.html>`_.
+If you wish to use a specific MPI library (only possible when using ``pip``), it is
+usually sufficient to specify the ``MPICC`` environment variable `before` installing
+```mpi4py``.
+
+.. seealso::
+
+   In doubt, please refer to `the mpi4py documentation <https://mpi4py.readthedocs.io/en/stable/install.html>`_.
 
 
 Installation with GPU support
@@ -50,7 +57,7 @@ Installation with GPU support
 
 .. note::
 
-   To use JAX on the GPU, make sure that your ``jaxlib`` is `built with CUDA support <https://github.com/google/jax#pip-installation>`_.
+   To use JAX on the GPU, make sure that your ``jaxlib`` is `built with CUDA support <https://github.com/google/jax#installation>`_.
 
 ``mpi4jax`` also supports JAX arrays stored in GPU memory.
 
