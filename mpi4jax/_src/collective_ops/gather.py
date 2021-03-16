@@ -14,6 +14,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -110,15 +112,15 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     )
 
     operands = (
-        xla_client.ops.Constant(c, _np.intc(send_nitems)),
+        xla_constant_intc(c, send_nitems),
         sendbuf,
-        xla_client.ops.Constant(c, to_dtype_handle(send_dtype)),
+        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
         # we only support matching input and output arrays
-        xla_client.ops.Constant(c, _np.intc(send_nitems)),
-        xla_client.ops.Constant(c, to_dtype_handle(send_dtype)),
+        xla_constant_intc(c, send_nitems),
+        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
         #
-        xla_client.ops.Constant(c, _np.intc(root)),
-        xla_client.ops.Constant(c, to_mpi_handle(comm)),
+        xla_constant_intc(c, root),
+        xla_constant_uintptr(c, to_mpi_handle(comm)),
         token,
     )
 

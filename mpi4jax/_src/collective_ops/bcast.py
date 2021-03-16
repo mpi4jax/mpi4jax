@@ -14,6 +14,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -80,7 +82,7 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    _dtype_handle = to_dtype_handle(dtype)
+    dtype_handle = to_dtype_handle(dtype)
 
     # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -95,11 +97,11 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
         c,
         b"mpi_bcast",
         operands=(
-            xla_client.ops.Constant(c, _np.intc(nitems)),
+            xla_constant_intc(c, nitems),
             x,
-            xla_client.ops.Constant(c, _np.intc(root)),
-            xla_client.ops.Constant(c, to_mpi_handle(comm)),
-            xla_client.ops.Constant(c, _dtype_handle),
+            xla_constant_intc(c, root),
+            xla_constant_uintptr(c, to_mpi_handle(comm)),
+            xla_constant_uintptr(c, dtype_handle),
             token,
         ),
         shape=sh,
@@ -119,7 +121,7 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    _dtype_handle = to_dtype_handle(dtype)
+    dtype_handle = to_dtype_handle(dtype)
 
     # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -134,7 +136,7 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
         nitems,
         root,
         to_mpi_handle(comm),
-        _dtype_handle,
+        dtype_handle,
     )
 
     return xla_client.ops.CustomCall(

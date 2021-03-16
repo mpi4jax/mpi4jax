@@ -14,6 +14,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -81,8 +83,8 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     # compute total number of elements in array
     size = comm.Get_size()
     assert dims[0] == size
-    _nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    _dtype_handle = to_dtype_handle(dtype)
+    nitems_per_proc = _np.prod(dims[1:], dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -92,14 +94,14 @@ def mpi_alltoall_xla_encode_cpu(c, x, token, comm):
     )
 
     operands = (
-        xla_client.ops.Constant(c, _np.intc(_nitems_per_proc)),
+        xla_constant_intc(c, nitems_per_proc),
         x,
-        xla_client.ops.Constant(c, _dtype_handle),
+        xla_constant_uintptr(c, dtype_handle),
         # we only support matching input and output arrays
-        xla_client.ops.Constant(c, _np.intc(_nitems_per_proc)),
-        xla_client.ops.Constant(c, _dtype_handle),
+        xla_constant_intc(c, nitems_per_proc),
+        xla_constant_uintptr(c, dtype_handle),
         #
-        xla_client.ops.Constant(c, to_mpi_handle(comm)),
+        xla_constant_uintptr(c, to_mpi_handle(comm)),
         token,
     )
 
@@ -125,8 +127,8 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
     # compute total number of elements in send array
     size = comm.Get_size()
     assert dims[0] == size
-    _nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    _dtype_handle = to_dtype_handle(dtype)
+    nitems_per_proc = _np.prod(dims[1:], dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -136,11 +138,11 @@ def mpi_alltoall_xla_encode_gpu(c, x, token, comm):
     )
 
     descriptor = build_alltoall_descriptor(
-        _nitems_per_proc,
-        _dtype_handle,
+        nitems_per_proc,
+        dtype_handle,
         # we only support matching input and output arrays
-        _nitems_per_proc,
-        _dtype_handle,
+        nitems_per_proc,
+        dtype_handle,
         #
         to_mpi_handle(comm),
     )

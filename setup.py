@@ -27,7 +27,7 @@ CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 #######
 # Utils
 def search_on_path(filenames):
-    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    path_dirs = os.getenv("PATH", "").split(os.pathsep)
 
     for p in path_dirs:
         for filename in filenames:
@@ -84,9 +84,9 @@ def get_cuda_path():
             os.path.join(os.path.dirname(nvcc_path), "..")
         )
 
-    cuda_path = os.environ.get("CUDA_PATH", "")  # Nvidia default on Windows
+    cuda_path = os.getenv("CUDA_PATH", "")  # Nvidia default on Windows
     if len(cuda_path) == 0:
-        cuda_path = os.environ.get("CUDA_ROOT", "")  # Nvidia default on Windows
+        cuda_path = os.getenv("CUDA_ROOT", "")  # Nvidia default on Windows
 
     if len(cuda_path) > 0 and cuda_path != cuda_path_default:
         print_warning(
@@ -140,7 +140,7 @@ def get_extensions():
         ext_suffix = "c"
 
     def _env_to_bool(envvar):
-        return os.environ.get(envvar, "").lower() in ("true", "1", "on")
+        return os.getenv(envvar, "").lower() in ("true", "1", "on")
 
     activate_tracing = _env_to_bool("MPI4JAX_ENABLE_TRACING")
 

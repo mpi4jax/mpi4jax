@@ -14,6 +14,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -68,7 +70,7 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    _dtype_handle = to_dtype_handle(dtype)
+    dtype_handle = to_dtype_handle(dtype)
 
     # ensure void** out type
     sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
@@ -77,12 +79,12 @@ def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):
         c,
         b"mpi_send",
         operands=(
-            xla_client.ops.Constant(c, _np.intc(nitems)),
+            xla_constant_intc(c, nitems),
             x,
             xla_client.ops.Constant(c, _np.intc(dest)),
-            xla_client.ops.Constant(c, _np.intc(tag)),
-            xla_client.ops.Constant(c, to_mpi_handle(comm)),
-            xla_client.ops.Constant(c, _dtype_handle),
+            xla_constant_intc(c, tag),
+            xla_constant_uintptr(c, to_mpi_handle(comm)),
+            xla_constant_uintptr(c, dtype_handle),
             token,
         ),
         shape=sh,

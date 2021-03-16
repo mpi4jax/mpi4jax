@@ -3,11 +3,21 @@ import functools
 from mpi4py import MPI as _MPI
 
 import numpy as _np
+
 from jax.interpreters import xla
+from jax.lib import xla_client
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
+
+
+def xla_constant_intc(c, val):
+    return xla_client.ops.Constant(c, _np.intc(val))
+
+
+def xla_constant_uintptr(c, val):
+    return xla_client.ops.Constant(c, _np.uintp(val))
 
 
 def to_mpi_handle(mpi_obj):

@@ -15,6 +15,8 @@ from ..utils import (
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -135,17 +137,17 @@ def mpi_sendrecv_xla_encode_cpu(
         status_ptr = to_mpi_ptr(status)
 
     operands = (
-        xla_client.ops.Constant(c, _np.intc(send_nitems)),
+        xla_constant_intc(c, send_nitems),
         sendbuf,
-        xla_client.ops.Constant(c, _np.intc(dest)),
-        xla_client.ops.Constant(c, _np.intc(sendtag)),
-        xla_client.ops.Constant(c, send_dtype_handle),
-        xla_client.ops.Constant(c, _np.intc(recv_nitems)),
-        xla_client.ops.Constant(c, _np.intc(source)),
-        xla_client.ops.Constant(c, _np.intc(recvtag)),
-        xla_client.ops.Constant(c, recv_dtype_handle),
-        xla_client.ops.Constant(c, to_mpi_handle(comm)),
-        xla_client.ops.Constant(c, status_ptr),
+        xla_constant_intc(c, dest),
+        xla_constant_intc(c, sendtag),
+        xla_constant_uintptr(c, send_dtype_handle),
+        xla_constant_intc(c, recv_nitems),
+        xla_constant_intc(c, source),
+        xla_constant_intc(c, recvtag),
+        xla_constant_uintptr(c, recv_dtype_handle),
+        xla_constant_uintptr(c, to_mpi_handle(comm)),
+        xla_constant_uintptr(c, status_ptr),
         token,
     )
 

@@ -14,6 +14,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -81,11 +83,11 @@ def mpi_scan_xla_encode_cpu(c, x, token, op, comm):
         c,
         b"mpi_scan",
         operands=(
-            xla_client.ops.Constant(c, _np.intc(nitems)),
+            xla_constant_intc(c, nitems),
             x,
             xla_client.ops.Constant(c, to_mpi_handle(op)),
-            xla_client.ops.Constant(c, to_mpi_handle(comm)),
-            xla_client.ops.Constant(c, dtype_handle),
+            xla_constant_uintptr(c, to_mpi_handle(comm)),
+            xla_constant_uintptr(c, dtype_handle),
             token,
         ),
         shape=sh,
