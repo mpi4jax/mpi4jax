@@ -15,7 +15,9 @@ from ..utils import (
     unpack_hashable,
     wrap_as_hashable,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
@@ -26,10 +28,10 @@ mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     root=(_np.integer),
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
+def reduce(x, op, root, comm=None, token=None):
     """Perform a reduce operation.
 
     Arguments:
@@ -37,18 +39,22 @@ def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
             - Result of the reduce operation on root process, otherwise
               unmodified input.
             - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     rank = comm.Get_rank()
 
@@ -63,6 +69,7 @@ def reduce(x, op, root, comm=_MPI.COMM_WORLD, token=None):
 
 
 # This function compiles the operation
+@translation_rule_cpu
 def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -104,6 +111,7 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
     )
 
 
+@translation_rule_gpu
 def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
 

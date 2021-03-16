@@ -28,10 +28,3 @@ from .collective_ops.scan import scan  # noqa: F401, E402
 from .collective_ops.scatter import scatter  # noqa: F401, E402
 from .collective_ops.send import send  # noqa: F401, E402
 from .collective_ops.sendrecv import sendrecv  # noqa: F401, E402
-
-# at exit, we wait for all pending operations to finish
-# this prevents deadlocks (see mpi4jax#22)
-import atexit  # noqa: E402
-from .flush import flush  # noqa: E402
-
-atexit.register(flush)

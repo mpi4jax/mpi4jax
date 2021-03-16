@@ -15,7 +15,9 @@ from ..utils import (
     unpack_hashable,
     wrap_as_hashable,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -25,10 +27,10 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 # This function applies the primitive to an AST
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
+def allreduce(x, op, comm=None, token=None):
     """Perform an allreduce operation.
 
     .. note::
@@ -40,9 +42,9 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
         x: Array or scalar input.
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
@@ -50,9 +52,11 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
             - A new, modified token, that depends on this operation.
 
     """
-
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
@@ -62,6 +66,7 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None):
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
+@translation_rule_cpu
 def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -97,6 +102,7 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     )
 
 
+@translation_rule_gpu
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 

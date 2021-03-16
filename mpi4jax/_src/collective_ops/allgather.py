@@ -15,7 +15,9 @@ from ..utils import (
     unpack_hashable,
     wrap_as_hashable,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -24,12 +26,12 @@ mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
 
 # This function applies the primitive to an AST
 @enforce_types(
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
 def allgather(
     x,
-    comm=_MPI.COMM_WORLD,
+    comm=None,
     token=None,
 ):
     """Perform an allgather operation.
@@ -41,17 +43,21 @@ def allgather(
     Arguments:
         x: Array or scalar input to send.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
             - Received data.
             - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
 
@@ -62,7 +68,8 @@ def allgather(
     )
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):
     comm = unpack_hashable(comm)
 
@@ -104,6 +111,7 @@ def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):
     )
 
 
+@translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(c, sendbuf, token, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
 

@@ -16,7 +16,9 @@ from ..utils import (
     unpack_hashable,
     wrap_as_hashable,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -29,7 +31,7 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
     dest=_np.integer,
     sendtag=_np.integer,
     recvtag=_np.integer,
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
@@ -40,7 +42,7 @@ def sendrecv(
     dest,
     sendtag=0,
     recvtag=_MPI.ANY_TAG,
-    comm=_MPI.COMM_WORLD,
+    comm=None,
     status=None,
     token=None,
 ):
@@ -59,18 +61,22 @@ def sendrecv(
         sendtag (int): Tag of this message for sending.
         recvtag (int): Tag of this message for receiving.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
+            a clone of :obj:`COMM_WORLD`).
         status (mpi4py.MPI.Status): Status object, can be used for introspection.
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
             - Received data.
             - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(sendbuf)
+
+    if comm is None:
+        comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
 
@@ -90,7 +96,8 @@ def sendrecv(
     )
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
@@ -151,6 +158,7 @@ def mpi_sendrecv_xla_encode_cpu(
     )
 
 
+@translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):

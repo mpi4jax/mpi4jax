@@ -16,7 +16,9 @@ from ..utils import (
     unpack_hashable,
     wrap_as_hashable,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -27,7 +29,7 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
 @enforce_types(
     source=_np.integer,
     tag=_np.integer,
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
@@ -35,7 +37,7 @@ def recv(
     x,
     source=_MPI.ANY_SOURCE,
     tag=_MPI.ANY_TAG,
-    comm=_MPI.COMM_WORLD,
+    comm=None,
     status=None,
     token=None,
 ):
@@ -51,18 +53,22 @@ def recv(
         source (int): Rank of the source MPI process.
         tag (int): Tag of this message.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
+            a clone of :obj:`COMM_WORLD`).
         status (mpi4py.MPI.Status): Status object, can be used for introspection.
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
             - Received data.
             - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
 
@@ -72,7 +78,8 @@ def recv(
     return mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
@@ -117,6 +124,7 @@ def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
     return out
 
 
+@translation_rule_gpu
 def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
     from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
