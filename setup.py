@@ -1,17 +1,12 @@
 import os
+import sys
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
-# require setuptools_scm to be installed
-# (otherwise, commands like `setup.py sdist` cannot use the correct version)
-try:
-    import setuptools_scm  # noqa: F401
-except ImportError as exc:
-    raise ImportError(
-        "setuptools_scm could not be imported and is required to run this setup.py "
-        "file. Please run `pip install setuptools-scm` and try again."
-    ) from exc
+# ensure vendored versioneer is on path
+sys.path.append(os.path.dirname(__file__))
+import versioneer  # noqa: E402
 
 try:
     from Cython.Build import cythonize
@@ -214,6 +209,8 @@ setup(
     long_description=long_description,
     url="https://github.com/PhilipVinc/mpi4jax",
     license="MIT",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Cython",
@@ -228,10 +225,6 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    use_scm_version=dict(
-        write_to="mpi4jax/_version.py",
-    ),
     python_requires=">=3.6",
-    setup_requires=["setuptools_scm", "setuptools_scm_git_archive"],
     install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
 )

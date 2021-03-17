@@ -10,18 +10,22 @@ line-length = 88
 target-version = ['py36', 'py37', 'py38']
 include = '\.pyi?$'
 exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | versioneer\.py
+  | mpi4jax/_version\.py
+)
 '''
 
 
@@ -34,7 +38,5 @@ requires = [
   "wheel",
   "cython>=0.21",
   "mpi4py>=3.0.1",
-  "setuptools_scm[toml]>=3.4",
-  "setuptools_scm_git_archive",
 ]
 build-backend = "setuptools.build_meta"
