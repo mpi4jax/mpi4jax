@@ -1,5 +1,7 @@
 include versioneer.py
 include mpi4jax/_version.py
+include tests
+include examples
 
 global-include *.pyx
 global-include *.pxd
