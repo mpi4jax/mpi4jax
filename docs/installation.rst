@@ -21,7 +21,7 @@ We recommend that you use ``pip`` to install mpi4jax (but a distribution is also
    $ pip install mpi4jax
    $ conda install -c conda-forge mpi4jax
 
-Installing via ``pip`` requires a working installation of MPI to succeed. If you don't already have MPI and want to get started as quickly as possible, try ``conda``, which bundles the MPI library.
+Installing via ``pip`` requires a working installation of MPI to succeed. If you don't already have MPI and want to get started as quickly as possible, try ``conda``, which bundles the MPI library (but remember `not to mix pip and conda <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_).
 
 .. warning::
 
