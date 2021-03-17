@@ -32,7 +32,7 @@ def get_version_tuple(verstr):
     else:
         i = len(verstr) + 1
 
-    verstr = verstr[:i].rstrip('.')
+    verstr = verstr[:i].rstrip(".")
     return tuple(int(v) for v in verstr.split("."))[:3]
 
 
