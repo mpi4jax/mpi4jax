@@ -141,7 +141,7 @@ def get_extensions():
         return []
 
     if not HAS_CYTHON:
-        print_warning("mpi4py could not be imported", "(extensions will not be built)")
+        print_warning("Cython could not be imported", "(extensions will not be built)")
         return []
 
     def _env_to_bool(envvar):
