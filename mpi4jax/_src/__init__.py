@@ -24,8 +24,15 @@ JAXLIB_MINIMUM_VERSION = "0.1.62"
 
 
 def get_version_tuple(verstr):
-    # drop everything after a +
-    verstr = verstr.split("+")[0]
+    # drop everything after the numeric part of the version
+    allowed_chars = "0123456789."
+    for i, char in enumerate(verstr):
+        if char not in allowed_chars:
+            break
+    else:
+        i = len(verstr) + 1
+
+    verstr = verstr[:i].rstrip('.')
     return tuple(int(v) for v in verstr.split("."))[:3]
 
 
