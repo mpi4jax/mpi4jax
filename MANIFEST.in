@@ -1,8 +1,11 @@
 include versioneer.py
 include mpi4jax/_version.py
-include tests
-include examples
 
 global-include *.pyx
 global-include *.pxd
 global-exclude *.c
+
+include tests
+include examples
+include LICENSE.md
+include README.rst
