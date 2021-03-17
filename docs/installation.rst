@@ -14,7 +14,7 @@ Start by `installing a suitable version of JAX and jaxlib <https://github.com/go
 
    Much of the functionality we need has recently been added to JAX, which itself is changing frequently. Therefore, ``mpi4jax`` has somewhat strict requirements on the supported versions of JAX and jaxlib. Be prepared to upgrade!
 
-We recommend that you use ``pip`` to install mpi4jax (but a distribution is also available via ``conda``):
+We recommend that you use ``pip`` to install mpi4jax (but a distribution is also available via ``conda`` which will work if MPI, mpi4py and mpi4jax are all installed through conda ):
 
 .. code:: bash
 
