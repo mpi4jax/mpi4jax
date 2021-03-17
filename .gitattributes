@@ -1,4 +1,3 @@
-.git_archival.txt  export-subst
+mpi4jax/_version.py export-subst
 
 *.mp4 binary
-mpi4jax/_version.py export-subst
