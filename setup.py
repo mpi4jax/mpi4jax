@@ -140,13 +140,9 @@ def get_extensions():
         print_warning("mpi4py could not be imported", "(extensions will not be built)")
         return []
 
-    if HAS_CYTHON:
-        ext_suffix = "pyx"
-    else:
-        print_warning(
-            "cython could not be imported", "(building only existing C files)"
-        )
-        ext_suffix = "c"
+    if not HAS_CYTHON:
+        print_warning("Cython could not be imported", "(extensions will not be built)")
+        return []
 
     def _env_to_bool(envvar):
         return os.getenv(envvar, "").lower() in ("true", "1", "on")
@@ -161,7 +157,7 @@ def get_extensions():
     extensions = [
         Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.{ext_suffix}"],
+            sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
             include_dirs=mpi_info("compile"),
             library_dirs=mpi_info("libdirs"),
             libraries=mpi_info("libs"),
@@ -174,7 +170,7 @@ def get_extensions():
         extensions.append(
             Extension(
                 name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
-                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu.{ext_suffix}"],
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu.pyx"],
                 include_dirs=mpi_info("compile") + cuda_info("compile"),
                 library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
                 libraries=mpi_info("libs") + cuda_info("libs"),
