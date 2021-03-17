@@ -39,13 +39,7 @@ ATvprime_local = (A.T @ vprime)[start_local:end_local]
 
 
 def allreduce_sum(x):
-    res, token = allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
-    return res
-
-
-# this is just an identity
-def allreduce_sumT(y):
-    res, token = allreduce(y, op=MPI.SUM, comm=MPI.COMM_WORLD, _transpose=True)
+    res, _ = allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
     return res
 
 
@@ -60,7 +54,7 @@ def matvec_mpi(A_local, x_local):
 # rows of A.T are distributed across ranks
 # result is distributed across ranks
 def matvec_transpose_mpi(A_local, y_global):
-    return A_local.T @ allreduce_sumT(y_global)
+    return A_local.T @ transpose(allreduce_sum, y_global)(y_global)
 
 
 def mv(x_local):

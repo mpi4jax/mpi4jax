@@ -9,17 +9,17 @@ from jax.lib import xla_client
 
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_gather_p = Primitive("gather_mpi")  # Create the primitive
@@ -29,13 +29,13 @@ mpi_gather_impl = default_primitive_impl(mpi_gather_p)
 # This function applies the primitive to an AST
 @enforce_types(
     root=(_np.integer),
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
 def gather(
     x,
     root,
-    comm=_MPI.COMM_WORLD,
+    comm=None,
     token=None,
 ):
     """Perform a gather operation.
@@ -54,9 +54,9 @@ def gather(
         x: Array or scalar input to send.
         root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
@@ -65,6 +65,9 @@ def gather(
     """
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     rank = comm.Get_rank()
     comm = wrap_as_hashable(comm)
@@ -82,11 +85,10 @@ def gather(
     return res, token
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     comm = unpack_hashable(comm)
-
-    c = _unpack_builder(c)
 
     # compute total number of elements in array
     send_shape = c.GetShape(sendbuf)
@@ -94,8 +96,7 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
 
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -111,19 +112,19 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     )
 
     operands = (
-        _send_nitems,
+        xla_constant_intc(c, send_nitems),
         sendbuf,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
         # we only support matching input and output arrays
-        _send_nitems,
-        _constant_u64_scalar(c, _send_dtype_ptr),
+        xla_constant_intc(c, send_nitems),
+        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
         #
-        _constant_s32_scalar(c, root),
-        _constant_u64_scalar(c, to_mpi_ptr(comm)),
+        xla_constant_intc(c, root),
+        xla_constant_uintptr(c, to_mpi_handle(comm)),
         token,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_gather",
         operands=operands,
@@ -132,20 +133,19 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     )
 
 
+@translation_rule_gpu
 def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_gather_descriptor
 
     comm = unpack_hashable(comm)
-
-    c = _unpack_builder(c)
 
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in send array
-    _send_nitems = _np.prod(send_dims, dtype=int)
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -161,17 +161,17 @@ def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
     )
 
     descriptor = build_gather_descriptor(
-        _send_nitems,
-        _send_dtype_ptr,
+        send_nitems,
+        send_dtype_handle,
         # we only support matching input and output arrays
-        _send_nitems,
-        _send_dtype_ptr,
+        send_nitems,
+        send_dtype_handle,
         #
         root,
-        to_mpi_ptr(comm),
+        to_mpi_handle(comm),
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_gather",
         operands=(

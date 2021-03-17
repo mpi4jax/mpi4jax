@@ -9,17 +9,17 @@ from jax.lib import xla_client
 from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_bcast_p = Primitive("bcast_mpi")  # Create the primitive
@@ -29,10 +29,10 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
 # This function applies the primitive to an AST
 @enforce_types(
     root=(_np.integer),
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
+def bcast(x, root, comm=None, token=None):
     """Perform a bcast (broadcast) operation.
 
     .. warning::
@@ -44,9 +44,9 @@ def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
            processes, this is used to determine the shape and dtype of the result.
         root (int): The process to use as source.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
@@ -56,6 +56,9 @@ def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
     """
     if token is None:
         token = create_token(x)
+
+    if comm is None:
+        comm = get_default_comm()
 
     rank = comm.Get_rank()
 
@@ -68,18 +71,18 @@ def bcast(x, root, comm=_MPI.COMM_WORLD, token=None):
     return res, token
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -90,15 +93,15 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_bcast",
         operands=(
-            _nitems,
+            xla_constant_intc(c, nitems),
             x,
-            _constant_s32_scalar(c, root),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, _dtype_ptr),
+            xla_constant_intc(c, root),
+            xla_constant_uintptr(c, to_mpi_handle(comm)),
+            xla_constant_uintptr(c, dtype_handle),
             token,
         ),
         shape=sh,
@@ -106,19 +109,19 @@ def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
     )
 
 
+@translation_rule_gpu
 def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
 
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _np.prod(dims, dtype=int)
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(dtype)
 
     # output is not used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -130,13 +133,13 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
     )
 
     descriptor = build_bcast_descriptor(
-        _nitems,
+        nitems,
         root,
-        to_mpi_ptr(comm),
-        _dtype_ptr,
+        to_mpi_handle(comm),
+        dtype_handle,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_bcast",
         operands=(

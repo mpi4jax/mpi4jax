@@ -9,17 +9,18 @@ from jax.lib import xla_client
 
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -32,7 +33,7 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
     dest=_np.integer,
     sendtag=_np.integer,
     recvtag=_np.integer,
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
@@ -43,7 +44,7 @@ def sendrecv(
     dest,
     sendtag=0,
     recvtag=_MPI.ANY_TAG,
-    comm=_MPI.COMM_WORLD,
+    comm=None,
     status=None,
     token=None,
 ):
@@ -62,18 +63,22 @@ def sendrecv(
         sendtag (int): Tag of this message for sending.
         recvtag (int): Tag of this message for receiving.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
+            a clone of :obj:`COMM_WORLD`).
         status (mpi4py.MPI.Status): Status object, can be used for introspection.
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
             - Received data.
             - A new, modified token, that depends on this operation.
+
     """
     if token is None:
         token = create_token(sendbuf)
+
+    if comm is None:
+        comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
 
@@ -93,7 +98,8 @@ def sendrecv(
     )
 
 
-#  This function compiles the operation
+# This function compiles the operation
+@translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
@@ -102,23 +108,21 @@ def mpi_sendrecv_xla_encode_cpu(
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    c = _unpack_builder(c)
-
     recv_shape = c.GetShape(recvbuf)
     recv_dtype = recv_shape.element_type()
     recv_dims = recv_shape.dimensions()
 
     # compute total number of elements in array
-    _recv_nitems = _constant_s32_scalar(c, _np.prod(recv_dims, dtype=int))
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
+    recv_nitems = _np.prod(recv_dims, dtype=int)
+    recv_dtype_handle = to_dtype_handle(recv_dtype)
 
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in array
-    _send_nitems = _constant_s32_scalar(c, _np.prod(send_dims, dtype=int))
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -128,26 +132,26 @@ def mpi_sendrecv_xla_encode_cpu(
     )
 
     if status is None:
-        _status = MPI_STATUS_IGNORE_ADDR
+        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
     else:
-        _status = to_mpi_ptr(status)
+        status_ptr = to_mpi_ptr(status)
 
     operands = (
-        _send_nitems,
+        xla_constant_intc(c, send_nitems),
         sendbuf,
-        _constant_s32_scalar(c, dest),
-        _constant_s32_scalar(c, sendtag),
-        _constant_u64_scalar(c, _send_dtype_ptr),
-        _recv_nitems,
-        _constant_s32_scalar(c, source),
-        _constant_s32_scalar(c, recvtag),
-        _constant_u64_scalar(c, _recv_dtype_ptr),
-        _constant_u64_scalar(c, to_mpi_ptr(comm)),
-        _constant_u64_scalar(c, _status),
+        xla_constant_intc(c, dest),
+        xla_constant_intc(c, sendtag),
+        xla_constant_uintptr(c, send_dtype_handle),
+        xla_constant_intc(c, recv_nitems),
+        xla_constant_intc(c, source),
+        xla_constant_intc(c, recvtag),
+        xla_constant_uintptr(c, recv_dtype_handle),
+        xla_constant_uintptr(c, to_mpi_handle(comm)),
+        xla_constant_uintptr(c, status_ptr),
         token,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_sendrecv",
         operands=operands,
@@ -156,6 +160,7 @@ def mpi_sendrecv_xla_encode_cpu(
     )
 
 
+@translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(
     c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
 ):
@@ -165,23 +170,21 @@ def mpi_sendrecv_xla_encode_gpu(
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    c = _unpack_builder(c)
-
     recv_shape = c.GetShape(recvbuf)
     recv_dtype = recv_shape.element_type()
     recv_dims = recv_shape.dimensions()
 
     # compute total number of elements in recv array
-    _recv_nitems = _np.prod(recv_dims, dtype=int)
-    _recv_dtype_ptr = dtype_ptr(recv_dtype)
+    recv_nitems = _np.prod(recv_dims, dtype=int)
+    recv_dtype_handle = to_dtype_handle(recv_dtype)
 
     send_shape = c.GetShape(sendbuf)
     send_dtype = send_shape.element_type()
     send_dims = send_shape.dimensions()
 
     # compute total number of elements in send array
-    _send_nitems = _np.prod(send_dims, dtype=int)
-    _send_dtype_ptr = dtype_ptr(send_dtype)
+    send_nitems = _np.prod(send_dims, dtype=int)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     sh = xla_client.Shape.tuple_shape(
         [
@@ -191,24 +194,24 @@ def mpi_sendrecv_xla_encode_gpu(
     )
 
     if status is None:
-        _status = MPI_STATUS_IGNORE_ADDR
+        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
     else:
-        _status = to_mpi_ptr(status)
+        status_ptr = to_mpi_ptr(status)
 
     descriptor = build_sendrecv_descriptor(
-        _send_nitems,
+        send_nitems,
         dest,
         sendtag,
-        _send_dtype_ptr,
-        _recv_nitems,
+        send_dtype_handle,
+        recv_nitems,
         source,
         recvtag,
-        _recv_dtype_ptr,
-        to_mpi_ptr(comm),
-        _status,
+        recv_dtype_handle,
+        to_mpi_handle(comm),
+        status_ptr,
     )
 
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_sendrecv",
         operands=(

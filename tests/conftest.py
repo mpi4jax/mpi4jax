@@ -14,7 +14,3 @@ def pytest_configure(config):
     import os
 
     os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-
-    import jax.config
-
-    jax.config.enable_omnistaging()

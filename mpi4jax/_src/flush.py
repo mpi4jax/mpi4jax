@@ -1,15 +1,9 @@
 import jax
 
 
-def flush():
+def flush(platform):
     """Wait for all pending XLA operations"""
-    devices = jax.devices("cpu")
-
-    # jax.devices("gpu") throws if no gpu available.
-    try:
-        devices.extend(jax.devices("gpu"))
-    except RuntimeError:
-        pass
+    devices = jax.devices(platform)
 
     for device in devices:
         # as suggested in jax#4335

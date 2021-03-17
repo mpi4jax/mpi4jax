@@ -17,9 +17,14 @@ from .collective_ops.scatter import scatter  # noqa: F401
 from .collective_ops.send import send  # noqa: F401
 from .collective_ops.sendrecv import sendrecv  # noqa: F401
 
-# at exit, we wait for all pending operations to finish
-# this prevents deadlocks (see mpi4jax#22)
-import atexit
-from .flush import flush
+# check version of jaxlib
+import jaxlib
+from pkg_resources import Requirement
 
-atexit.register(flush)
+jaxlib_requirement = Requirement.parse("jaxlib>=0.1.62")
+
+if jaxlib.__version__ not in jaxlib_requirement:
+    raise RuntimeError(
+        f"mpi4jax requires {jaxlib_requirement}, but you have {jaxlib.__version__}. "
+        "Please install a supported version of JAX and jaxlib."
+    )

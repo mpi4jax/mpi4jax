@@ -3,12 +3,30 @@ import os
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 
+# require setuptools_scm to be installed
+# (otherwise, commands like `setup.py sdist` cannot use the correct version)
+try:
+    import setuptools_scm  # noqa: F401
+except ImportError as exc:
+    raise ImportError(
+        "setuptools_scm could not be imported and is required to run this setup.py "
+        "file. Please run `pip install setuptools-scm` and try again."
+    ) from exc
+
 try:
     from Cython.Build import cythonize
 except ImportError:
     HAS_CYTHON = False
 else:
     HAS_CYTHON = True
+
+try:
+    import mpi4py
+except ImportError:
+    HAS_MPI4PY = False
+else:
+    HAS_MPI4PY = True
+
 
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
 CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
@@ -17,11 +35,14 @@ CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 #######
 # Utils
 def search_on_path(filenames):
-    for p in get_path("PATH"):
+    path_dirs = os.getenv("PATH", "").split(os.pathsep)
+
+    for p in path_dirs:
         for filename in filenames:
-            full = os.path.join(p, filename)
-            if os.path.exists(full):
-                return os.path.abspath(full)
+            full_path = os.path.join(p, filename)
+            if os.path.exists(full_path):
+                return os.path.abspath(full_path)
+
     return None
 
 
@@ -32,17 +53,11 @@ def print_warning(*lines):
     print("**************************************************")
 
 
-def get_path(key):
-    return os.environ.get(key, "").split(os.pathsep)
-
-
 # /end Utils
 ############
 
 
 def mpi_info(cmd):
-    import mpi4py
-
     config = mpi4py.get_config()
     cmd_compile = " ".join([config["mpicc"], "-show"])
     out_stream = os.popen(cmd_compile)
@@ -60,6 +75,7 @@ def mpi_info(cmd):
     for flag in flags:
         if flag.startswith(startwith):
             out.append(flag[2:])
+
     return out
 
 
@@ -75,9 +91,9 @@ def get_cuda_path():
             os.path.join(os.path.dirname(nvcc_path), "..")
         )
 
-    cuda_path = os.environ.get("CUDA_PATH", "")  # Nvidia default on Windows
+    cuda_path = os.getenv("CUDA_PATH", "")  # Nvidia default on Windows
     if len(cuda_path) == 0:
-        cuda_path = os.environ.get("CUDA_ROOT", "")  # Nvidia default on Windows
+        cuda_path = os.getenv("CUDA_ROOT", "")  # Nvidia default on Windows
 
     if len(cuda_path) > 0 and cuda_path != cuda_path_default:
         print_warning(
@@ -109,13 +125,10 @@ def cuda_info(cmd):
             return [incdir]
 
     if cmd == "libdirs":
-        libdir = os.path.join(cuda_path, "lib64")
-        if os.path.isdir(libdir):
-            return [libdir]
-        else:
-            libdir = os.path.join(cuda_path, "lib")
-            if os.path.isdir(libdir):
-                return [libdir]
+        for libdir in ("lib64", "lib"):
+            full_dir = os.path.join(cuda_path, libdir)
+            if os.path.isdir(full_dir):
+                return [full_dir]
 
     if cmd == "libs":
         return ["cudart"]
@@ -127,15 +140,21 @@ def cuda_info(cmd):
 #####################
 
 
-def _env_to_bool(envvar):
-    return os.environ.get(envvar, "").lower() in ("true", "1", "on")
-
-
 def get_extensions():
+    if not HAS_MPI4PY:
+        print_warning("mpi4py could not be imported", "(extensions will not be built)")
+        return []
+
     if HAS_CYTHON:
         ext_suffix = "pyx"
     else:
+        print_warning(
+            "cython could not be imported", "(building only existing C files)"
+        )
         ext_suffix = "c"
+
+    def _env_to_bool(envvar):
+        return os.getenv(envvar, "").lower() in ("true", "1", "on")
 
     activate_tracing = _env_to_bool("MPI4JAX_ENABLE_TRACING")
 
@@ -167,6 +186,8 @@ def get_extensions():
                 define_macros=macros,
             )
         )
+    else:
+        print_warning("CUDA path not found", "(GPU extensions will not be built)")
 
     if HAS_CYTHON:
         compiler_directives = {"linetrace": activate_tracing}
@@ -189,13 +210,21 @@ setup(
     name="mpi4jax",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
+    description="MPI greets Jax and speeds it up",
     long_description=long_description,
     url="https://github.com/PhilipVinc/mpi4jax",
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Cython",
+        "Development Status :: 3 - Alpha",
+        "Environment :: GPU :: NVIDIA CUDA",
+        "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Unix",
+        "Topic :: Scientific/Engineering",
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
@@ -203,6 +232,6 @@ setup(
         write_to="mpi4jax/_version.py",
     ),
     python_requires=">=3.6",
-    install_requires=["jax", "jaxlib>=0.1.62", "mpi4py>=3.0.1", "numpy"],
-    extras_require={"dev": ["pytest", "black", "flake8==3.8.3", "pre-commit>=2"]},
+    setup_requires=["setuptools_scm", "setuptools_scm_git_archive"],
+    install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
 )

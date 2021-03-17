@@ -65,7 +65,6 @@ def test_abort_on_error(tmp_path):
     test_script = dedent(
         """
         import jax
-        jax.config.enable_omnistaging()
         import jax.numpy as jnp
 
         from mpi4py import MPI
@@ -97,7 +96,6 @@ def test_deadlock_on_exit(tmp_path):
     test_script = dedent(
         """
         import jax
-        jax.config.enable_omnistaging()
         import jax.numpy as jnp
 
         from mpi4py import MPI

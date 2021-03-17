@@ -4,22 +4,22 @@ from mpi4py import MPI as _MPI
 from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import ad, xla
+from jax.lax import create_token
 from jax.lib import xla_client
 
-from jax.lax import create_token
 from ..utils import (
     HashableMPIType,
-    _constant_s32_scalar,
-    _constant_u64_scalar,
-    _ops,
-    _unpack_builder,
     default_primitive_impl,
-    dtype_ptr,
-    to_mpi_ptr,
+    to_dtype_handle,
+    to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
+    xla_constant_intc,
+    xla_constant_uintptr,
 )
+from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -29,10 +29,10 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 # This function applies the primitive to an AST
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
-    comm=(_MPI.Intracomm, HashableMPIType),
+    comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
+def allreduce(x, op, comm=None, token=None):
     """Perform an allreduce operation.
 
     .. note::
@@ -44,10 +44,9 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
         x: Array or scalar input.
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
-            :obj:`COMM_WORLD`).
-        token: XLA token to use to ensure correct execution order. If not given,
-            a new token is generated.
-        _transpose (bool): Used internally.
+            a clone of :obj:`COMM_WORLD`).
+        token (Token): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
 
     Returns:
         Tuple[DeviceArray, Token]:
@@ -55,59 +54,49 @@ def allreduce(x, op, comm=_MPI.COMM_WORLD, token=None, _transpose=False):
             - A new, modified token, that depends on this operation.
 
     """
-
-    # The extra argument _transpose is an implementation detail. It is used to
-    # keep track of whever we are computing the forward or transposition of
-    # allreduce, because we are 'cheating' and not performing MPI operations
-    # on the tranposed (even though, in principle, we should) in order
-    # to be more efficient.
-
     if token is None:
         token = create_token(x)
 
+    if comm is None:
+        comm = get_default_comm()
+
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=_transpose)
+    return mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False)
 
 
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
+@translation_rule_cpu
 def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
+    if transpose:
+        assert op == _MPI.SUM
+        return xla_client.ops.Tuple(c, [x, token])
+
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _constant_s32_scalar(c, _np.prod(dims, dtype=int))
-
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
-    if transpose:
-        if op != _MPI.SUM:
-            raise NotImplementedError(
-                "The linear transpose of allreduce for {} is not defined".format(op)
-            )
-
-        return _ops.Tuple(c, [x, token])
-
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_allreduce",
         operands=(
-            _nitems,
+            xla_constant_intc(c, nitems),
             x,
-            _constant_u64_scalar(c, to_mpi_ptr(op)),
-            _constant_u64_scalar(c, to_mpi_ptr(comm)),
-            _constant_u64_scalar(c, _dtype_ptr),
+            xla_constant_uintptr(c, to_mpi_handle(op)),
+            xla_constant_uintptr(c, to_mpi_handle(comm)),
+            xla_constant_uintptr(c, to_dtype_handle(dtype)),
             token,
         ),
         shape=sh,
@@ -115,42 +104,36 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     )
 
 
+@translation_rule_gpu
 def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
-    c = _unpack_builder(c)
+    if transpose:
+        assert op == _MPI.SUM
+        return xla_client.ops.Tuple(c, [x, token])
+
     x_shape = c.GetShape(x)
     dtype = x_shape.element_type()
     dims = x_shape.dimensions()
 
     # compute total number of elements in array
-    _nitems = _np.prod(dims, dtype=int)
-
-    _dtype_ptr = dtype_ptr(dtype)
+    nitems = _np.prod(dims, dtype=int)
 
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
 
     descriptor = build_allreduce_descriptor(
-        _nitems,
-        to_mpi_ptr(op),
-        to_mpi_ptr(comm),
-        _dtype_ptr,
+        _np.intc(nitems),
+        to_mpi_handle(op),
+        to_mpi_handle(comm),
+        to_dtype_handle(dtype),
     )
 
-    if transpose:
-        if op != _MPI.SUM:
-            raise NotImplementedError(
-                "The linear transpose of allreduce for {} is not defined".format(op)
-            )
-
-        return _ops.Tuple(c, [x, token])
-
-    return _ops.CustomCall(
+    return xla_client.ops.CustomCall(
         c,
         b"mpi_allreduce",
         operands=(
@@ -177,16 +160,12 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
 
     res = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
 
-    # Identify the correct adjoint
-    op_ = unpack_hashable(op)
-
-    if op_ == _MPI.SUM:
-        jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
-    else:
+    if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
-            "The adjoint of allreduce for {} operation is not defined".format(op_)
+            "The adjoint of allreduce is only defined for op=MPI.SUM"
         )
 
+    jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
     return (res, jvp)
 
 
@@ -194,17 +173,12 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
     _, token = x_args
     t, _ = tan_args
 
-    # Identify the correct adjoint
-    op_ = unpack_hashable(op)
-
-    if op_ == _MPI.SUM:
-        return mpi_allreduce_p.bind(
-            t, token, op=op, comm=comm, transpose=(not transpose)
-        )
-    else:
+    if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
-            "The linear transpose of allreduce for {} is not defined".format(op_)
+            "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
+
+    return mpi_allreduce_p.bind(t, token, op=op, comm=comm, transpose=(not transpose))
 
 
 mpi_allreduce_p.multiple_results = True
