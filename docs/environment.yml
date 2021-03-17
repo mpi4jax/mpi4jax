@@ -11,6 +11,5 @@ dependencies:
   - jaxlib
   - mpi4py
   - cython
-  - setuptools_scm
   - sphinx
   - sphinx_rtd_theme

@@ -1,9 +1,12 @@
 # this defines the public API of mpi4jax
 # all other intialization is taking place in _src/__init__.py
 
-from ._version import version as __version__  # noqa: F401
+from ._version import get_versions
 
-from ._src import (
+__version__ = get_versions()["version"]
+del get_versions
+
+from ._src import (  # noqa: E402
     allgather,
     allreduce,
     alltoall,
@@ -32,7 +35,7 @@ __all__ = [
 ]
 
 # TODO: remove in next minor release
-from ._deprecations import (
+from ._deprecations import (  # noqa: E402
     Allreduce,
     Bcast,
     Recv,

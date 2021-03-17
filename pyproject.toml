@@ -24,7 +24,6 @@ exclude = '''
 )/
 '''
 
-
 # Build requirements
 # (for runtime requirements see setup.py)
 
@@ -34,7 +33,5 @@ requires = [
   "wheel",
   "cython>=0.21",
   "mpi4py>=3.0.1",
-  "setuptools_scm[toml]>=3.4",
-  "setuptools_scm_git_archive",
 ]
 build-backend = "setuptools.build_meta"
