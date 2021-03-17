@@ -3,14 +3,25 @@ import pytest
 import importlib
 
 
-def test_raise_on_outdated_jaxlib(monkeypatch):
+@pytest.mark.parametrize("fake_jaxlib_version", ["0.0.0", "0.1.61", "0.1.61+cuda110"])
+def test_raise_on_outdated_jaxlib(fake_jaxlib_version, monkeypatch):
     import mpi4jax
     import jaxlib
 
     with monkeypatch.context() as m:
-        m.setattr(jaxlib, "__version__", "0.0.0")
+        m.setattr(jaxlib, "__version__", fake_jaxlib_version)
 
         with pytest.raises(RuntimeError) as excinfo:
             importlib.reload(mpi4jax._src)
 
         assert "mpi4jax requires" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("fake_jaxlib_version", ["0.1.62", "1.1.0", "0.1.62+cuda110"])
+def test_no_raise_on_current_jaxlib(fake_jaxlib_version, monkeypatch):
+    import mpi4jax
+    import jaxlib
+
+    with monkeypatch.context() as m:
+        m.setattr(jaxlib, "__version__", fake_jaxlib_version)
+        importlib.reload(mpi4jax._src)
