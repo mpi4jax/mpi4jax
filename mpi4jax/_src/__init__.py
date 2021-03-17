@@ -19,12 +19,27 @@ from .collective_ops.sendrecv import sendrecv  # noqa: F401
 
 # check version of jaxlib
 import jaxlib
-from pkg_resources import Requirement
 
-jaxlib_requirement = Requirement.parse("jaxlib>=0.1.62")
+JAXLIB_MINIMUM_VERSION = "0.1.62"
 
-if jaxlib.__version__ not in jaxlib_requirement:
+
+def get_version_tuple(verstr):
+    # drop everything after the numeric part of the version
+    allowed_chars = "0123456789."
+    for i, char in enumerate(verstr):
+        if char not in allowed_chars:
+            break
+    else:
+        i = len(verstr) + 1
+
+    verstr = verstr[:i].rstrip(".")
+    return tuple(int(v) for v in verstr.split("."))[:3]
+
+
+if get_version_tuple(jaxlib.__version__) < get_version_tuple(JAXLIB_MINIMUM_VERSION):
     raise RuntimeError(
-        f"mpi4jax requires {jaxlib_requirement}, but you have {jaxlib.__version__}. "
-        "Please install a supported version of JAX and jaxlib."
+        f"mpi4jax requires jaxlib>={JAXLIB_MINIMUM_VERSION}, but you have "
+        f"{jaxlib.__version__}. Please install a supported version of JAX and jaxlib."
     )
+
+del get_version_tuple, jaxlib
