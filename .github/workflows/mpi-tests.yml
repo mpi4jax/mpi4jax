@@ -35,24 +35,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Find pip cache directory
-        id: pip-cache-lookup
-        run: |
-          echo "::set-output name=dir::$(pip cache dir)"
-
       - name: Install MPI (${{ matrix.mpi }})
-        #if: steps.cache-mpi.outputs.cache-hit != 'true'
         run: |
           sh ./conf/travis-install-mpi.sh ${{ matrix.mpi }}
-
-      - name: Cache pip installed packages
-        id: pip-cache
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.pip-cache-lookup.outputs.dir }}
-          key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
-          #restore-keys: |
-          #  ${{ runner.os }}-${{ runner.python-version }}-pip-
 
       - name: Pip install python dependencies
         run: |
@@ -64,7 +49,7 @@ jobs:
           pip install wheel
           pip install pytest numpy jax jaxlib mpi4py tqdm
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install -v .
+          pip install .
 
       - name: Single-execution test with pytest
         run: |
