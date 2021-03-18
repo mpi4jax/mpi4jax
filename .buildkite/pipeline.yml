@@ -7,7 +7,7 @@ steps:
         ls -ah
         pip install -e .
         pytest .
-        mpirun -np 4 pytest .
+        mpirun --allow-run-as-root -np 4 pytest .
     plugins:
       - docker-compose#v3.0.3:
           run: testing-environment
