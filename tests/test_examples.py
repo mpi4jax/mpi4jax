@@ -18,6 +18,8 @@ def add_examples_to_path():
 
 
 def test_shallow_water_demo():
+    pytest.importorskip("tqdm")
+
     from shallow_water import solve_shallow_water
 
     sol = solve_shallow_water(86_400)
