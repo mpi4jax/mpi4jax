@@ -10,19 +10,23 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
+
       matrix:
         python-version: [3.8]
         os: [ubuntu-latest]
+
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
 
     steps:
       - uses: actions/checkout@v2
-        # make sure tags are fetched so we can get a version
-        run: |
-          git fetch --prune --unshallow --tags
+
+      # make sure tags are fetched so we can get a version
+      - run: |
+        git fetch --prune --unshallow --tags
 
       - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
         uses: actions/setup-python@v2

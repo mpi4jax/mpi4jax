@@ -10,9 +10,10 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
-      # explicit include-based build matrix, of known valid options
+
       matrix:
         include:
           # 18.04 supports CUDA 10.1+
@@ -25,8 +26,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      # make sure tags are fetched so we can get a version
-      run: |
+
+    # make sure tags are fetched so we can get a version
+    - run: |
         git fetch --prune --unshallow --tags
 
     - name: Set up Python
