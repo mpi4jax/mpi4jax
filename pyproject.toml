@@ -3,6 +3,9 @@ branch = true
 parallel = true
 command_line = "-m pytest tests/"
 source = ["mpi4jax"]
+omit = [
+  "mpi4jax/_version.py",
+]
 
 
 [tool.black]
