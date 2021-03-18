@@ -99,6 +99,7 @@ Contributors
 -  Dion Häfner `@dionhaefner <https://github.com/dionhaefner>`_
 
 .. |Tests| image:: https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg
+   :target: https://github.com/PhilipVinc/mpi4jax/actions?query=branch%3Amaster
 .. |codecov| image:: https://codecov.io/gh/PhilipVinc/mpi4jax/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/PhilipVinc/mpi4jax
 .. |Conda Recipe| image:: https://img.shields.io/badge/recipe-mpi4jax-green.svg

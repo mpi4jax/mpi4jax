@@ -10,19 +10,28 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         shell: bash -l {0}
+
     steps:
       - uses: actions/checkout@v2
+
+      # make sure tags are fetched so we can get a version
+      - run: |
+          git fetch --prune --unshallow --tags
+
       - uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: mpi4jax-docs
           environment-file: docs/environment.yml
           auto-activate-base: false
+
       - name: Install mpi4jax
         # using setup.py install makes sure that mpi4py isn't rebuilt
         run: python setup.py install
+
       - name: Build docs
         run: |
           cd docs

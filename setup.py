@@ -144,16 +144,6 @@ def get_extensions():
         print_warning("Cython could not be imported", "(extensions will not be built)")
         return []
 
-    def _env_to_bool(envvar):
-        return os.getenv(envvar, "").lower() in ("true", "1", "on")
-
-    activate_tracing = _env_to_bool("MPI4JAX_ENABLE_TRACING")
-
-    if activate_tracing:
-        macros = [("CYTHON_TRACE_NOGIL", "1")]
-    else:
-        macros = None
-
     extensions = [
         Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
@@ -161,7 +151,6 @@ def get_extensions():
             include_dirs=mpi_info("compile"),
             library_dirs=mpi_info("libdirs"),
             libraries=mpi_info("libs"),
-            define_macros=macros,
         )
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
     ]
@@ -174,17 +163,14 @@ def get_extensions():
                 include_dirs=mpi_info("compile") + cuda_info("compile"),
                 library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
                 libraries=mpi_info("libs") + cuda_info("libs"),
-                define_macros=macros,
             )
         )
     else:
         print_warning("CUDA path not found", "(GPU extensions will not be built)")
 
     if HAS_CYTHON:
-        compiler_directives = {"linetrace": activate_tracing}
         extensions = cythonize(
             extensions,
-            compiler_directives=compiler_directives,
             language_level=3,
         )
 
