@@ -1,0 +1,13 @@
+steps:
+  - name: ":python:"
+    command: |
+        pip install pytest 
+        pip install --upgrade jax jaxlib==0.1.63+cuda110 -f https://storage.googleapis.com/jax-releases/jax_releases.html
+        pwd
+        ls -ah
+        pip install -e .
+        pytest .
+        mpirun -np 4 pytest .
+    plugins:
+      - docker-compose#v3.0.3:
+          run: testing-environment
