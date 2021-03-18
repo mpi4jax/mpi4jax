@@ -20,7 +20,7 @@ jobs:
 
       # make sure tags are fetched so we can get a version
       - run: |
-        git fetch --prune --unshallow --tags
+          git fetch --prune --unshallow --tags
 
       - uses: conda-incubator/setup-miniconda@v2
         with:
