@@ -3,9 +3,9 @@ steps:
     command: |
         pip install pytest 
         pip install --upgrade jax jaxlib==0.1.63+cuda110 -f https://storage.googleapis.com/jax-releases/jax_releases.html
-        pwd
-        ls -ah
         pip install -e .
+        python -c "import mpi4jax; print(mpi4jax.__version__)"
+        python -c "import jax; print(jax.devices())"
         pytest .
         mpirun --allow-run-as-root -np 4 pytest .
     plugins:
