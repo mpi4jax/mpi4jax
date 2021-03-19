@@ -1,6 +1,8 @@
 steps:
   - name: ":python:"
     command: |
+        pwd
+        ls
         pip install --progress-bar off pytest 
         pip install --progress-bar off --upgrade jax jaxlib==0.1.63+cuda112 -f https://storage.googleapis.com/jax-releases/jax_releases.html
         pip install --progress-bar off -e .
