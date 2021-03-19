@@ -17,11 +17,12 @@ RUN        ln -s /usr/bin/pip3 /usr/bin/pip
 
 RUN        useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
 USER       docker
+RUN        mkdir /home/docker/workdir
 
 RUN        pip3 install pytest
 RUN        pip3 install --no-cache-dir -U install setuptools pip
 
 ENV        SHELL=/bin/bash
 
-WORKDIR    /home/runner
+WORKDIR    /home/docker/workdir
 
