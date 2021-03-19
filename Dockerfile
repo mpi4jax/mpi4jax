@@ -1,11 +1,18 @@
-FROM       nvidia/cuda:11.2.2-devel-ubuntu20.04
-FROM	   python
+FROM       nvidia/cuda:11.2.2-cudnn8-devel
 
-RUN 	   apt-get update
-RUN 	   apt-get install -y openmpi-bin libopenmpi-dev
-RUN        pip install -U pip
-RUN        pip install pytest
+ENV        DEBIAN_FRONTEND="noninteractive"
 
+RUN        apt-get update -y && \
+           apt-get install -y --no-install-recommends \
+           openmpi-bin libopenmpi-dev \
+           python3-dev \
+           python3-pip \
+           python3-wheel \
+           python3-setuptools && \
+           rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+RUN        pip3 install pytest
+RUN        pip3 install --no-cache-dir -U install setuptools pip
 
 ENV        SHELL=/bin/bash
 
