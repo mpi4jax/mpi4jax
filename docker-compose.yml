@@ -9,3 +9,5 @@ services:
         NVIDIA_VISIBLE_DEVICES: "all"
 
     privileged: true
+    volumes:
+      - ./:/home/docker/
