@@ -5,6 +5,7 @@ tags:
   - JAX
   - MPI
   - high performance computing
+  - parallel computing
 authors:
   - name: Filippo Vicentini^[Contributed equally, order determined by coin flip.]
     affiliation: 1
@@ -23,81 +24,39 @@ bibliography: paper.bib
 
 # Summary
 
-The forces on stars, galaxies, and dark matter under external gravitational
-fields lead to the dynamical evolution of structures in the universe. The orbits
-of these bodies are therefore key to understanding the formation, history, and
-future state of galaxies. The field of "galactic dynamics," which aims to model
-the gravitating components of galaxies to study their structure and evolution,
-is now well-established, commonly taught, and frequently used in astronomy.
-Aside from toy problems and demonstrations, the majority of problems require
-efficient numerical tools, many of which require the same base code (e.g., for
-performing numerical orbit integration).
+The tensor math accelerator framework JAX shows excellent performance on both machine learning and scientific computing workloads, while all user code is written in pure Python.
 
-# Statement of need
+However, machine learning and high-performance computing are still being run on very different hardware stacks. While machine learning is typically done on few highly parallel units (GPUs or TPUs), high-performance workloads such as physical models tend to run on clusters of dozens to thousands of CPUs. Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case. Notably, there is no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (message passing interface) libraries.
 
-`Gala` is an Astropy-affiliated Python package for galactic dynamics. Python
-enables wrapping low-level languages (e.g., C) for speed without losing
-flexibility or ease-of-use in the user-interface. The API for `Gala` was
-designed to provide a class-based and user-friendly interface to fast (C or
-Cython-optimized) implementations of common operations such as gravitational
-potential and force evaluation, orbit integration, dynamical transformations,
-and chaos indicators for nonlinear dynamics. `Gala` also relies heavily on and
-interfaces well with the implementations of physical units and astronomical
-coordinate systems in the `Astropy` package [@astropy] (`astropy.units` and
-`astropy.coordinates`).
+Here, we present `mpi4jax` to fill this gap. `mpi4jax` uses XLA's custom call mechanism to register the most important MPI primitives as JAX primitives. This means that users can communicate arbitrary JAX data without performance and usability penalty. In particular, `mpi4jax` is able to communicate without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
 
-`Gala` was designed to be used by both astronomical researchers and by
-students in courses on gravitational dynamics or astronomy. It has already been
-used in a number of scientific publications [@Pearson:2017] and has also been
-used in graduate courses on Galactic dynamics to, e.g., provide interactive
-visualizations of textbook material [@Binney:2008]. The combination of speed,
-design, and support for Astropy functionality in `Gala` will enable exciting
-scientific explorations of forthcoming data releases from the *Gaia* mission
-[@gaia] by students and experts alike.
+This also means that existing applications using e.g. NumPy and `mpi4py` can be ported seamlessly to the JAX ecosystem for potentially significant performance gains.
 
-# Mathematics
+# Statement of Need
 
-Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$
+For decades, high-performance computing has been done in low-level programming languages like Fortran or C. But the ubiquity of Python is starting to spill into this domain as well, and for good reason, being the de-facto programming lingua franca of science. With a combination of NumPy and `mpi4py`, Python users can build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying to leave possible performance on the table.
 
-Double dollars make self-standing equations:
+Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU.](https://github.com/dionhaefner/pyhpc-benchmarks) This often achieves the dream of high-performance computing --- low-level performance in high-level code.
 
-$$\Theta(x) = \left\{\begin{array}{l}
-0\textrm{ if } x < 0\cr
-1\textrm{ else}
-\end{array}\right.$$
+Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner:2018] and the many-body quantum systems toolkit netket [@carleo:2019]:
 
-You can also use plain \LaTeX for equations
-\begin{equation}\label{eq:fourier}
-\hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
-\end{equation}
-and refer to \autoref{eq:fourier} from text.
+- In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and presumably incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-# Citations
+- netket...  **write me**
 
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
 
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
+# Implementation
 
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
+In essence, `mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
 
-# Figures
 
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
+# Example: non-linear shallow water solver
 
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
 
 # Acknowledgements
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong
-Oh, and support from Kathryn Johnston during the genesis of this project.
+We thank all JAX developers in general and Matthew Johnson and Peter Hawkins in particular for their outstanding support on the many issues we opened.
+
+DH received support from the Danish Hydrocarbon Research and Technology Centre (DHRTC).
 
 # References
