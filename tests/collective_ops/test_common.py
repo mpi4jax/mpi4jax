@@ -39,6 +39,7 @@ def run_in_subprocess(code, test_file, timeout=10):
         COVERAGE_PROCESS_START="pyproject.toml",
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
         LD_LIBRARY_PATH=os.getenv("LD_LIBRARY_PATH", ""),
+        LIBRARY_PATH=os.getenv("LIBRARY_PATH", ""),
     )
 
     # non-standard Intel MPI env var for libfabric.
