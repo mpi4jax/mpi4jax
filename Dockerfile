@@ -13,16 +13,11 @@ RUN        apt-get update -y && \
            rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 RUN        ln -s /usr/bin/python3 /usr/bin/python
-RUN        ln -s /usr/bin/pip3 /usr/bin/pip
-
-RUN        useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
-USER       docker
-RUN        mkdir /home/docker/workdir
 
 RUN        pip3 install pytest
 RUN        pip3 install --no-cache-dir -U install setuptools pip
 
 ENV        SHELL=/bin/bash
 
-WORKDIR    /home/docker/workdir
+WORKDIR    /root
 

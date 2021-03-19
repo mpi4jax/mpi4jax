@@ -10,4 +10,4 @@ services:
 
     privileged: true
     volumes:
-      - ./:/home/docker/workdir
+      - ./:/root
