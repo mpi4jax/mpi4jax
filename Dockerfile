@@ -11,6 +11,7 @@ RUN        apt-get update -y && \
            python3-setuptools && \
            rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
+RUN        ln -s /usr/bin/python3 /usr/bin/python
 RUN        pip3 install pytest
 RUN        pip3 install --no-cache-dir -U install setuptools pip
 
