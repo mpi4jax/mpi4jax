@@ -24,7 +24,7 @@ bibliography: paper.bib
 
 # Summary
 
-The tensor math accelerator framework JAX shows excellent performance on both machine learning and scientific computing workloads, while all user code is written in pure Python.
+The tensor framework JAX shows excellent performance on both machine learning and scientific computing workloads, while all user code is written in pure Python.
 
 However, machine learning and high-performance computing are still being run on very different hardware stacks. While machine learning is typically done on few highly parallel units (GPUs or TPUs), high-performance workloads such as physical models tend to run on clusters of dozens to thousands of CPUs. Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case. Notably, there is no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (message passing interface) libraries.
 
@@ -38,7 +38,7 @@ For decades, high-performance computing has been done in low-level programming l
 
 Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU.](https://github.com/dionhaefner/pyhpc-benchmarks) This often achieves the dream of high-performance computing --- low-level performance in high-level code.
 
-Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner:2018] and the many-body quantum systems toolkit netket [@carleo:2019]:
+Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the many-body quantum systems toolkit netket [@carleo_netket_2019]:
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and presumably incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
@@ -95,53 +95,33 @@ As of yet, we support the MPI operations `allgather`, `allreduce`, `alltoall`, `
 
 # Example & Benchmark: Non-linear Shallow Water Solver
 
-As a prototype, and to use as a benchmark, we have ported a non-linear shallow water solver to JAX and parallelized it with `mpi4jax` (Fig. \autoref{fig:shallow-water}).
+As a prototype, and to use as a benchmark, we have ported a non-linear shallow water solver to JAX and parallelized it with `mpi4jax` (\autoref{fig:shallow-water}).
 
-![Output snapshot of the non-linear shallow water model. \label{fig:shallow-water}](shallow-water.pdf){ width=80% }
+![Output snapshot of the non-linear shallow water model. Shading indicates surface height, quivers show the current's velocity field. \label{fig:shallow-water}](shallow-water.pdf){ width=80% }
 
-The full example is available in the `mpi4jax` documentation. It defines a function `enforce_boundaries` which handles halo exchanges between all MPI processes. The core of it reads:
+The full example is available in the `mpi4jax` documentation. It defines a function `enforce_boundaries` which handles halo exchanges between all MPI processes. The core of it reads something like this (plus some additional code to handle processes with at the edges of the domain):
 
 ```python
 @jax.jit
-def enforce_boundaries(arr, grid, token=None):
-   # loop over all neighboring processes
-   for send_dir, recv_dir in zip(send_order, recv_order):
-     send_proc = proc_neighbors[send_dir]
-     recv_proc = proc_neighbors[recv_dir]
+def enforce_boundaries(arr, grid, token):
+   for send_proc, recv_proc in proc_neighbors:
+      recv_idx = overlap_slices_recv[recv_dir]
+      recv_arr = jnp.empty_like(arr[recv_idx])
 
-     if send_proc is None and recv_proc is None:
-         continue
+      send_idx = overlap_slices_send[send_dir]
+      send_arr = arr[send_idx]
 
-     # convert i, j process index to flat index
-     if send_proc is not None:
-         send_proc = np.ravel_multi_index(send_proc, (nproc_y, nproc_x))
-
-     if recv_proc is not None:
-         recv_proc = np.ravel_multi_index(recv_proc, (nproc_y, nproc_x))
-
-     recv_idx = overlap_slices_recv[recv_dir]
-     recv_arr = jnp.empty_like(arr[recv_idx])
-
-     send_idx = overlap_slices_send[send_dir]
-     send_arr = arr[send_idx]
-
-     if send_proc is None:
-         recv_arr, token = mpi4jax.recv(
-             recv_arr, source=recv_proc, comm=mpi_comm, token=token
-         )
-         arr = arr.at[recv_idx].set(recv_arr)
-     elif recv_proc is None:
-         token = mpi4jax.send(send_arr, dest=send_proc, comm=mpi_comm, token=token)
-     else:
-         recv_arr, token = mpi4jax.sendrecv(
-             send_arr,
-             recv_arr,
-             source=recv_proc,
-             dest=send_proc,
-             comm=mpi_comm,
-             token=token,
-         )
-         arr = arr.at[recv_idx].set(recv_arr)
+      recv_arr, token = mpi4jax.sendrecv(
+          send_arr,
+          recv_arr,
+          source=recv_proc,
+          dest=send_proc,
+          comm=mpi_comm,
+          token=token,
+      )
+      # update solution
+      arr = arr.at[recv_idx].set(recv_arr)
+  return arr
 ```
 
 Then, it can be used in the physical simulation like this:
@@ -178,7 +158,9 @@ def shallow_water_step(state, is_first_step):
 
 # Outlook
 
-In the previous sections, we introduced `mpi4jax` which allows zero-copy communication of JAX-owned data.
+In the previous sections, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
+
+However, JAX is more than just a JIT compiler.
 
 # Acknowledgements
 
