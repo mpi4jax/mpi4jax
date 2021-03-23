@@ -49,9 +49,136 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner:2018] 
 
 In essence, `mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
 
+The implementation of a primitive in `mpi4jax` consists of two parts:
 
-# Example: non-linear shallow water solver
+1. A Python module that registers a new primitive with JAX. JAX primitives consist of several parts, such as an abstract evaluation rule (used to infer output shapes and data types), and 2 translation rules (one for each CPU and GPU) that convert inputs to the appropriate XLA-compatible types. In particular, we need to ensure that all numerical data types are of the correct, expected type (e.g., casting Python integers to the equivalent of the C type `uintptr_t`). Optionally, we can also define transpose and differentiation rules (if applicable).
 
+2. A Cython function that casts raw input arguments passed by XLA to their true C type, so they can be passed on to MPI. On CPU, arguments are given in the form of arrays of void pointers, `void**`, so we use static casts for conversion. On GPU, input data is given as a raw char array, `char*`, which we deserialize to a custom Cython `struct` whose fields represent the input data.
+
+  On GPU, our Cython bridge also supports copying the data from device to host and back before and after calling MPI (by linking `mpi4jax` to the CUDA runtime library). This way, we support the communication of GPU data via main memory if the underlying MPI library is not built with CUDA support (at a small performance penalty).
+
+This yields MPI primitives that are callable from compiled JAX code. However, there is one additional complication: we need to take special care to ensure that MPI statements are not re-ordered. Consider the following example:
+
+```python
+@jax.jit
+def exchange_data(arr):
+   if rank == 0:
+      mpi4jax.send(arr, dest=1)
+      newarr = mpi4jax.recv(arr, source=1)
+   else:
+      newarr = mpi4jax.recv(arr, source=0)
+      mpi4jax.send(arr, dest=0)
+   return newarr
+```
+
+As JAX and XLA operate on the assumption that all primitives are pure functions without side effects, the compiler is in principle free to re-order the `send` and `recv` statements above. This would typically lead to a deadlock or crash, as e.g. both processes might wait for each others' input indefinitely.
+
+The solution to this in JAX is a token mechanism that involves threading a dummy token value through each primitive. This introduces a fake data dependency between subsequent calls using the token, which prevents XLA from re-ordering them relative to each other.
+
+The example above, using proper token management, reads:
+
+```python
+@jax.jit
+def exchange_data(arr):
+   if rank == 0:
+      token = mpi4jax.send(arr, dest=1)
+      newarr, token = mpi4jax.recv(arr, source=1, token=token)
+   else:
+      newarr, token = mpi4jax.recv(arr, source=0)
+      token = mpi4jax.send(arr, dest=0, token=token)
+   return newarr
+```
+
+As a result, we are successfully able to execute MPI primitives just as if they were JAX primitives.
+
+As of yet, we support the MPI operations `allgather`, `allreduce`, `alltoall`, `bcast`, `gather`, `recv`, `reduce`, `scan`, `scatter`, `send`, and `sendrecv`. Most currently unsupported operations such as `gatherv` could be implemented with little additional work if needed by an application (since all fundamental obstacles are already solved).
+
+# Example & Benchmark: Non-linear Shallow Water Solver
+
+As a prototype, and to use as a benchmark, we have ported a non-linear shallow water solver to JAX and parallelized it with `mpi4jax` (Fig. \autoref{fig:shallow-water}).
+
+![Output snapshot of the non-linear shallow water model. \label{fig:shallow-water}](shallow-water.pdf){ width=80% }
+
+The full example is available in the `mpi4jax` documentation. It defines a function `enforce_boundaries` which handles halo exchanges between all MPI processes. The core of it reads:
+
+```python
+@jax.jit
+def enforce_boundaries(arr, grid, token=None):
+   # loop over all neighboring processes
+   for send_dir, recv_dir in zip(send_order, recv_order):
+     send_proc = proc_neighbors[send_dir]
+     recv_proc = proc_neighbors[recv_dir]
+
+     if send_proc is None and recv_proc is None:
+         continue
+
+     # convert i, j process index to flat index
+     if send_proc is not None:
+         send_proc = np.ravel_multi_index(send_proc, (nproc_y, nproc_x))
+
+     if recv_proc is not None:
+         recv_proc = np.ravel_multi_index(recv_proc, (nproc_y, nproc_x))
+
+     recv_idx = overlap_slices_recv[recv_dir]
+     recv_arr = jnp.empty_like(arr[recv_idx])
+
+     send_idx = overlap_slices_send[send_dir]
+     send_arr = arr[send_idx]
+
+     if send_proc is None:
+         recv_arr, token = mpi4jax.recv(
+             recv_arr, source=recv_proc, comm=mpi_comm, token=token
+         )
+         arr = arr.at[recv_idx].set(recv_arr)
+     elif recv_proc is None:
+         token = mpi4jax.send(send_arr, dest=send_proc, comm=mpi_comm, token=token)
+     else:
+         recv_arr, token = mpi4jax.sendrecv(
+             send_arr,
+             recv_arr,
+             source=recv_proc,
+             dest=send_proc,
+             comm=mpi_comm,
+             token=token,
+         )
+         arr = arr.at[recv_idx].set(recv_arr)
+```
+
+Then, it can be used in the physical simulation like this:
+
+```python
+@partial(jax.jit, static_argnums=(1,))
+def shallow_water_step(state, is_first_step):
+   token = jax.lax.create_token()
+   # ...
+   fe = fe.at[1:-1, 1:-1].set(0.5 * (hc[1:-1, 1:-1] + hc[1:-1, 2:]) * u[1:-1, 1:-1])
+   fn = fn.at[1:-1, 1:-1].set(0.5 * (hc[1:-1, 1:-1] + hc[2:, 1:-1]) * v[1:-1, 1:-1])
+   fe, token = enforce_boundaries(fe, "u", token)
+   fn, token = enforce_boundaries(fn, "v", token)
+   # ...
+```
+
+
+
+| Platform | # processes | Time (s) | Rel. speedup |
+|----------|-------------|---------:|-------------:|
+| CPU      | 1 (NumPy)   | 770      | 1            |
+|          |             |          |              |
+| CPU      | 1           | 112      | 6.9          |
+|          | 2           | 90       | 8.6          |
+|          | 4           | 39       | 19           |
+|          | 6           | 29       | 27           |
+|          | 8           | 21       | 37           |
+|          | 16          | 16       | 48           |
+|          |             |          |              |
+| GPU      | 1           | 6.3      | 122          |
+|          | 2           | 3.9      | 197          |
+
+
+
+# Outlook
+
+In the previous sections, we introduced `mpi4jax` which allows zero-copy communication of JAX-owned data.
 
 # Acknowledgements
 
