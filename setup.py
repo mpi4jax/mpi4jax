@@ -187,9 +187,12 @@ setup(
     name="mpi4jax",
     author="Filippo Vicentini",
     author_email="filippovicentini@gmail.com",
-    description="MPI greets Jax and speeds it up",
+    description=(
+        "Zero-copy MPI communication of JAX arrays, "
+        "for turbo-charged HPC applications in Python ⚡"
+    ),
     long_description=long_description,
-    url="https://github.com/PhilipVinc/mpi4jax",
+    url="https://github.com/mpi4jax/mpi4jax",
     license="MIT",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),

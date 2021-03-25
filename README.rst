@@ -98,10 +98,10 @@ Contributors
 -  Filippo Vicentini `@PhilipVinc <https://github.com/PhilipVinc>`_
 -  Dion Häfner `@dionhaefner <https://github.com/dionhaefner>`_
 
-.. |Tests| image:: https://github.com/PhilipVinc/mpi4jax/workflows/Tests/badge.svg
-   :target: https://github.com/PhilipVinc/mpi4jax/actions?query=branch%3Amaster
-.. |codecov| image:: https://codecov.io/gh/PhilipVinc/mpi4jax/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/PhilipVinc/mpi4jax
+.. |Tests| image:: https://github.com/mpi4jax/mpi4jax/workflows/Tests/badge.svg
+   :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amaster
+.. |codecov| image:: https://codecov.io/gh/mpi4jax/mpi4jax/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/mpi4jax/mpi4jax
 .. |Conda Recipe| image:: https://img.shields.io/badge/recipe-mpi4jax-green.svg
    :target: https://anaconda.org/conda-forge/mpi4jax
 .. |Documentation Status| image:: https://readthedocs.org/projects/mpi4jax/badge/?version=latest
