@@ -1,7 +1,7 @@
 mpi4jax
 =======
 
-|Tests| |codecov| |Conda Recipe| |Documentation Status|
+|Tests| |codecov| |pypi| |Conda Recipe| |Documentation Status|
 
 ``mpi4jax`` enables zero-copy, multi-host communication of `JAX <https://jax.readthedocs.io/>`_ arrays, even from jitted code and from GPU memory.
 
@@ -102,6 +102,8 @@ Contributors
    :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amaster
 .. |codecov| image:: https://codecov.io/gh/mpi4jax/mpi4jax/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/mpi4jax/mpi4jax
+.. |pypi| image:: https://img.shields.io/pypi/v/mpi4jax
+   :target: https://pypi.org/project/mpi4jax/
 .. |Conda Recipe| image:: https://img.shields.io/badge/recipe-mpi4jax-green.svg
    :target: https://anaconda.org/conda-forge/mpi4jax
 .. |Documentation Status| image:: https://readthedocs.org/projects/mpi4jax/badge/?version=latest
