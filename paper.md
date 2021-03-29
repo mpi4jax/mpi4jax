@@ -34,7 +34,9 @@ This also means that existing applications using e.g. NumPy and `mpi4py` can be 
 
 # Statement of Need
 
-For decades, high-performance computing has been done in low-level programming languages like Fortran or C. But the ubiquity of Python is starting to spill into this domain as well, and for good reason, being the de-facto programming lingua franca of science. With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying (and costly) to leave possible performance on the table.
+For decades, high-performance computing has been done in low-level programming languages like Fortran or C. 
+But the ubiquity of Python is starting to spill into this domain as well, thanks to its simplicity and large number of libraries.
+With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying (and costly) to leave possible performance on the table.
 
 Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. This gets us close to the dream scenario of high-performance computing --- low-level performance in high-level code. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
 
