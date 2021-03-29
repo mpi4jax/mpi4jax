@@ -200,4 +200,5 @@ We thank all JAX developers, in particular Matthew Johnson and Peter Hawkins, fo
 
 DH acknowledges funding from the Danish Hydrocarbon Research and Technology Centre (DHRTC).
 
+FV acknowledges support from G. Carleo and funding from the Simons Foundation and Ecole Polytechnique Federale de Lausanne.
 # References
