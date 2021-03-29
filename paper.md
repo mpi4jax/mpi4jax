@@ -28,7 +28,10 @@ The tensor framework JAX [@jax] shows excellent performance on both machine lear
 
 However, machine learning and high-performance computing are still being conducted on very different hardware stacks. While machine learning is typically done on few highly parallel units (GPUs or TPUs), high-performance workloads such as physical models tend to run on clusters of dozens to thousands of CPUs. Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case. Notably, there is no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (Message Passing Interface) libraries [@mpistandard].
 
-Here, we present `mpi4jax` to fill this gap. `mpi4jax` uses XLA's custom call mechanism to register the most important MPI primitives as JAX primitives. This means that users can communicate arbitrary JAX data without performance or usability penalties. In particular, `mpi4jax` is able to communicate data without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
+In this letter we attempt to fill this gap by introducing `mpi4jax`, a Python library bringing first-class support of several MPI operations to Jax. 
+This is achieved by defining a set of new primitive functions matching MPI's operations, instructing Jax how to transform them and providing a lean native code to execute them.  
+This means that users can communicate arbitrary JAX data without performance or usability penalties. 
+In particular, `mpi4jax` is able to communicate data without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
 
 This also means that existing applications using e.g. NumPy and `mpi4py` can be ported seamlessly to the JAX ecosystem for potentially significant performance gains.
 
