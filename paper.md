@@ -188,9 +188,11 @@ As we can see, switching from NumPy to JAX already yields a substantial speedup,
 
 In this paper, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
 
-However, JAX is more than just a JIT compiler. It also supplies powerful tools for auto-differentiation (`jax.grad`) and auto-vectorization (`jax.vmap`). Differentiable programming in particular is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2].
+However, JAX is much more than just a JIT compiler: by providing powerful tools for automatic differentiation (`jax.vjp` and `jax.jvp`) and auto-vectorization (`jax.vmap`), it is a full-fledged Differentiable Programming framework. 
+Differentiable programming in particular is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow even more powerful algorithms.
 
-So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive. However, it should be possible with some additional work to preserve gradient information during generic send / receive operations, by propagating gradients through several processes.
+So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive, the main operation occurring in distributed linear algebra. 
+However, it should be possible with some additional work to compute the gradients of generic send / receive operations, by propagating gradients through several processes.
 
 This would eventually enable fully differentiable, distributed physical simulations without additional user code.
 
