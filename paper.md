@@ -52,7 +52,7 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_
 
 # Implementation
 
-In essence, `mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
+`Mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
 
 The implementation of a primitive in `mpi4jax` consists of two parts:
 
