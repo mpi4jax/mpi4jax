@@ -38,11 +38,11 @@ For decades, high-performance computing has been done in low-level programming l
 
 Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. This gets us close to the dream scenario of high-performance computing --- low-level performance in high-level code. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
 
-Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the many-body quantum systems toolkit NetKet [@carleo_netket_2019]:
+Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the machine learning toolkit for many-body quantum systems NetKet [@carleo_netket_2019]:
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-- NetKet...  **write me**
+- In the case of NetKet, the desire to achieve the highest efficiency for Natural Gradient Optimisation requires finding the solution of a large linear system $A\bm{x}=\bm{y}$. However, the matrix $A$ is determined by running Automatic Differentiation on a Neural Network Model whose inputs might be distributed across several computing nodes and GPUs. Therefore, to write in a simple yet efficient way the action of $A$ the need to differentiate through distributed reduction operations inside of a linear solver arises.
 
 
 # Implementation
