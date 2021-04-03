@@ -131,7 +131,7 @@ def test_allreduce_grad():
     def testfun(x):
         y, token = allreduce(x, op=MPI.SUM)
         z = x + 2 * y  # noqa: F841
-        res, token2 = allreduce(x, op=MPI.SUM)
+        res, token = allreduce(x, op=MPI.SUM, token=token)
         return res.sum()
 
     res, grad = jax.jit(jax.value_and_grad(testfun))(arr)
@@ -165,3 +165,33 @@ def test_allreduce_vjp():
     expected, _ = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
     assert jnp.array_equal(_arr, vjp)
+
+
+def test_allreduce_chained():
+    from mpi4jax import allreduce
+
+    def foo(x):
+        token = jax.lax.create_token()
+        x1, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        x2, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        return x1 + x2
+
+    res_t = jax.grad(foo)(0.0)
+
+    expected = 2.0
+    assert jnp.array_equal(expected, res_t)
+
+
+def test_allreduce_chained_jit():
+    from mpi4jax import allreduce
+
+    def foo(x):
+        token = jax.lax.create_token()
+        x1, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        x2, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        return x1 + x2
+
+    res_t = jax.jit(jax.grad(foo))(0.0)
+
+    expected = 2.0
+    assert jnp.array_equal(expected, res_t)

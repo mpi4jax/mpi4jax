@@ -158,27 +158,31 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
     x, token = in_args
     x_tan, token_tan = tan_args
 
-    res = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
-
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The adjoint of allreduce is only defined for op=MPI.SUM"
         )
 
-    jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
-    return (res, jvp)
+    val, token = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
+
+    # throw away return token to work around jax#6285
+    jvp, _ = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
+    return (val, token), (jvp, token_tan)
 
 
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
     _, token = x_args
-    t, _ = tan_args
+    x_tan, token_tan = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
 
-    return mpi_allreduce_p.bind(t, token, op=op, comm=comm, transpose=(not transpose))
+    res, token = mpi_allreduce_p.bind(
+        x_tan, token, op=op, comm=comm, transpose=(not transpose)
+    )
+    return res, token_tan
 
 
 mpi_allreduce_p.multiple_results = True
