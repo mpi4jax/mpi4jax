@@ -166,8 +166,10 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
     val, token = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
 
     # throw away return token to work around jax#6285
-    jvp, _ = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
-    return (val, token), (jvp, token_tan)
+    jvp, token_jvp = mpi_allreduce_p.bind(
+        x_tan, token, op=op, comm=comm, transpose=transpose
+    )
+    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
 
 
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
