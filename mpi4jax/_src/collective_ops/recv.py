@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import xla
+from jax.interpreters import ad, xla
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -180,9 +180,35 @@ def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     )
 
 
+def mpi_recv_value_and_jvp(in_args, tan_args, source, tag, comm):
+    x, token = in_args
+    x_tan, token_tan = tan_args
+
+    val, token = mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm)
+
+    # throw away return token to work around jax#6285
+    jvp, token_jvp = mpi_recv_p.bind(x_tan, token, source=source, tag=tag, comm=comm)
+
+    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
+
+
+def mpi_recv_transpose_rule(tan_args, *x_args, source, tag, comm):
+    _, token = x_args
+    x_tan, token_tan = tan_args
+
+    from .send import mpi_send_p
+
+    res, token = mpi_send_p.bind(x_tan, token, dest=source, tag=tag, comm=comm)
+
+    return res, token_tan
+
+
 mpi_recv_p.multiple_results = True
 mpi_recv_p.def_impl(mpi_recv_impl)
 mpi_recv_p.def_abstract_eval(mpi_recv_abstract_eval)
+
+ad.primitive_jvps[mpi_recv_p] = mpi_recv_value_and_jvp
+ad.primitive_transposes[mpi_recv_p] = mpi_recv_transpose_rule
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_recv_p] = mpi_recv_xla_encode_cpu

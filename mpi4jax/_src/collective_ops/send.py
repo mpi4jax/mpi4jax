@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import xla
+from jax.interpreters import ad, xla
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -139,8 +139,34 @@ def mpi_send_abstract_eval(xs, token, dest, tag, comm):
     return abstract_arrays.abstract_token
 
 
+def mpi_send_value_and_jvp(in_args, tan_args, dest, tag, comm):
+    x, token = in_args
+    x_tan, token_tan = tan_args
+
+    val, token = mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
+
+    # throw away return token to work around jax#6285
+    jvp, token_jvp = mpi_send_p.bind(x_tan, token, dest=dest, tag=tag, comm=comm)
+
+    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
+
+
+def mpi_send_transpose_rule(tan_args, *x_args, dest, tag, comm):
+    _, token = x_args
+    x_tan, token_tan = tan_args
+
+    from .recv import mpi_recv_p
+
+    res, token = mpi_recv_p.bind(x_tan, token, source=dest, tag=tag, comm=comm)
+
+    return res, token_tan
+
+
 mpi_send_p.def_impl(mpi_send_impl)
 mpi_send_p.def_abstract_eval(mpi_send_abstract_eval)
+
+ad.primitive_jvps[mpi_send_p] = mpi_send_value_and_jvp
+ad.primitive_transposes[mpi_send_p] = mpi_send_transpose_rule
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_send_p] = mpi_send_xla_encode_cpu
