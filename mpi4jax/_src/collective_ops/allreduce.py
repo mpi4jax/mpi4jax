@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import ad, xla
+from jax.interpreters import ad, xla, batching
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -154,6 +154,12 @@ def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):
     )
 
 
+def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
+    x, token = in_args
+    res = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
+    return res, batch_axes
+
+
 def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
     x, token = in_args
     x_tan, token_tan = tan_args
@@ -190,6 +196,8 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
 mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
+
+batching.primitive_batchers[mpi_allreduce_p] = mpi_allreduce_batch_eval
 
 ad.primitive_jvps[mpi_allreduce_p] = mpi_allreduce_value_and_jvp
 ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
