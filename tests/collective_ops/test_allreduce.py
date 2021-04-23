@@ -52,6 +52,30 @@ def test_allreduce_scalar_jit():
     assert jnp.array_equal(_arr, arr)
 
 
+def test_allreduce_vmap():
+    from mpi4jax import allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    res = jax.vmap(lambda x: allreduce(x, op=MPI.SUM)[0], in_axes=0, out_axes=0)(arr)
+    assert jnp.array_equal(res, arr * size)
+    assert jnp.array_equal(_arr, arr)
+
+
+def test_allreduce_vmap_jit():
+    from mpi4jax import allreduce
+
+    arr = jnp.ones((3, 2))
+    _arr = arr.copy()
+
+    res = jax.jit(
+        jax.vmap(lambda x: allreduce(x, op=MPI.SUM)[0], in_axes=0, out_axes=0)
+    )(arr)
+    assert jnp.array_equal(res, arr * size)
+    assert jnp.array_equal(_arr, arr)
+
+
 def test_allreduce_transpose():
     from mpi4jax import allreduce
 
