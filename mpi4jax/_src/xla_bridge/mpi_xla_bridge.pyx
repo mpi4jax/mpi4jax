@@ -88,18 +88,26 @@ cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
     )
     abort_on_error(ierr, comm, u"Allgather")
 
+from libc.stdint cimport uintptr_t
 
 cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
+    cdef int sendaddr, recvaddr
+
+
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Allreduce with {nitems} items", comm)
+            print_debug(f"MPI_Allreduce START with {nitems} items. {<uintptr_t>(sendbuf)}->{<uintptr_t>(recvbuf)}", comm)
 
     # MPI Call
     ierr = libmpi.MPI_Allreduce(sendbuf, recvbuf, nitems, dtype, op, comm)
     abort_on_error(ierr, comm, u"Allreduce")
+
+    if PRINT_DEBUG:
+        with gil:
+            print_debug(f"MPI_Allreduce DONE  with {nitems} items. {<uintptr_t>(sendbuf)}->{<uintptr_t>(recvbuf)}", comm)
 
 
 cdef void mpi_alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype,
