@@ -69,6 +69,20 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
 #
 # Wrapped MPI primitives
 #
+cdef void mpi_barrier(MPI_Comm comm) nogil:
+    cdef int ierr
+
+    if PRINT_DEBUG:
+        with gil:
+            print_debug(
+                f"MPI_Barrier.",
+                comm
+            )
+
+    # MPI Call
+    ierr = libmpi.MPI_Barrier(comm)
+    abort_on_error(ierr, comm, u"Barrier")
+
 
 cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
                         void* recvbuf, int recvcount, MPI_Datatype recvtype,
