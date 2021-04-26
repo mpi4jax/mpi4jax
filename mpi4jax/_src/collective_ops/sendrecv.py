@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import xla
+from jax.interpreters import ad, xla
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -234,9 +234,67 @@ def mpi_sendrecv_abstract_eval(
     )
 
 
+def mpi_sendrecv_value_and_jvp(
+    in_args, tan_args, source, dest, sendtag, recvtag, comm, status
+):
+    sendbuf, recvbuf, token = in_args
+    send_tan, recv_tan, token_tan = tan_args
+
+    val, token = mpi_sendrecv_p.bind(
+        sendbuf,
+        recvbuf,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+    )
+
+    # throw away return token to work around jax#6285
+    jvp, token_jvp = mpi_sendrecv_p.bind(
+        send_tan,
+        recv_tan,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+    )
+
+    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
+
+
+def mpi_sendrecv_transpose_rule(
+    tan_args, *x_args, source, dest, sendtag, recvtag, comm, status
+):
+    _, _, token = x_args
+    out_tan, token_tan = tan_args
+
+    # swap the sender and receiver
+    res, token = mpi_sendrecv_p.bind(
+        out_tan,
+        out_tan,
+        token,
+        source=dest,
+        dest=source,
+        sendtag=sendtag,  # TODO: could maybe be smarter about send and receive tags...
+        recvtag=recvtag,  # TODO: could maybe be smarter about send and receive tags...
+        comm=comm,
+        status=status,
+    )
+    return res, ad.Zero.from_value(res), token_tan
+
+
 mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
+
+ad.primitive_jvps[mpi_sendrecv_p] = mpi_sendrecv_value_and_jvp
+ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_sendrecv_p] = mpi_sendrecv_xla_encode_cpu
