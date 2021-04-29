@@ -13,7 +13,7 @@ authors:
     orcid: 0000-0002-4465-7317
     affiliation: 2
 affiliations:
- - name: Institute of Physics, \'{E}cole Polytechnique F\'{e}d\'{e}rale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
+ - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 1
  - name: Niels Bohr Institute, Copenhagen University, Copenhagen, Denmark
    index: 2
