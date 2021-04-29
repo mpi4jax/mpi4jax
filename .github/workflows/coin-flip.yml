@@ -7,6 +7,7 @@ jobs:
   flip:
     runs-on: ubuntu-latest
 
-    - run: |
-        [[ $(($RANDOM % 2)) == 0 ]] && echo "heads" || echo "tails"
-      shell: bash
+    steps:
+      - run: |
+          [[ $(($RANDOM % 2)) == 0 ]] && echo "heads" || echo "tails"
+        shell: bash
