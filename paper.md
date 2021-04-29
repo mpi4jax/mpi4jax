@@ -13,7 +13,7 @@ authors:
     orcid: 0000-0002-4465-7317
     affiliation: 2
 affiliations:
- - name: Affiliation 1
+ - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 1
  - name: Niels Bohr Institute, Copenhagen University, Copenhagen, Denmark
    index: 2
@@ -24,11 +24,11 @@ bibliography: paper.bib
 
 # Summary
 
-The tensor framework JAX [@jax] combines expressivity and performance while providing an accessible pure Python interface.
-In particular, JAX is expressive due to its clean, functional design, and performant due to a powerful JIT (just-in-time) compiler.
+The tensor framework JAX [@jax] combines expressivity and performance while retaining an accessible pure Python interface.
+Expressivity is achieved by treating functions as first-class objects, while efficiency is obtained by compiling to machine code Just-Ahead-Of-Time.
 
 However, machine learning and (high-performance) scientific computing are often conducted on different hardware stacks: Machine learning is typically done on few highly parallel units (GPUs or TPUs) connected to a single host CPU, while scientific models tend to run on clusters of dozens to thousands of CPUs.
-Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case.
+Unfortunately, support from JAX and the underlying compiler XLA is more mature in the former case.
 Notably, there is so far no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (Message Passing Interface) libraries [@mpistandard].
 
 We attempt to fill this gap and introduce `mpi4jax`, a Python library bringing first-class support for the most important MPI operations to JAX.
@@ -51,7 +51,7 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A\bm{x}=\bm{y}$. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
+- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A x= y $. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
 
 # Implementation
 
@@ -59,7 +59,8 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_
 
 The implementation of a primitive in `mpi4jax` consists of two parts:
 
-1. A Python module that registers a new primitive with JAX. JAX primitives consist of several parts, such as an *abstract evaluation* rule and several *translation rules*. The abstract evaluation rule is used by the compiler to infer output shapes and data types without running the actual computation, while translation rules supply the specific computational kernel to be called and prepare input buffers.
+1. A Python module, registering a new primitive with JAX. JAX primitives consist of an _abstract evaluation_ rule and several _translation rules_. The former is used by the compiler to infer the output shapes and data types without running the actual computation, while _translation rules_ determine the specific computational kernel and prepare the input buffers. A different _translation rule_ is necessary for every type of backend, such as CPUs, GPUs and TPUs.
+On specific primitives we also define the _transposition rule_ in order to support reverse mode Automatic Differentiation.
 
    In particular, we need to ensure that all numerical input data is of the expected type (e.g., by converting Python integers to the C type `uintptr_t`) before passing it on to XLA. A different translation rule is necessary for every type of backend, such as CPUs, GPUs and TPUs.
 
@@ -198,8 +199,7 @@ In this paper, we introduced `mpi4jax`, which allows zero-copy communication of 
 
 However, JAX is much more than just a JIT compiler. It is also a full-fledged differentiable programming framework by providing powerful tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
 
-So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive (one of the main operations occurring in distributed linear algebra).
-However, it should be possible with some additional work to compute the gradients of generic send / receive operations, by propagating gradients through several processes.
+So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive (one of the main operations used in distributed matrix-vector products) and combined send and receive (`sendrecv`) operations in forward and reverse mode.
 
 This would eventually enable fully differentiable, distributed physical simulations without additional user code.
 
