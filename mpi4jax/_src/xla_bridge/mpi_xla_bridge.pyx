@@ -69,7 +69,7 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
 
     with gil:
         strerr = c_string[:length]
-        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr}:{strerr}- aborting\n'
+        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr}: {strerr} - aborting\n'
 
     return abort(ierr, comm, message)
 
