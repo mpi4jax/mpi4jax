@@ -28,7 +28,7 @@ The tensor framework JAX [@jax] combines expressivity and performance while prov
 In particular, JAX is expressive due to its clean, functional design, and performant due to a powerful JIT (just-in-time) compiler.
 
 However, machine learning and (high-performance) scientific computing are often conducted on different hardware stacks: Machine learning is typically done on few highly parallel units (GPUs or TPUs) connected to a single host CPU, while scientific models tend to run on clusters of dozens to thousands of CPUs.
-Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case.
+Unfortunately, support from JAX and the underlying compiler XLA is more mature in the former case.
 Notably, there is so far no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (Message Passing Interface) libraries [@mpistandard].
 
 We attempt to fill this gap and introduce `mpi4jax`, a Python library bringing first-class support for the most important MPI operations to JAX.
