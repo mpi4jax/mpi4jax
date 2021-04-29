@@ -198,8 +198,7 @@ In this paper, we introduced `mpi4jax`, which allows zero-copy communication of 
 
 However, JAX is much more than just a JIT compiler. It is also a full-fledged differentiable programming framework by providing powerful tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
 
-So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive (one of the main operations occurring in distributed linear algebra).
-However, it should be possible with some additional work to compute the gradients of generic send / receive operations, by propagating gradients through several processes.
+So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive (one of the main operations used in distributed matrix-vector products) and combined send and receive (`sendrecv`) operations in forward and reverse mode.
 
 This would eventually enable fully differentiable, distributed physical simulations without additional user code.
 
