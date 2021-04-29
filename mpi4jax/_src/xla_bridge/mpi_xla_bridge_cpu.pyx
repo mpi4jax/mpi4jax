@@ -1,6 +1,7 @@
 from cpython.pycapsule cimport PyCapsule_New
 
 from libc.stdint cimport uintptr_t
+from libc.string cimport memcpy
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
@@ -16,6 +17,16 @@ from . cimport mpi_xla_bridge
 #
 # CPU XLA targets
 #
+cdef void mpi_barrier_cpu(void** out_ptr, void** data_ptr) nogil:
+    cdef int count = (<int*>(data_ptr[0]))[0]
+    cdef void* in_buf = data_ptr[1]
+    cdef MPI_Comm comm = <MPI_Comm>((<uintptr_t*>(data_ptr[2]))[0])
+
+    cdef void* out_buf = out_ptr[0]
+
+    mpi_xla_bridge.mpi_barrier(comm)
+    memcpy(out_buf, in_buf, count)
+
 
 cdef void mpi_allgather_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef int sendcount = (<int*>(data_ptr[0]))[0]
@@ -193,6 +204,7 @@ cdef register_custom_call_target(fn_name, void* fn):
 register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_cpu))
 register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_cpu))
 register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_cpu))
+register_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_cpu))
 register_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_cpu))
 register_custom_call_target(b"mpi_gather", <void*>(mpi_gather_cpu))
 register_custom_call_target(b"mpi_recv", <void*>(mpi_recv_cpu))

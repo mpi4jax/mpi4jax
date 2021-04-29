@@ -8,6 +8,7 @@ from . import xla_bridge  # noqa: F401
 from .collective_ops.allgather import allgather  # noqa: F401
 from .collective_ops.allreduce import allreduce  # noqa: F401
 from .collective_ops.alltoall import alltoall  # noqa: F401
+from .collective_ops.barrier import barrier  # noqa: F401
 from .collective_ops.bcast import bcast  # noqa: F401
 from .collective_ops.gather import gather  # noqa: F401
 from .collective_ops.recv import recv  # noqa: F401

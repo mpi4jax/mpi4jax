@@ -4,6 +4,8 @@ cdef int abort(int ierr, MPI_Comm comm, unicode message) nogil
 
 cdef int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil
 
+cdef void mpi_barrier(MPI_Comm comm) nogil
+
 cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
                         void* recvbuf, int recvcount, MPI_Datatype recvtype,
                         MPI_Comm comm) nogil
