@@ -7,6 +7,8 @@ from mpi4py.libmpi cimport (
     MPI_Comm,
     MPI_Comm_rank,
     MPI_Datatype,
+    MPI_Error_string,
+    MPI_MAX_ERROR_STRING,
     MPI_Op,
     MPI_Status,
     MPI_STATUS_IGNORE,
@@ -60,8 +62,14 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
     cdef int rank
     MPI_Comm_rank(comm, &rank)
 
+    cdef char c_string[MPI_MAX_ERROR_STRING]
+    cdef int length = 0
+
+    MPI_Error_string(ierr, c_string, &length)
+
     with gil:
-        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n'
+        strerr = c_string[:length]
+        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr}: {strerr} - aborting\n'
 
     return abort(ierr, comm, message)
 
