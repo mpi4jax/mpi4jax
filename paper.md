@@ -51,7 +51,7 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A\bm{x}=\bm{y}$. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
+- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A x= y $. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
 
 # Implementation
 
