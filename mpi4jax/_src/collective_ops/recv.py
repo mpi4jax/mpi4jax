@@ -39,8 +39,8 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
 @inject_ctx_token
 def recv(
     x,
-    *,
     source=_MPI.ANY_SOURCE,
+    *,
     tag=_MPI.ANY_TAG,
     comm=None,
     status=None,

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 
 import jax
 from jax.interpreters.xla import Token
+from jax.core import Tracer
 
 ctx = threading.local()
 ctx.token_stack = []
@@ -14,7 +15,7 @@ def token_context(token=None):
     if token is None:
         token = jax.lax.create_token()
 
-    if not isinstance(token, (Token, jax.core.Tracer)):
+    if not isinstance(token, (Token, Tracer)):
         raise TypeError("First argument to token_context must be a token or None")
 
     try:
@@ -27,7 +28,7 @@ def token_context(token=None):
 
 def is_jitting():
     dummy = jax.lax.create_token()
-    return not isinstance(dummy, Token)
+    return isinstance(dummy, Tracer)
 
 
 def inject_ctx_token(func):
@@ -39,10 +40,10 @@ def inject_ctx_token(func):
         if token is None:
             token = ctx.token_stack[-1]
 
-        if is_jitting() and isinstance(token, Token):
+        if is_jitting() and not isinstance(token, Tracer):
             raise RuntimeError(
                 "A token_context from non-JIT code cannot be used within JIT. "
-                "Consider moving token_context into your JITed function."
+                "Consider adding a token_context to your JITed function."
             )
 
         res = func(*args, **kwargs, token=token)
