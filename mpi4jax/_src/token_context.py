@@ -33,7 +33,10 @@ def is_jitting():
 def inject_ctx_token(func):
     @functools.wraps(func)
     def wrapped(*args, token=None, **kwargs):
-        if token is None and len(ctx.token_stack) > 0:
+        if not ctx.token_stack:
+            return func(*args, **kwargs, token=token)
+
+        if token is None:
             token = ctx.token_stack[-1]
 
         if is_jitting() and isinstance(token, Token):
@@ -42,26 +45,14 @@ def inject_ctx_token(func):
                 "Consider moving token_context into your JITed function."
             )
 
-        try:
-            res = func(*args, **kwargs, token=token)
+        res = func(*args, **kwargs, token=token)
 
-        except jax.core.UnexpectedTracerError as exc:
-            if not ctx.token_stack:
-                # token_context is not in use
-                raise
-
-            raise RuntimeError(
-                "Encountered unexpected tracer. Make sure not to use "
-                "token_context across more than one JIT function."
-            ) from exc
-
+        if isinstance(res, tuple):
+            new_token = res[-1]
         else:
-            if isinstance(res, tuple):
-                new_token = res[-1]
-            else:
-                new_token = res
+            new_token = res
 
-            ctx.token_stack[-1] = new_token
+        ctx.token_stack[-1] = new_token
 
         return res
 
