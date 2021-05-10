@@ -14,6 +14,9 @@ def token_context(token=None):
     if token is None:
         token = jax.lax.create_token()
 
+    if not isinstance(token, (Token, jax.core.Tracer)):
+        raise TypeError("First argument to token_context must be a token or None")
+
     try:
         ctx.token_stack.append(token)
         yield
