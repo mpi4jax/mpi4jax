@@ -19,6 +19,7 @@ from ..utils import (
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..token_context import inject_ctx_token
 from ..comm import get_default_comm
 
 # The Jax primitive
@@ -33,7 +34,8 @@ mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def reduce(x, op, root, comm=None, token=None):
+@inject_ctx_token
+def reduce(x, op, root, *, comm=None, token=None):
     """Perform a reduce operation.
 
     Arguments:
@@ -65,9 +67,9 @@ def reduce(x, op, root, comm=None, token=None):
     res, token = mpi_reduce_p.bind(x, token, op=op, root=root, comm=comm)
 
     if rank != root:
-        return x, token
+        return (x, token)
 
-    return res, token
+    return (res, token)
 
 
 # This function compiles the operation

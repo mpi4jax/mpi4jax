@@ -5,6 +5,7 @@ from mpi4py import MPI  # noqa: F401
 # this registers our custom XLA functions
 from . import xla_bridge  # noqa: F401
 
+# import public API
 from .collective_ops.allgather import allgather  # noqa: F401
 from .collective_ops.allreduce import allreduce  # noqa: F401
 from .collective_ops.alltoall import alltoall  # noqa: F401
@@ -16,6 +17,8 @@ from .collective_ops.scan import scan  # noqa: F401
 from .collective_ops.scatter import scatter  # noqa: F401
 from .collective_ops.send import send  # noqa: F401
 from .collective_ops.sendrecv import sendrecv  # noqa: F401
+
+from .token_context import token_context  # noqa: F401
 
 # check version of jaxlib
 import jaxlib

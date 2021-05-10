@@ -19,6 +19,7 @@ from ..utils import (
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..token_context import inject_ctx_token
 from ..comm import get_default_comm
 
 # The Jax primitive
@@ -31,8 +32,10 @@ mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
+@inject_ctx_token
 def allgather(
     x,
+    *,
     comm=None,
     token=None,
 ):
@@ -63,10 +66,12 @@ def allgather(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_allgather_p.bind(
-        x,
-        token,
-        comm=comm,
+    return tuple(
+        mpi_allgather_p.bind(
+            x,
+            token,
+            comm=comm,
+        )
     )
 
 

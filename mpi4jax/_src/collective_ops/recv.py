@@ -20,6 +20,7 @@ from ..utils import (
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..token_context import inject_ctx_token
 from ..comm import get_default_comm
 
 # The Jax primitive
@@ -35,8 +36,10 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
     status=(type(None), _MPI.Status, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
+@inject_ctx_token
 def recv(
     x,
+    *,
     source=_MPI.ANY_SOURCE,
     tag=_MPI.ANY_TAG,
     comm=None,
@@ -77,7 +80,9 @@ def recv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    return mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
+    return tuple(
+        mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
+    )
 
 
 # This function compiles the operation

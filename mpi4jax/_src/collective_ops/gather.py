@@ -19,6 +19,7 @@ from ..utils import (
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..token_context import inject_ctx_token
 from ..comm import get_default_comm
 
 # The Jax primitive
@@ -32,9 +33,11 @@ mpi_gather_impl = default_primitive_impl(mpi_gather_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
+@inject_ctx_token
 def gather(
     x,
     root,
+    *,
     comm=None,
     token=None,
 ):
@@ -80,9 +83,9 @@ def gather(
     )
 
     if rank != root:
-        return x, token
+        return (x, token)
 
-    return res, token
+    return (res, token)
 
 
 # This function compiles the operation

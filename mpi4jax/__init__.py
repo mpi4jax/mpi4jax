@@ -18,6 +18,7 @@ from ._src import (  # noqa: E402
     scatter,
     send,
     sendrecv,
+    token_context,
 )
 
 __all__ = [
@@ -32,10 +33,11 @@ __all__ = [
     "scatter",
     "send",
     "sendrecv",
+    "token_context",
 ]
 
 # TODO: remove in next minor release
-from ._deprecations import (  # noqa: E402
+from ._deprecations import (  # noqa: E402, F401
     Allreduce,
     Bcast,
     Recv,
@@ -45,10 +47,10 @@ from ._deprecations import (  # noqa: E402
 
 __all__.extend(
     [
-        Allreduce,
-        Bcast,
-        Recv,
-        Send,
-        Sendrecv,
+        "Allreduce",
+        "Bcast",
+        "Recv",
+        "Send",
+        "Sendrecv",
     ]
 )

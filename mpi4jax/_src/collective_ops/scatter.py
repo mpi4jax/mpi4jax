@@ -19,6 +19,7 @@ from ..utils import (
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
+from ..token_context import inject_ctx_token
 from ..comm import get_default_comm
 
 # The Jax primitive
@@ -32,9 +33,11 @@ mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
+@inject_ctx_token
 def scatter(
     x,
     root,
+    *,
     comm=None,
     token=None,
 ):
@@ -75,11 +78,13 @@ def scatter(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_scatter_p.bind(
-        x,
-        token,
-        root=root,
-        comm=comm,
+    return tuple(
+        mpi_scatter_p.bind(
+            x,
+            token,
+            root=root,
+            comm=comm,
+        )
     )
 
 
