@@ -44,6 +44,11 @@ def scatter(
 
         Unlike mpi4py's scatter, this returns a *new* array with the received data.
 
+    .. warning::
+
+        The expected shape of the first input varies between ranks. On the root process,
+        it is ``(nproc, *input_shape)``. On all other processes, it is ``input_shape``.
+
     Arguments:
         x: Array or scalar input with the correct shape and dtype. On the root process,
            this contains the data to send, and its first axis must have size ``nproc``.
