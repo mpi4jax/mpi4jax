@@ -95,15 +95,38 @@ def sendrecv(
         recvtag=recvtag,
         comm=comm,
         status=status,
+        _must_transpose=False,
     )
 
 
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(
-    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+    c,
+    sendbuf,
+    recvbuf,
+    token,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
 ):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+
+    # when performing forward diff, the gradient will follow the sent message.
+    # so if you do a sendrecv from rank 0 to 1, the gradient wrt the inputs of rank 0
+    # will end up in rank 1.\
+    # it's maybe possible to fix this by, at the end of the calculation, bringing back
+    # the gradient to the correct rank, but that would require some study.
+    if _must_transpose:
+        raise RuntimeError(
+            "sendrecv cannot be used with forward-mode (jvp) autodiff, because "
+            "the gradient might be located on a different mpi rank than the "
+            "desired one. Use reverse-mode (jvp) differentiation instead."
+        )
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -162,8 +185,26 @@ def mpi_sendrecv_xla_encode_cpu(
 
 @translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(
-    c, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+    c,
+    sendbuf,
+    recvbuf,
+    token,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
 ):
+
+    if _must_transpose:
+        raise RuntimeError(
+            "sendrecv cannot be used with forward-mode (jvp) autodiff, because "
+            "the gradient might be located on a different mpi rank than the "
+            "desired one. Use reverse-mode (jvp) differentiation instead."
+        )
+
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
     from ..xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
@@ -226,7 +267,16 @@ def mpi_sendrecv_xla_encode_gpu(
 
 # This function evaluates only the shapes during AST construction
 def mpi_sendrecv_abstract_eval(
-    sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status
+    sendbuf,
+    recvbuf,
+    token,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
 ):
     return (
         abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
@@ -235,7 +285,15 @@ def mpi_sendrecv_abstract_eval(
 
 
 def mpi_sendrecv_batch_eval(
-    in_args, batch_axes, source, dest, sendtag, recvtag, comm, status
+    in_args,
+    batch_axes,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
 ):
 
     sendbuf, recvbuf, token = in_args
@@ -252,12 +310,21 @@ def mpi_sendrecv_batch_eval(
         recvtag=recvtag,
         comm=comm,
         status=status,
+        _must_transpose=_must_transpose,
     )
     return res, (batch_axes[0], batch_axes[2])
 
 
 def mpi_sendrecv_value_and_jvp(
-    in_args, tan_args, source, dest, sendtag, recvtag, comm, status
+    in_args,
+    tan_args,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
 ):
     sendbuf, recvbuf, token = in_args
     send_tan, recv_tan, token_tan = tan_args
@@ -272,6 +339,7 @@ def mpi_sendrecv_value_and_jvp(
         recvtag=recvtag,
         comm=comm,
         status=status,
+        _must_transpose=_must_transpose,
     )
 
     # throw away return token to work around jax#6285
@@ -285,13 +353,14 @@ def mpi_sendrecv_value_and_jvp(
         recvtag=recvtag,
         comm=comm,
         status=status,
+        _must_transpose=not _must_transpose,
     )
 
     return (val, token), (jvp, ad.Zero.from_value(token_jvp))
 
 
 def mpi_sendrecv_transpose_rule(
-    tan_args, *x_args, source, dest, sendtag, recvtag, comm, status
+    tan_args, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
 ):
     _, _, token = x_args
     out_tan, token_tan = tan_args
@@ -307,6 +376,7 @@ def mpi_sendrecv_transpose_rule(
         recvtag=recvtag,  # TODO: could maybe be smarter about send and receive tags...
         comm=comm,
         status=status,
+        _must_transpose=not _must_transpose,
     )
     return res, ad.Zero.from_value(res), token_tan
 
