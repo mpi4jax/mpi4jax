@@ -13,7 +13,7 @@ authors:
     orcid: 0000-0002-4465-7317
     affiliation: 2
 affiliations:
- - name: Affiliation 1
+ - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 1
  - name: Niels Bohr Institute, Copenhagen University, Copenhagen, Denmark
    index: 2
@@ -24,36 +24,46 @@ bibliography: paper.bib
 
 # Summary
 
-The tensor framework JAX [@jax] shows excellent performance on both machine learning and scientific computing workloads, while all user code is written in pure Python.
+The tensor framework JAX [@jax] combines expressivity and performance while retaining an accessible pure Python interface.
+Expressivity is achieved by treating functions as first-class objects, while efficiency is obtained by compiling to machine code just-ahead-of-time.
 
-However, machine learning and high-performance computing are still being conducted on very different hardware stacks. While machine learning is typically done on few highly parallel units (GPUs or TPUs), high-performance workloads such as physical models tend to run on clusters of dozens to thousands of CPUs. Unfortunately, support from JAX and the underlying compiler XLA is much more mature in the former case. Notably, there is no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (Message Passing Interface) libraries [@mpistandard].
+However, machine learning and (high-performance) scientific computing are often conducted on different hardware stacks: Machine learning is typically done on few highly parallel units (GPUs or TPUs) connected to a single host CPU, while scientific models tend to run on clusters of dozens to thousands of CPUs.
+Unfortunately, support from JAX and the underlying compiler XLA is more mature in the former case.
+Notably, there is so far no built-in solution to communicate data between different nodes that is as sophisticated as the widely used MPI (Message Passing Interface) libraries [@mpistandard].
 
-Here, we present `mpi4jax` to fill this gap. `mpi4jax` uses XLA's custom call mechanism to register the most important MPI primitives as JAX primitives. This means that users can communicate arbitrary JAX data without performance or usability penalties. In particular, `mpi4jax` is able to communicate data without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
+We attempt to fill this gap and introduce `mpi4jax`, a Python library bringing first-class support for the most important MPI operations to JAX.
+We achieve this by defining a set of primitive functions matching MPI's operations, instructing JAX how to transform them and providing a native implementation to execute them.
+This has the result that users can communicate arbitrary JAX data without performance or usability penalties.
+In particular, `mpi4jax` is able to communicate data without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
 
 This also means that existing applications using e.g. NumPy and `mpi4py` can be ported seamlessly to the JAX ecosystem for potentially significant performance gains.
 
 # Statement of Need
 
-For decades, high-performance computing has been done in low-level programming languages like Fortran or C. But the ubiquity of Python is starting to spill into this domain as well, and for good reason, being the de-facto programming lingua franca of science. With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying (and costly) to leave possible performance on the table.
+For decades, high-performance computing has been done primarily in low-level programming languages like Fortran or C.
+But the ubiquity of Python is starting to spill into this domain as well, thanks to its strong library ecosystem and wide adoption throughout the sciences.
+
+With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can already build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying (and costly) to leave possible performance on the table.
 
 Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. This gets us close to the dream scenario of high-performance computing --- low-level performance in high-level code. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
 
-Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the many-body quantum systems toolkit NetKet [@carleo_netket_2019]:
+Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the machine learning toolkit for many-body quantum systems NetKet [@carleo_netket_2019]:
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-- NetKet...  **write me**
-
+- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A x= y $. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
 
 # Implementation
 
-In essence, `mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
+`mpi4jax` combines JAX's custom call mechanism with `mpi4py.libmpi` (which exposes MPI C primitives as Cython callables).
 
 The implementation of a primitive in `mpi4jax` consists of two parts:
 
-1. A Python module that registers a new primitive with JAX. JAX primitives consist of several parts, such as an abstract evaluation rule (used to infer output shapes and data types), and 2 translation rules (one for each CPU and GPU) that convert inputs to the appropriate XLA-compatible types. Optionally, we can also define transpose and differentiation rules (if applicable, see Outlook section).
+1. A Python module, registering a new primitive with JAX. JAX primitives consist of an _abstract evaluation_ rule and several _translation rules_. Abstract evaluation rules are used by the compiler to infer the output shapes and data types without running the actual computation, while _translation rules_ determine the specific computational kernel and prepare the input buffers.
 
-   In particular, we need to ensure that all numerical input data is of the expected type (e.g., by converting Python integers to the C type `uintptr_t`) before passing it on to XLA.
+   In particular, we need to ensure that all numerical input data is of the expected type (e.g., by converting Python integers to the C type `uintptr_t`) before passing it on to XLA. A different translation rule is necessary for every type of backend, such as CPUs, GPUs and TPUs.
+
+   On specific primitives we also define a transposition and JVP (Jacobian-vector product) rule to support forward and reverse mode automatic differentiation.
 
 2. A Cython [@cython] function that casts raw input arguments passed by XLA to their true C type, so they can be passed on to MPI. On CPU, arguments are given in the form of arrays of void pointers, `void**`, so we use static casts for conversion. On GPU, input data is given as a raw char array, `char*`, which we deserialize to a custom Cython `struct` whose fields represent the input data.
 
@@ -186,16 +196,17 @@ As we can see, switching from NumPy to JAX already yields a substantial speedup,
 
 In this paper, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
 
-However, JAX is more than just a JIT compiler. It also supplies powerful tools for auto-differentiation (`jax.grad`) and auto-vectorization (`jax.vmap`). Differentiable programming in particular is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2].
+However, JAX is much more than just a JIT compiler. It is also a full-fledged differentiable programming framework by providing tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
 
-So far, `mpi4jax` only supports differentiating through global sums via the `allreduce` primitive. However, it should be possible with some additional work to preserve gradient information during generic send / receive operations, by propagating gradients through several processes.
-
-This would eventually enable fully differentiable, distributed physical simulations without additional user code.
+So far, `mpi4jax` supports differentiating through global sums via the `allreduce` primitive (one of the main operations used in distributed matrix-vector products) and combined send and receive (`sendrecv`) operations in forward and reverse mode.
+However, it should be possible with some additional work to preserve gradient information through most MPI operations, by propagating gradients through several processes. This would eventually enable fully differentiable, distributed physical simulations without additional user code.
 
 # Acknowledgements
 
 We thank all JAX developers, in particular Matthew Johnson and Peter Hawkins, for their outstanding support on the many issues we opened.
 
 DH acknowledges funding from the Danish Hydrocarbon Research and Technology Centre (DHRTC).
+
+FV acknowledges support from G. Carleo and funding from the Simons Foundation and Ecole Polytechnique Federale de Lausanne.
 
 # References
