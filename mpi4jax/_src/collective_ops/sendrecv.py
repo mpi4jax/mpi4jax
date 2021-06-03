@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import ad, xla
+from jax.interpreters import ad, xla, batching
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -234,6 +234,28 @@ def mpi_sendrecv_abstract_eval(
     )
 
 
+def mpi_sendrecv_batch_eval(
+    in_args, batch_axes, source, dest, sendtag, recvtag, comm, status
+):
+
+    sendbuf, recvbuf, token = in_args
+
+    assert batch_axes[0] == batch_axes[1]
+
+    res = mpi_sendrecv_p.bind(
+        sendbuf,
+        recvbuf,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+    )
+    return res, (batch_axes[0], batch_axes[2])
+
+
 def mpi_sendrecv_value_and_jvp(
     in_args, tan_args, source, dest, sendtag, recvtag, comm, status
 ):
@@ -292,6 +314,8 @@ def mpi_sendrecv_transpose_rule(
 mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
+
+batching.primitive_batchers[mpi_sendrecv_p] = mpi_sendrecv_batch_eval
 
 ad.primitive_jvps[mpi_sendrecv_p] = mpi_sendrecv_value_and_jvp
 ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
