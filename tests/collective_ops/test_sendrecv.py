@@ -148,6 +148,30 @@ def test_sendrecv_grad():
 
 
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_grad_2():
+    from mpi4jax import sendrecv
+
+    arr = jnp.ones((3, 2)) * (rank + 1)
+    _arr = arr.copy()
+
+    other = 1 - rank
+
+    def f(x):
+        x, token = sendrecv(x, x, source=other, dest=other)
+        x = x * (rank + 1) * 5
+        x, token = sendrecv(x, x, source=other, dest=other, token=token)
+        x = x * (rank + 1) ** 2
+        return x.sum()
+
+    res = jax.grad(f)(arr)
+
+    solution = (rank + 1) ** 2 * (other + 1) * 5
+    print("solution is ", solution)
+    assert jnp.array_equal(res, jnp.ones_like(arr) * solution)
+    assert jnp.array_equal(_arr, arr)
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_jacfwd():
     from mpi4jax import sendrecv
 
