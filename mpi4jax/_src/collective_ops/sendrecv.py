@@ -372,8 +372,8 @@ def mpi_sendrecv_transpose_rule(
         token,
         source=dest,
         dest=source,
-        sendtag=sendtag,  # TODO: could maybe be smarter about send and receive tags...
-        recvtag=recvtag,  # TODO: could maybe be smarter about send and receive tags...
+        sendtag=sendtag,
+        recvtag=recvtag,
         comm=comm,
         status=status,
         _must_transpose=not _must_transpose,
