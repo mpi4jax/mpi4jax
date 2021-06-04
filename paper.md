@@ -6,18 +6,21 @@ tags:
   - MPI
   - high performance computing
   - parallel computing
+
 authors:
-  - name: Filippo Vicentini
-    affiliation: 1
-  - name: Dion Häfner^[Contributed equally, order determined by coin flip.]
+  - name: Dion Häfner
     orcid: 0000-0002-4465-7317
+    affiliation: 1
+  - name: Filippo Vicentini^[Contributed equally, order determined by coin flip.]
     affiliation: 2
+
 affiliations:
- - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
-   index: 1
  - name: Niels Bohr Institute, Copenhagen University, Copenhagen, Denmark
+   index: 1
+ - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 2
-date: 16 March 2021
+
+date: 4 June 2021
 bibliography: paper.bib
 
 ---
