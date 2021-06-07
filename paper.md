@@ -20,7 +20,7 @@ affiliations:
  - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 2
 
-date: 4 June 2021
+date: 7 June 2021
 bibliography: paper.bib
 
 ---
@@ -194,15 +194,6 @@ To verify the performance scaling of the solver with additional processes, we pe
 (The test hardware consists of 2x Intel Xeon E5-2650 v4 CPUs and 2x NVIDIA Tesla P100 GPUs.)
 
 As we can see, switching from NumPy to JAX already yields a substantial speedup, which we can then amplify by scaling to additional CPUs or GPUs.
-
-# Outlook
-
-In this paper, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
-
-However, JAX is much more than just a JIT compiler. It is also a full-fledged differentiable programming framework by providing tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
-
-So far, `mpi4jax` supports differentiating through global sums via the `allreduce` primitive (one of the main operations used in distributed matrix-vector products) and combined send and receive (`sendrecv`) operations in forward and reverse mode.
-However, it should be possible with some additional work to preserve gradient information through most MPI operations, by propagating gradients through several processes. This would eventually enable fully differentiable, distributed physical simulations without additional user code.
 
 # Acknowledgements
 
