@@ -15,6 +15,8 @@ cdef void mpi_alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype,
                        void* recvbuf, int recvcount, MPI_Datatype recvtype,
                        MPI_Comm comm) nogil
 
+cdef void mpi_barrier(MPI_Comm comm) nogil
+
 cdef void mpi_bcast(void* sendrecvbuf, int nitems, MPI_Datatype dtype,
                    int root, MPI_Comm comm) nogil
 

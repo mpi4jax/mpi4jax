@@ -331,6 +331,29 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
+# Barrier
+
+cdef struct BarrierDescriptor:
+    MPI_Comm comm
+
+
+cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
+    cdef BarrierDescriptor desc = BarrierDescriptor(<MPI_Comm> comm_handle)
+    return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
+
+
+cdef void mpi_barrier_gpu(cudaStream_t stream, void** buffers,
+                          const char* opaque, size_t opaque_len) nogil:
+    if opaque_len != sizeof(BarrierDescriptor):
+        with gil:
+            raise RuntimeError("got wrong size of opaque argument")
+
+    cdef BarrierDescriptor* desc = <BarrierDescriptor*>(opaque)
+    cdef MPI_Comm comm = desc.comm
+
+    mpi_xla_bridge.mpi_barrier(comm)
+
+
 # Bcast
 
 cdef struct BcastDescriptor:
