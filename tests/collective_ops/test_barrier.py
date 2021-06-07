@@ -17,11 +17,10 @@ def cap_to_file(capsys, write_to):
 
 def test_barrier(capsys):
     """Verify that barrier blocks execution by printing messages before and after"""
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging
     from mpi4jax._src.flush import flush
     from mpi4jax import barrier
 
-    # pipe all messages to the same file while avoiding race conditions
+    # pipe all messages to the same file
     tmpdir = tempfile.gettempdir()
 
     write_to = os.path.join(tmpdir, "mpi4jax-barrier.txt")
@@ -32,23 +31,23 @@ def test_barrier(capsys):
     print(f"r{rank} | start")
 
     time.sleep(rank * 0.2)
-
     cap_to_file(capsys, write_to)
 
-    set_logging(True)
+    # without a barrier here, some ranks would start writing
+    # "done" before everyone has writen "start"
     token = barrier()  # noqa: F841
-    set_logging(False)
-
     flush("cpu")
-    time.sleep(rank * 0.2)
 
+    print(f"r{rank} | done")
+
+    time.sleep(rank * 0.2)
     cap_to_file(capsys, write_to)
 
-    time.sleep(size * 0.2 + 0.2)
+    time.sleep(size * 0.2)
 
     with open(write_to, "r") as f:
         outputs = f.readlines()
 
     assert len(outputs) == size * 2
     assert all(o.endswith("start\n") for o in outputs[:size])
-    assert all(o.endswith("MPI_Barrier\n") for o in outputs[size:])
+    assert all(o.endswith("done\n") for o in outputs[size:])

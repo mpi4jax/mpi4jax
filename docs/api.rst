@@ -17,7 +17,7 @@ alltoall
 .. autofunction:: mpi4jax.alltoall
 
 barrier
------
+-------
 
 .. autofunction:: mpi4jax.barrier
 
