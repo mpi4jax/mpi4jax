@@ -1,9 +1,8 @@
-import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive
-from jax.interpreters import ad, xla, batching
+from jax.interpreters import xla, batching
 from jax.lax import create_token
 from jax.lib import xla_client
 
@@ -13,7 +12,6 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    xla_constant_intc,
     xla_constant_uintptr,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -30,66 +28,43 @@ mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def barrier(x, comm=None, token=None):
-    """Perform an allreduce operation.
-
-    .. note::
-
-       This primitive can be differentiated via :func:`jax.grad` and related functions
-       if ``op`` is :obj:`mpi4py.MPI.SUM`.
+def barrier(comm=None, token=None):
+    """Perform a barrier operation.
 
     Arguments:
-        x: Array or scalar input.
-        op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
         token (Token): XLA token to use to ensure correct execution order.
             If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Result of the allreduce operation.
+        Token:
             - A new, modified token, that depends on this operation.
 
     """
     if token is None:
-        token = create_token(x)
+        token = create_token()
 
     if comm is None:
         comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
-    return mpi_barrier_p.bind(x, token, comm=comm, transpose=False)
+    return mpi_barrier_p.bind(token, comm=comm)
 
 
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 @translation_rule_cpu
-def mpi_barrier_xla_encode_cpu(c, x, token, comm, transpose):
+def mpi_barrier_xla_encode_cpu(c, token, comm):
     comm = unpack_hashable(comm)
 
-    if transpose:
-        return xla_client.ops.Tuple(c, [x, token])
-
-    x_shape = c.GetShape(x)
-    dtype = x_shape.element_type()
-    dims = x_shape.dimensions()
-    itemsize = dtype.itemsize
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    sh = xla_client.Shape.token_shape()
 
     return xla_client.ops.CustomCall(
         c,
         b"mpi_barrier",
         operands=(
-            xla_constant_intc(c, nitems * itemsize),
-            x,
             xla_constant_uintptr(c, to_mpi_handle(comm)),
             token,
         ),
@@ -99,38 +74,21 @@ def mpi_barrier_xla_encode_cpu(c, x, token, comm, transpose):
 
 
 @translation_rule_gpu
-def mpi_barrier_xla_encode_gpu(c, x, token, comm, transpose):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
+def mpi_barrier_xla_encode_gpu(c, token, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
 
     comm = unpack_hashable(comm)
 
-    if transpose:
-        return xla_client.ops.Tuple(c, [x, token])
+    sh = xla_client.Shape.token_shape()
 
-    x_shape = c.GetShape(x)
-    dtype = x_shape.element_type()
-    dims = x_shape.dimensions()
-    itemsize = dtype.itemsize
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
-
-    descriptor = build_allreduce_descriptor(
-        _np.intc(nitems * itemsize),
+    descriptor = build_barrier_descriptor(
         to_mpi_handle(comm),
     )
 
     return xla_client.ops.CustomCall(
         c,
         b"mpi_barrier",
-        operands=(
-            x,
-            token,
-        ),
+        operands=(token,),
         shape=sh,
         opaque=descriptor,
         has_side_effect=True,
@@ -138,35 +96,14 @@ def mpi_barrier_xla_encode_gpu(c, x, token, comm, transpose):
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_barrier_abstract_eval(xs, token, comm, transpose):
-    return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
-    )
+def mpi_barrier_abstract_eval(token, comm):
+    return (abstract_arrays.abstract_token,)
 
 
-def mpi_barrier_batch_eval(in_args, batch_axes, comm, transpose):
-    x, token = in_args
-    res = mpi_barrier_p.bind(x, token, comm=comm, transpose=transpose)
+def mpi_barrier_batch_eval(in_args, batch_axes, comm):
+    token = in_args[0]
+    res = mpi_barrier_p.bind(token, comm=comm)
     return res, batch_axes
-
-
-def mpi_barrier_value_and_jvp(in_args, tan_args, comm, transpose):
-    x, token = in_args
-    x_tan, token_tan = tan_args
-
-    val, token = mpi_barrier_p.bind(x, token, comm=comm, transpose=transpose)
-
-    # throw away return token to work around jax#6285
-    return (val, token), (x_tan, ad.Zero.from_value(token))
-
-
-def mpi_barrier_transpose_rule(tan_args, *x_args, comm, transpose):
-    _, token = x_args
-    x_tan, token_tan = tan_args
-
-    res, token = mpi_barrier_p.bind(x_tan, token, comm=comm, transpose=(not transpose))
-    return res, token_tan
 
 
 mpi_barrier_p.multiple_results = True
@@ -174,9 +111,6 @@ mpi_barrier_p.def_impl(mpi_barrier_impl)
 mpi_barrier_p.def_abstract_eval(mpi_barrier_abstract_eval)
 
 batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
-
-ad.primitive_jvps[mpi_barrier_p] = mpi_barrier_value_and_jvp
-ad.primitive_transposes[mpi_barrier_p] = mpi_barrier_transpose_rule
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_barrier_p] = mpi_barrier_xla_encode_cpu

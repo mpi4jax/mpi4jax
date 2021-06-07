@@ -34,6 +34,10 @@ cpdef void set_logging(bint enable):
     PRINT_DEBUG = enable
 
 
+cpdef bint get_logging():
+    return PRINT_DEBUG
+
+
 cdef inline void print_debug(unicode message, MPI_Comm comm) nogil:
     cdef int rank
     MPI_Comm_rank(comm, &rank)
@@ -61,7 +65,7 @@ cdef inline int abort_on_error(int ierr, MPI_Comm comm, unicode mpi_op) nogil:
     MPI_Comm_rank(comm, &rank)
 
     with gil:
-        message = f'r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n'
+        message = f"r{rank} | MPI_{mpi_op} returned error code {ierr} - aborting\n"
 
     return abort(ierr, comm, message)
 
@@ -75,7 +79,7 @@ cdef void mpi_barrier(MPI_Comm comm) nogil:
     if PRINT_DEBUG:
         with gil:
             print_debug(
-                f"MPI_Barrier.",
+                "MPI_Barrier",
                 comm
             )
 
