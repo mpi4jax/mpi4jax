@@ -338,8 +338,8 @@ cdef struct BarrierDescriptor:
 
 
 cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
-    cdef BcastDescriptor desc = BcastDescriptor(<MPI_Comm> comm_handle)
-    return bytes((<char*> &desc)[:sizeof(BcastDescriptor)])
+    cdef BarrierDescriptor desc = BarrierDescriptor(<MPI_Comm> comm_handle)
+    return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
 
 
 cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
