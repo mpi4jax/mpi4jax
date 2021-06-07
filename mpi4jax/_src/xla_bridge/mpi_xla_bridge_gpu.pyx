@@ -342,8 +342,8 @@ cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
     return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
 
 
-cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
-                        const char* opaque, size_t opaque_len) nogil:
+cdef void mpi_barrier_gpu(cudaStream_t stream, void** buffers,
+                          const char* opaque, size_t opaque_len) nogil:
     if opaque_len != sizeof(BarrierDescriptor):
         with gil:
             raise RuntimeError("got wrong size of opaque argument")
