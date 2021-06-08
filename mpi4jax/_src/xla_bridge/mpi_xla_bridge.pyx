@@ -44,7 +44,7 @@ cdef inline void print_debug(unicode message, MPI_Comm comm) nogil:
     cdef int rank
     MPI_Comm_rank(comm, &rank)
     with gil:
-        print(f"r{rank} | {message}")
+        print(f"r{rank} | {message}", flush=True)
 
 
 #
