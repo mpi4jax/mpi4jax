@@ -33,6 +33,7 @@ mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
 )
 def allgather(
     x,
+    *,
     comm=None,
     token=None,
 ):
@@ -63,10 +64,12 @@ def allgather(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_allgather_p.bind(
-        x,
-        token,
-        comm=comm,
+    return tuple(
+        mpi_allgather_p.bind(
+            x,
+            token,
+            comm=comm,
+        )
     )
 
 

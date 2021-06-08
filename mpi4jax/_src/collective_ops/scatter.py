@@ -35,6 +35,7 @@ mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
 def scatter(
     x,
     root,
+    *,
     comm=None,
     token=None,
 ):
@@ -80,11 +81,13 @@ def scatter(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_scatter_p.bind(
-        x,
-        token,
-        root=root,
-        comm=comm,
+    return tuple(
+        mpi_scatter_p.bind(
+            x,
+            token,
+            root=root,
+            comm=comm,
+        )
     )
 
 
