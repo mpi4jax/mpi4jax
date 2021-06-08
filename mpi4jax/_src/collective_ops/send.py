@@ -33,7 +33,7 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def send(x, dest, tag=0, comm=None, token=None):
+def send(x, dest, *, tag=0, comm=None, token=None):
     """Perform a send operation.
 
     Arguments:
