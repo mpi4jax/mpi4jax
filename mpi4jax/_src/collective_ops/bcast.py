@@ -32,7 +32,7 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def bcast(x, root, comm=None, token=None):
+def bcast(x, root, *, comm=None, token=None):
     """Perform a bcast (broadcast) operation.
 
     .. warning::
@@ -66,9 +66,9 @@ def bcast(x, root, comm=None, token=None):
     res, token = mpi_bcast_p.bind(x, token, root=root, comm=comm)
 
     if rank == root:
-        return x, token
+        return (x, token)
 
-    return res, token
+    return (res, token)
 
 
 # This function compiles the operation

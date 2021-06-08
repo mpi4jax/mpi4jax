@@ -28,7 +28,7 @@ mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def barrier(comm=None, token=None):
+def barrier(*, comm=None, token=None):
     """Perform a barrier operation.
 
     Arguments:
@@ -59,9 +59,10 @@ def barrier(comm=None, token=None):
 def mpi_barrier_xla_encode_cpu(c, token, comm):
     comm = unpack_hashable(comm)
 
-    sh = xla_client.Shape.token_shape()
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
-    return xla_client.ops.CustomCall(
+    out = xla_client.ops.CustomCall(
         c,
         b"mpi_barrier",
         operands=(
@@ -72,6 +73,8 @@ def mpi_barrier_xla_encode_cpu(c, token, comm):
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
+
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(c, token, comm):
@@ -79,13 +82,14 @@ def mpi_barrier_xla_encode_gpu(c, token, comm):
 
     comm = unpack_hashable(comm)
 
-    sh = xla_client.Shape.token_shape()
+    # ensure void** out type
+    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
 
     descriptor = build_barrier_descriptor(
         to_mpi_handle(comm),
     )
 
-    return xla_client.ops.CustomCall(
+    out = xla_client.ops.CustomCall(
         c,
         b"mpi_barrier",
         operands=(token,),
@@ -94,10 +98,12 @@ def mpi_barrier_xla_encode_gpu(c, token, comm):
         has_side_effect=True,
     )
 
+    return xla_client.ops.GetTupleElement(out, 0)
+
 
 # This function evaluates only the shapes during AST construction
 def mpi_barrier_abstract_eval(token, comm):
-    return (abstract_arrays.abstract_token,)
+    return abstract_arrays.abstract_token
 
 
 def mpi_barrier_batch_eval(in_args, batch_axes, comm):

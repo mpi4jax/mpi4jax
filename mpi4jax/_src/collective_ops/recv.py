@@ -38,6 +38,7 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
 def recv(
     x,
     source=_MPI.ANY_SOURCE,
+    *,
     tag=_MPI.ANY_TAG,
     comm=None,
     status=None,
@@ -77,7 +78,9 @@ def recv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    return mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
+    return tuple(
+        mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
+    )
 
 
 # This function compiles the operation

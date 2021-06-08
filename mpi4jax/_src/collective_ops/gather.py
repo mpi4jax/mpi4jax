@@ -35,6 +35,7 @@ mpi_gather_impl = default_primitive_impl(mpi_gather_p)
 def gather(
     x,
     root,
+    *,
     comm=None,
     token=None,
 ):
@@ -80,9 +81,9 @@ def gather(
     )
 
     if rank != root:
-        return x, token
+        return (x, token)
 
-    return res, token
+    return (res, token)
 
 
 # This function compiles the operation

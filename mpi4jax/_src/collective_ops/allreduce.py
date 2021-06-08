@@ -32,7 +32,7 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), xla.Token, core.Tracer),
 )
-def allreduce(x, op, comm=None, token=None):
+def allreduce(x, op, *, comm=None, token=None):
     """Perform an allreduce operation.
 
     .. note::
@@ -62,7 +62,7 @@ def allreduce(x, op, comm=None, token=None):
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False)
+    return tuple(mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False))
 
 
 # This function compiles the operation

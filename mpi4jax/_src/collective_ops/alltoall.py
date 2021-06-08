@@ -34,6 +34,7 @@ mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
 )
 def alltoall(
     x,
+    *,
     comm=None,
     token=None,
 ):
@@ -64,10 +65,12 @@ def alltoall(
 
     comm = wrap_as_hashable(comm)
 
-    return mpi_alltoall_p.bind(
-        x,
-        token,
-        comm=comm,
+    return tuple(
+        mpi_alltoall_p.bind(
+            x,
+            token,
+            comm=comm,
+        )
     )
 
 

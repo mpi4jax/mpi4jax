@@ -42,6 +42,7 @@ def sendrecv(
     recvbuf,
     source,
     dest,
+    *,
     sendtag=0,
     recvtag=_MPI.ANY_TAG,
     comm=None,
@@ -85,17 +86,19 @@ def sendrecv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    return mpi_sendrecv_p.bind(
-        sendbuf,
-        recvbuf,
-        token,
-        source=source,
-        dest=dest,
-        sendtag=sendtag,
-        recvtag=recvtag,
-        comm=comm,
-        status=status,
-        _must_transpose=False,
+    return tuple(
+        mpi_sendrecv_p.bind(
+            sendbuf,
+            recvbuf,
+            token,
+            source=source,
+            dest=dest,
+            sendtag=sendtag,
+            recvtag=recvtag,
+            comm=comm,
+            status=status,
+            _must_transpose=False,
+        )
     )
 
 
@@ -123,7 +126,7 @@ def mpi_sendrecv_xla_encode_cpu(
     # the gradient to the correct rank, but that would require some study.
     if _must_transpose:
         raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (jvp) autodiff, because "
+            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
             "the gradient might be located on a different mpi rank than the "
             "desired one. Use reverse-mode (jvp) differentiation instead."
         )
@@ -200,7 +203,7 @@ def mpi_sendrecv_xla_encode_gpu(
 
     if _must_transpose:
         raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (jvp) autodiff, because "
+            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
             "the gradient might be located on a different mpi rank than the "
             "desired one. Use reverse-mode (jvp) differentiation instead."
         )
