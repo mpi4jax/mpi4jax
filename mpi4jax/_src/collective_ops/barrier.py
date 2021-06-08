@@ -112,7 +112,6 @@ def mpi_barrier_batch_eval(in_args, batch_axes, comm):
     return res, batch_axes
 
 
-mpi_barrier_p.multiple_results = True
 mpi_barrier_p.def_impl(mpi_barrier_impl)
 mpi_barrier_p.def_abstract_eval(mpi_barrier_abstract_eval)
 
