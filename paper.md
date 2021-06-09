@@ -20,7 +20,7 @@ affiliations:
  - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 2
 
-date: 7 June 2021
+date: 10 June 2021
 bibliography: paper.bib
 
 ---
@@ -46,9 +46,11 @@ This also means that existing applications using e.g. NumPy and `mpi4py` can be 
 For decades, high-performance computing has been done primarily in low-level programming languages like Fortran or C.
 But the ubiquity of Python is starting to spill into this domain as well, thanks to its strong library ecosystem and wide adoption throughout the sciences.
 
-With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can already build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computer time. But it is of course unsatisfying (and costly) to leave possible performance on the table.
+With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can already build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computing time. 
+However, such high-level frameworks are not always able to achieve peak performance, especially in more _niche_ workloads.
 
-Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. This gets us close to the dream scenario of high-performance computing --- low-level performance in high-level code. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
+Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of (a subset of) Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. 
+This approach, conceptually similar to Julia's deferred compilation model [@Bezanson2017], achieves low-level performance in a high-level language. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
 
 Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the machine learning toolkit for many-body quantum systems NetKet [@carleo_netket_2019]:
 
@@ -194,6 +196,16 @@ To verify the performance scaling of the solver with additional processes, we pe
 (The test hardware consists of 2x Intel Xeon E5-2650 v4 CPUs and 2x NVIDIA Tesla P100 GPUs.)
 
 As we can see, switching from NumPy to JAX already yields a substantial speedup, which we can then amplify by scaling to additional CPUs or GPUs.
+
+# Outlook
+
+In this paper, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
+
+However, JAX is much more than just a JIT compiler. 
+It is also a full-fledged differentiable programming framework by providing tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
+
+Combining automatic-differentiation with the multi-process nature of `MPI` workloads is not trivial, and right now `mpi4jax`  allows to differentiate only few communication primitives. 
+An interesting future development for the library will be to properly support the whole set of operations, enabling fully differentiable, distributed physical simulations without additional user code.
 
 # Acknowledgements
 
