@@ -15,7 +15,7 @@ authors:
     affiliation: 2
 
 affiliations:
- - name: Niels Bohr Institute, Copenhagen University, Copenhagen, Denmark
+ - name: Niels Bohr Institute, University of Copenhagen, Copenhagen, Denmark
    index: 1
  - name: Institute of Physics, École Polytechnique Fédérale de Lausanne (EPFL), CH-1015 Lausanne, Switzerland
    index: 2
