@@ -283,7 +283,7 @@ def mpi_sendrecv_abstract_eval(
 ):
     return (
         abstract_arrays.ShapedArray(recvbuf.shape, recvbuf.dtype),
-        abstract_arrays.abstract_token,
+        core.abstract_token,
     )
 
 

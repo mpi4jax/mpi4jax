@@ -1,7 +1,7 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, core
+from jax import core
 from jax.core import Primitive
 from jax.interpreters import xla
 from jax.lax import create_token
@@ -136,7 +136,7 @@ def mpi_send_xla_encode_gpu(c, x, token, dest, tag, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, token, dest, tag, comm):
-    return abstract_arrays.abstract_token
+    return core.abstract_token
 
 
 mpi_send_p.def_impl(mpi_send_impl)
