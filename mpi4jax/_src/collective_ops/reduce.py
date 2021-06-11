@@ -165,7 +165,7 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 def mpi_reduce_abstract_eval(xs, token, op, root, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
+        core.abstract_token,
     )
 
 

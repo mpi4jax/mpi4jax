@@ -56,7 +56,7 @@ if mpi_size not in supported_nproc:
 nproc_y = min(mpi_size, 2)
 nproc_x = mpi_size // nproc_y
 
-proc_idx = jnp.unravel_index(mpi_rank, (nproc_y, nproc_x))
+proc_idx = np.unravel_index(mpi_rank, (nproc_y, nproc_x))
 
 #
 # Grid setup

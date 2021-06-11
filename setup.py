@@ -211,5 +211,5 @@ setup(
     packages=find_packages(),
     ext_modules=get_extensions(),
     python_requires=">=3.6",
-    install_requires=["jax", "mpi4py>=3.0.1", "numpy"],
+    install_requires=["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"],
 )

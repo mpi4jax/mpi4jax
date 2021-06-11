@@ -197,7 +197,7 @@ def mpi_scatter_abstract_eval(x, token, root, comm):
 
     return (
         abstract_arrays.ShapedArray(out_shape, x.dtype),
-        abstract_arrays.abstract_token,
+        core.abstract_token,
     )
 
 

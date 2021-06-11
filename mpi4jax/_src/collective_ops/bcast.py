@@ -156,7 +156,7 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 def mpi_bcast_abstract_eval(xs, token, root, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
+        core.abstract_token,
     )
 
 

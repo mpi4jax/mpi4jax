@@ -139,7 +139,7 @@ def mpi_scan_xla_encode_gpu(c, x, token, op, comm):
 def mpi_scan_abstract_eval(xs, token, op, comm):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
-        abstract_arrays.abstract_token,
+        core.abstract_token,
     )
 
 
