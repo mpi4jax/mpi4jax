@@ -1,6 +1,6 @@
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, core
+from jax import core
 from jax.core import Primitive
 from jax.interpreters import xla, batching
 from jax.lax import create_token
@@ -103,7 +103,7 @@ def mpi_barrier_xla_encode_gpu(c, token, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_barrier_abstract_eval(token, comm):
-    return abstract_arrays.abstract_token
+    return core.abstract_token
 
 
 def mpi_barrier_batch_eval(in_args, batch_axes, comm):
