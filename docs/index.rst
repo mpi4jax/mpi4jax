@@ -9,6 +9,7 @@
    shallow-water
    sharp-bits
    api
+   developers
 
 Indices and tables
 ------------------

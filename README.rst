@@ -63,40 +63,15 @@ Running this script on 4 processes gives:
     [6. 6. 6.]
     [6. 6. 6.]]
 
-``allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here. <https://mpi4jax.readthedocs.org/en/latest/api.html>`_
+``allreduce`` is just one example of the MPI primitives you can use. `See all supported operations here <https://mpi4jax.readthedocs.org/en/latest/api.html>`_.
 
+Community guidelines
+--------------------
 
-Contributing
-------------
+If you have a question or feature request, or want to report a bug, feel free to `open an issue <https://github.com/mpi4jax/mpi4jax/issues>`_.
 
-We use pre-commit hooks to enforce a common code format. To install
-them, just run:
+We welcome contributions of any kind `through pull requests <https://github.com/mpi4jax/mpi4jax/pulls>`_. For information on running our tests, debugging, and contribution guidelines please `refer to the corresponding documentation page <https://mpi4jax.readthedocs.org/en/latest/developers.html>`_.
 
-.. code:: bash
-
-   $ pip install pre-commit
-   $ pre-commit install
-
-
-Debugging
----------
-
-You can set the environment variable ``MPI4JAX_DEBUG`` to ``1`` to
-enable debug logging every time an MPI primitive is called from within a
-jitted function. You will then see messages like this:
-
-.. code:: bash
-
-   $ MPI4JAX_DEBUG=1 mpirun -n 2 python send_recv.py
-   r0 | MPI_Send -> 1 with tag 0 and token 7fd7abc5f5c0
-   r1 | MPI_Recv <- 0 with tag -1 and token 7f9af7419ac0
-
-
-Contributors
-------------
-
--  Filippo Vicentini `@PhilipVinc <https://github.com/PhilipVinc>`_
--  Dion Häfner `@dionhaefner <https://github.com/dionhaefner>`_
 
 .. |Tests| image:: https://github.com/mpi4jax/mpi4jax/workflows/Tests/badge.svg
    :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amaster
