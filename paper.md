@@ -8,7 +8,7 @@ tags:
   - parallel computing
 
 authors:
-  - name: Dion Häfner
+  - name: Dion Häfner^[Contributed equally, order determined by coin flip.]
     orcid: 0000-0002-4465-7317
     affiliation: 1
   - name: Filippo Vicentini^[Contributed equally, order determined by coin flip.]
