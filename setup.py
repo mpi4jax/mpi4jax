@@ -25,7 +25,7 @@ else:
 ##############
 # Requirements
 
-BASE_DEPENDENCIES = (["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"],)
+BASE_DEPENDENCIES = ["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"]
 DEV_DEPENDENCIES = [
     "pytest>=6",
     "pytest-cov>=2.10.1",
