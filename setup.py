@@ -22,6 +22,19 @@ except ImportError:
 else:
     HAS_MPI4PY = True
 
+##############
+# Requirements
+
+BASE_DEPENDENCIES = (["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"],)
+DEV_DEPENDENCIES = [
+    "pytest>=6",
+    "pytest-cov>=2.10.1",
+    "coverage>=5",
+    "pre-commit",
+    "black==21.6b0",
+    "flake8==3.9.2",
+]
+
 
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
 CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
@@ -211,5 +224,8 @@ setup(
     packages=find_packages(),
     ext_modules=get_extensions(),
     python_requires=">=3.6",
-    install_requires=["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"],
+    install_requires=BASE_DEPENDENCIES,
+    extras_requires={
+        "dev": DEV_DEPENDENCIES,
+    },
 )
