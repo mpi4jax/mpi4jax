@@ -225,7 +225,7 @@ setup(
     ext_modules=get_extensions(),
     python_requires=">=3.6",
     install_requires=BASE_DEPENDENCIES,
-    extras_requires={
+    extras_require={
         "dev": DEV_DEPENDENCIES,
     },
 )
