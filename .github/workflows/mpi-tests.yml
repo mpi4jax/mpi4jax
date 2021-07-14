@@ -61,14 +61,10 @@ jobs:
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
           fi
-
-          cd tests
           pytest .
 
       - name: mpirun test with pytest
         run: |
-          cd tests
-
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
             mpirun -v -np 2 pytest .
