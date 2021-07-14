@@ -29,8 +29,8 @@ jobs:
           auto-activate-base: false
 
       - name: Install mpi4jax
-        # using setup.py install makes sure that mpi4py isn't rebuilt
-        run: python setup.py install
+        # disabling build isolation makes sure that mpi4py isn't rebuilt
+        run: pip install . --no-build-isolation
 
       - name: Build docs
         run: |

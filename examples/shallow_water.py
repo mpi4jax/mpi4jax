@@ -21,13 +21,21 @@ import os
 import sys
 import math
 import time
+import warnings
+from contextlib import ExitStack
 from collections import namedtuple
 from functools import partial
 
 import numpy as np
-import tqdm
-
 from mpi4py import MPI
+
+try:
+    import tqdm
+except ImportError:
+    warnings.warn("Could not import tqdm, can't show progress bar")
+    HAS_TQDM = False
+else:
+    HAS_TQDM = True
 
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
@@ -425,23 +433,27 @@ def solve_shallow_water(t1, num_multisteps=10):
     sol.append(state)
     t = dt
 
-    pbar = tqdm.tqdm(
-        total=math.ceil(t1 / dt),
-        disable=mpi_rank != 0,
-        unit="model day",
-        initial=t / DAY_IN_SECONDS,
-        unit_scale=dt / DAY_IN_SECONDS,
-        bar_format=(
-            "{l_bar}{bar}| {n:.2f}/{total:.2f} [{elapsed}<{remaining}, "
-            "{rate_fmt}{postfix}]"
-        ),
-    )
+    if HAS_TQDM:
+        pbar = tqdm.tqdm(
+            total=math.ceil(t1 / dt),
+            disable=mpi_rank != 0,
+            unit="model day",
+            initial=t / DAY_IN_SECONDS,
+            unit_scale=dt / DAY_IN_SECONDS,
+            bar_format=(
+                "{l_bar}{bar}| {n:.2f}/{total:.2f} [{elapsed}<{remaining}, "
+                "{rate_fmt}{postfix}]"
+            ),
+        )
 
     # pre-compile JAX kernel
     do_multistep(state, num_multisteps)
 
     start = time.perf_counter()
-    with pbar:
+    with ExitStack() as es:
+        if HAS_TQDM:
+            es.enter_context(pbar)
+
         while t < t1:
             state = do_multistep(state, num_multisteps)
             state[0].block_until_ready()
@@ -449,7 +461,7 @@ def solve_shallow_water(t1, num_multisteps=10):
 
             t += dt * num_multisteps
 
-            if t < t1:
+            if t < t1 and HAS_TQDM:
                 pbar.update(num_multisteps)
 
     end = time.perf_counter()
