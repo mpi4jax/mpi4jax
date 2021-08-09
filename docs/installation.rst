@@ -36,6 +36,16 @@ Selecting the MPI distribution
 If ``mpi4py`` is not installed, it will be installed automatically before
 installing ``mpi4jax``.
 
+.. warning::
+
+   If ``mpi4py`` is already installed, you *must* use ``--no-build-isolation`` when installing ``mpi4jax``:
+
+   .. code:: bash
+
+      # if mpi4py is already installed
+      $ pip install cython
+      $ pip install mpi4jax --no-build-isolation
+
 To check which MPI library both libraries link to, run the following command in your
 prompt.
 
@@ -44,8 +54,8 @@ prompt.
 	$ python -c "import mpi4py; print(mpi4py.get_config())"
 
 If you wish to use a specific MPI library (only possible when using ``pip``), it is
-usually sufficient to specify the ``MPICC`` environment variable `before` installing
-```mpi4py``.
+usually sufficient to specify the ``MPICC`` environment variable *before* installing
+``mpi4py``.
 
 .. seealso::
 

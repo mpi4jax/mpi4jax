@@ -149,13 +149,18 @@ def cuda_info(cmd):
 
 
 def get_extensions():
-    if not HAS_MPI4PY:
-        print_warning("mpi4py could not be imported", "(extensions will not be built)")
-        return []
+    cmd = sys.argv[1]
+    require_extensions = any(
+        cmd.startswith(subcmd) for subcmd in ("install", "build", "bdist", "develop")
+    )
 
-    if not HAS_CYTHON:
-        print_warning("Cython could not be imported", "(extensions will not be built)")
-        return []
+    if not HAS_MPI4PY or not HAS_CYTHON:
+        # this should only happen when using python setup.py
+        # or pip install --no-build-isolation
+        if require_extensions:
+            raise RuntimeError("Building mpi4jax requires Cython and mpi4py")
+        else:
+            return []
 
     extensions = [
         Extension(
