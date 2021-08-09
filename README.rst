@@ -16,8 +16,8 @@ With ``mpi4jax``, you can scale your JAX-based simulations to *entire CPU and GP
 In the spirit of differentiable programming, ``mpi4jax`` also supports differentiating through some MPI operations.
 
 
-Quick installation
-------------------
+Installation
+------------
 
 ``mpi4jax`` is available through ``pip`` and ``conda``:
 
@@ -26,7 +26,23 @@ Quick installation
    $ pip install mpi4jax                     # Pip
    $ conda install -c conda-forge mpi4jax    # conda
 
-Our documentation includes some more advanced installation examples.
+If you use pip and don't have JAX installed already, you will also need to do:
+
+.. code:: bash
+
+   $ pip install jaxlib
+
+(or an equivalent GPU-enabled version, `see the JAX installation instructions <https://github.com/google/jax#installation>`_)
+
+In case your MPI installation is not detected correctly, `it can help to install mpi4py separately <https://mpi4py.readthedocs.io/en/stable/install.html>`_. When using a pre-installed ``mpi4py``, you *must* use ``--no-build-isolation`` when installing ``mpi4jax``:
+
+.. code:: bash
+
+   # if mpi4py is already installed
+   $ pip install cython
+   $ pip install mpi4jax --no-build-isolation
+
+`Our documentation includes some more advanced installation examples. <https://mpi4jax.readthedocs.io/en/latest/installation.html>`_
 
 
 Example usage
