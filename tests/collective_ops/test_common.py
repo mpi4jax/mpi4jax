@@ -115,21 +115,51 @@ def test_deadlock_on_exit(tmp_path):
     assert proc.returncode == 0, proc.stderr
 
 
-def test_set_debug_logging(capsys):
+def test_debug_logging(capsys):
+    import re
     from mpi4jax import allreduce
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
+
     set_logging(True)
     res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
-    captured = capsys.readouterr()
-    assert captured.out == f"r{rank} | MPI_Allreduce with {arr.size} items\n"
+    captured = capsys.readouterr().out
+    start_msg, end_msg, _ = captured.split("\n")
+    assert re.match(
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce with {arr.size} items", start_msg
+    )
+    assert re.match(
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce done with code 0 \(\d\.\d{{2}}e[+-]?\d+s\)",
+        end_msg,
+    )
 
     set_logging(False)
     res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
     res.block_until_ready()
 
-    captured = capsys.readouterr()
-    assert not captured.out
+    captured = capsys.readouterr().out
+    assert not captured
+
+
+def test_set_logging_from_envvar():
+    import os
+    import importlib
+
+    import mpi4jax._src.xla_bridge as xla_bridge
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging, get_logging
+
+    os.environ["MPI4JAX_DEBUG"] = "1"
+    importlib.reload(xla_bridge)
+    assert get_logging()
+
+    os.environ["MPI4JAX_DEBUG"] = "0"
+    importlib.reload(xla_bridge)
+    assert not get_logging()
+
+    set_logging(True)
+    assert get_logging()
+
+    del os.environ["MPI4JAX_DEBUG"]
