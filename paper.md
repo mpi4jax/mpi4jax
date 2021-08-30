@@ -215,7 +215,7 @@ An interesting future development for the library will be to properly support th
 
 # Acknowledgements
 
-We thank all JAX developers, in particular Matthew Johnson and Peter Hawkins, for their outstanding support on the many issues we opened.
+We thank all JAX developers, in particular Matthew Johnson and Peter Hawkins, for their outstanding support on the many issues we opened. We also thank Himanshu Sharma and Ellert van der Velden for their insightful review comments.
 
 DH acknowledges funding from the Danish Hydrocarbon Research and Technology Centre (DHRTC).
 
