@@ -46,10 +46,10 @@ This also means that existing applications using e.g. NumPy and `mpi4py` can be 
 For decades, high-performance computing has been done primarily in low-level programming languages like Fortran or C.
 But the ubiquity of Python is starting to spill into this domain as well, thanks to its strong library ecosystem and wide adoption throughout the sciences.
 
-With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can already build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computing time. 
+With a combination of NumPy [@numpy] and `mpi4py` [@mpi4py], Python users can already build massively parallel applications without delving into low-level programming languages, which is often advantageous when human time is more valuable than computing time.
 However, such high-level frameworks are not always able to achieve peak performance, especially in more _niche_ workloads.
 
-Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of (a subset of) Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks]. 
+Google's JAX library leverages the XLA compiler and supports just-in-time compilation (JIT) of (a subset of) Python code to XLA primitives. [The result is highly competitive performance on both CPU and GPU](https://github.com/dionhaefner/pyhpc-benchmarks) [@pyhpc-benchmarks].
 This approach, conceptually similar to Julia's deferred compilation model [@Bezanson2017], achieves low-level performance in a high-level language. With a strong performance baseline on single devices, the only thing missing is easy scalability to massively parallel hardware stacks, which we supply here.
 
 Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_2018] and the machine learning toolkit for many-body quantum systems NetKet [@carleo_netket_2019]:
@@ -108,7 +108,9 @@ def exchange_data(arr):
    return newarr
 ```
 
-As a result, we are successfully able to execute MPI primitives just as if they were JAX primitives.
+As a result, we are successfully able to execute MPI primitives just as if they were JAX primitives. This incurs minimal overhead, as no data is copied between JAX and MPI. All `mpi4jax` primitives operate directly on device memory addresses (this is what we refer to as *zero-copy*).
+
+We can quantify this overhead by comparing the runtime of a JAX function with and without using an `mpi4jax` call. We also exclude the time spent inside the MPI library by using `mpi4jax`'s debug logging mechanism ([benchmark script available online](https://gist.github.com/dionhaefner/b071b8fa581f12874a98963a19752e7a)). This finally gives an overhead of about 1µs, which is negligible in virtually any real-world application.
 
 As of yet, `mpi4jax` supports the MPI operations `allgather`, `allreduce`, `alltoall`, `bcast`, `gather`, `recv`, `reduce`, `scan`, `scatter`, `send`, and `sendrecv` [@mpistandard]. Most still unsupported operations such as `gatherv` could be implemented with little additional work if needed by an application.
 
@@ -116,9 +118,11 @@ As of yet, `mpi4jax` supports the MPI operations `allgather`, `allreduce`, `allt
 
 As a demo application, and to use as a benchmark, we have ported a non-linear shallow water solver to JAX and parallelized it with `mpi4jax` (\autoref{fig:shallow-water}).
 
+In this simple example, all workers operate on a rectangular region of the 2D domain (split evenly into `[nproc / 2, 2]` chunks). All communication is handled via halo exchanges, i.e., each chunk contains 1 extra cell around the perimeter of the domain and exchanges it with its neighbors when needed. As this is a simple problem on a regular grid, the mesh partitioning is done manually.
+
 ![Output snapshot of the non-linear shallow water model. Shading indicates surface height, quivers show the current's velocity field. \label{fig:shallow-water}](shallow-water.pdf){ width=80% }
 
-The full example is available [in the `mpi4jax` repository](https://github.com/PhilipVinc/mpi4jax/blob/aeba13202a9f55c6e0f905f7436059a3f4cd3e9d/examples/shallow_water.py). It defines a function `enforce_boundaries` where we use `mpi4jax` to handle halo exchanges between all MPI processes, i.e., each process exchanges its outermost grid cells with its neighbors. The core of it reads similar to this (plus some special cases to take care of processes at the edges of the domain):
+The full example is available [in the `mpi4jax` repository](https://github.com/PhilipVinc/mpi4jax/blob/aeba13202a9f55c6e0f905f7436059a3f4cd3e9d/examples/shallow_water.py). It defines a function `enforce_boundaries` where we use `mpi4jax` to handle halo exchanges between all MPI processes. The core of it reads similar to this (plus some special cases to take care of processes at the edges of the domain):
 
 ```python
 @jax.jit
@@ -177,34 +181,36 @@ def shallow_water_step(state):
 
 Note how we are able to mix boundary communication with numerical computation in the same `jax.jit` block. This would not be possible without `mpi4jax`.
 
-To verify the performance scaling of the solver with additional processes, we performed a rudimentary benchmark by running a bigger version of this example (shape 3600 $\times$ 1800) on several platform (CPU / GPU) and number of processes combinations.
+To verify the performance scaling of the solver with additional processes, we performed a rudimentary benchmark by running a bigger version of this example (shape 3600 $\times$ 1800) on several combinations of platform (CPU / GPU) and number of processes.
 
-| Platform | # processes | Time (s) | Rel. speedup |
-|----------|-------------|---------:|-------------:|
-| CPU      | 1 (NumPy)   | 770      | 1            |
-|          |             |          |              |
-| CPU      | 1           | 112      | 6.9          |
-|          | 2           | 90       | 8.6          |
-|          | 4           | 39       | 19           |
-|          | 6           | 29       | 27           |
-|          | 8           | 21       | 37           |
-|          | 16          | 16       | 48           |
-|          |             |          |              |
-| GPU      | 1           | 6.3      | 122          |
-|          | 2           | 3.9      | 197          |
+| Platform | # processes | Elem. per worker | Time (s) | Rel. speedup |
+|----------|-------------|------------------|---------:|-------------:|
+| CPU      | 1 (NumPy)   | 6.5M             | 770      | 1            |
+|          |             |                  |          |              |
+| CPU      | 1           | 6.5M             | 112      | 6.9          |
+|          | 2           | 3.2M             | 90       | 8.6          |
+|          | 4           | 1.6M             | 39       | 19           |
+|          | 6           | 0.8M             | 29       | 27           |
+|          | 8           | 0.4M             | 21       | 37           |
+|          | 16          | 0.2M             | 16       | 48           |
+|          |             |                  |          |              |
+| GPU      | 1           | 6.5M             | 6.3      | 122          |
+|          | 2           | 3.2M             | 3.9      | 197          |
 
 (The test hardware consists of 2x Intel Xeon E5-2650 v4 CPUs and 2x NVIDIA Tesla P100 GPUs.)
 
 As we can see, switching from NumPy to JAX already yields a substantial speedup, which we can then amplify by scaling to additional CPUs or GPUs.
 
+More in-depth benchmarks on larger architectures [are available for the Veros ocean model](https://veros.readthedocs.io/en/latest/more/benchmarks.html), which uses `mpi4jax` to parallelize its JAX backend.
+
 # Outlook
 
 In this paper, we introduced `mpi4jax`, which allows zero-copy communication of JAX-owned data. `mpi4jax` provides an implementation of the most important MPI operations in a way that is usable from JAX compiled code.
 
-However, JAX is much more than just a JIT compiler. 
+However, JAX is much more than just a JIT compiler.
 It is also a full-fledged differentiable programming framework by providing tools for automatic differentiation (e.g. via `jax.grad`, `jax.vjp`, and `jax.jvp`). Differentiable programming is a promising new paradigm to combine advances in machine learning and physical modelling [@diffprog1; @diffprog2], and being able to freely distribute those models among different nodes will allow for even more powerful applications.
 
-Combining automatic-differentiation with the multi-process nature of `MPI` workloads is not trivial, and right now `mpi4jax`  allows to differentiate only few communication primitives. 
+Combining automatic-differentiation with the multi-process nature of `MPI` workloads is not trivial, and right now `mpi4jax`  allows to differentiate only few communication primitives.
 An interesting future development for the library will be to properly support the whole set of operations, enabling fully differentiable, distributed physical simulations without additional user code.
 
 # Acknowledgements
