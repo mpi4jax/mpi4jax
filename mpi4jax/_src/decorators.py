@@ -8,7 +8,6 @@ import functools
 _runtime_state = threading.local()
 _runtime_state.platforms_to_flush = set()
 _runtime_state.cuda_mpi_setup_done = False
-_runtime_state.logging_setup_done = False
 
 
 def ensure_platform_flush(platform):
@@ -50,18 +49,6 @@ def _is_falsy(str_val):
     return str_val.lower() in ("false", "0", "off")
 
 
-def setup_bridge_logging():
-    if _runtime_state.logging_setup_done:
-        return
-
-    _runtime_state.logging_setup_done = True
-
-    from .xla_bridge import mpi_xla_bridge
-
-    enable_logging = _is_truthy(os.getenv("MPI4JAX_DEBUG", ""))
-    mpi_xla_bridge.set_logging(enable_logging)
-
-
 def setup_cuda_mpi():
     if _runtime_state.cuda_mpi_setup_done:
         return
@@ -98,7 +85,6 @@ def translation_rule_cpu(func):
     setup_funcs = (
         functools.partial(ensure_platform_flush, "cpu"),
         ensure_omnistaging,
-        setup_bridge_logging,
     )
 
     @functools.wraps(func)
@@ -120,7 +106,6 @@ def translation_rule_gpu(func):
         ensure_gpu_ext,
         functools.partial(ensure_platform_flush, "gpu"),
         ensure_omnistaging,
-        setup_bridge_logging,
         setup_cuda_mpi,
     )
 

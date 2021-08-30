@@ -1,9 +1,16 @@
 [flake8]
+# also track cython files
 filename = *.py, *.pyx
 per-file-ignores =
     # ignore some common false-positives in cython files
     *.pyx: E211, E225, E226, E999
-max-line-length = 88
+
+# ignore externals
 exclude =
     versioneer.py
     _version.py
+
+# for compatibility with black
+max-line-length = 88
+select = C,E,F,W,B,B950
+extend-ignore = E203,E501

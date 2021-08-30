@@ -1,4 +1,7 @@
 import sys
+import string
+import random
+from time import perf_counter
 
 from libc.stdint cimport uintptr_t
 
@@ -28,6 +31,7 @@ MPI_STATUS_IGNORE_ADDR = int(<uintptr_t>MPI_STATUS_IGNORE)
 # Logging
 #
 
+
 cdef bint PRINT_DEBUG = False
 
 
@@ -40,11 +44,20 @@ cpdef bint get_logging():
     return PRINT_DEBUG
 
 
-cdef inline void print_debug(unicode message, MPI_Comm comm) nogil:
+cdef inline void print_debug(unicode message, unicode rid, MPI_Comm comm) nogil:
     cdef int rank
     MPI_Comm_rank(comm, &rank)
     with gil:
-        print(f"r{rank} | {message}", flush=True)
+        print(f"r{rank} | {rid} | {message}", flush=True)
+
+
+cdef unicode random_id():
+    cdef unicode alphabet = (
+        string.ascii_lowercase
+        + string.ascii_uppercase
+        + string.digits
+    )
+    return ''.join(random.choices(alphabet, k=8))
 
 
 #
@@ -86,13 +99,18 @@ cdef void mpi_barrier(MPI_Comm comm) nogil:
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(
-                "MPI_Barrier",
-                comm
-            )
+            rid = random_id()
+            print_debug(f"MPI_Barrier", rid, comm)
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Barrier(comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(f"MPI_Barrier done with code {ierr} ({end - start:.2e}s)", rid, comm)
+
     abort_on_error(ierr, comm, u"Barrier")
 
 
@@ -103,28 +121,49 @@ cdef void mpi_allgather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
                 f"MPI_Allgather sending {sendcount}, receiving {recvcount} items",
+                rid,
                 comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Allgather(
         sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
     )
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Allgather done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Allgather")
 
 
-cdef void mpi_allreduce(void* sendbuf, void* recvbuf, int nitems,
+cdef void mpi_allreduce(void* sendbuf, void * recvbuf, int nitems,
                         MPI_Datatype dtype, MPI_Op op, MPI_Comm comm) nogil:
     cdef int ierr
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Allreduce with {nitems} items", comm)
+            rid = random_id()
+            print_debug(f"MPI_Allreduce with {nitems} items", rid, comm)
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Allreduce(sendbuf, recvbuf, nitems, dtype, op, comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(f"MPI_Allreduce done with code {ierr} ({end - start:.2e}s)", rid, comm)
+
     abort_on_error(ierr, comm, u"Allreduce")
 
 
@@ -135,15 +174,28 @@ cdef void mpi_alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
                 f"MPI_Alltoall sending {sendcount}, receiving {recvcount} items",
+                rid,
                 comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Alltoall(
         sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
     )
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Alltoall done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Alltoall")
 
 
@@ -153,10 +205,26 @@ cdef void mpi_bcast(void* sendrecvbuf, int nitems, MPI_Datatype dtype,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Bcast -> {root} with {nitems} items", comm)
+            rid = random_id()
+            print_debug(
+                f"MPI_Bcast -> {root} with {nitems} items",
+                rid,
+                comm
+            )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Bcast(sendrecvbuf, nitems, dtype, root, comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Bcast done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Bcast")
 
 
@@ -167,15 +235,29 @@ cdef void mpi_gather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
                 f"MPI_Gather -> {root} sending {sendcount}, "
-                f"receiving {recvcount} items", comm
+                f"receiving {recvcount} items",
+                rid,
+                comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Gather(
         sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm
     )
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Gather done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Gather")
 
 
@@ -185,10 +267,26 @@ cdef void mpi_recv(void* recvbuf, int nitems, MPI_Datatype dtype, int source,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Recv <- {source} with tag {tag} and {nitems} items", comm)
+            rid = random_id()
+            print_debug(
+                f"MPI_Recv <- {source} with tag {tag} and {nitems} items",
+                rid,
+                comm
+            )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Recv(recvbuf, nitems, dtype, source, tag, comm, status)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Recv done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Recv")
 
 
@@ -199,10 +297,26 @@ cdef void mpi_reduce(void* sendbuf, void* recvbuf, int nitems,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Reduce -> {root} with {nitems} items", comm)
+            rid = random_id()
+            print_debug(
+                f"MPI_Reduce -> {root} with {nitems} items",
+                rid,
+                comm
+            )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Reduce(sendbuf, recvbuf, nitems, dtype, op, root, comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Reduce done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Reduce")
 
 
@@ -212,10 +326,26 @@ cdef void mpi_scan(void* sendbuf, void* recvbuf, int nitems,
 
     if PRINT_DEBUG:
         with gil:
-            print_debug(f"MPI_Scan with {nitems} items", comm)
+            rid = random_id()
+            print_debug(
+                f"MPI_Scan with {nitems} items",
+                rid,
+                comm
+            )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Scan(sendbuf, recvbuf, nitems, dtype, op, comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Scan done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Scan")
 
 
@@ -226,10 +356,14 @@ cdef void mpi_scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
                 f"MPI_Scatter -> {root} sending {sendcount}, "
-                f"receiving {recvcount} items", comm
+                f"receiving {recvcount} items",
+                rid,
+                comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Scatter(
@@ -237,6 +371,16 @@ cdef void mpi_scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype,
         recvbuf, recvcount, recvtype,
         root, comm
     )
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Scatter done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Scatter")
 
 
@@ -246,12 +390,26 @@ cdef void mpi_send(void* sendbuf, int nitems, MPI_Datatype dtype,
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
-                f"MPI_Send -> {destination} with tag {tag} and {nitems} items", comm
+                f"MPI_Send -> {destination} with tag {tag} and {nitems} items",
+                rid,
+                comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Send(sendbuf, nitems, dtype, destination, tag, comm)
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Send done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Send")
 
 
@@ -264,10 +422,14 @@ cdef void mpi_sendrecv(
 
     if PRINT_DEBUG:
         with gil:
+            rid = random_id()
             print_debug(
                 f"MPI_Sendrecv <- {source} (tag {recvtag}, {recvcount} items) / "
-                f"-> {dest} (tag {sendtag}, {sendcount} items) ", comm
+                f"-> {dest} (tag {sendtag}, {sendcount} items) ",
+                rid,
+                comm
             )
+            start = perf_counter()
 
     # MPI Call
     ierr = libmpi.MPI_Sendrecv(
@@ -275,4 +437,14 @@ cdef void mpi_sendrecv(
         recvbuf, recvcount, recvtype, source, recvtag,
         comm, status
     )
+
+    if PRINT_DEBUG:
+        with gil:
+            end = perf_counter()
+            print_debug(
+                f"MPI_Sendrecv done with code {ierr} ({end - start:.2e}s)",
+                rid,
+                comm
+            )
+
     abort_on_error(ierr, comm, u"Sendrecv")
