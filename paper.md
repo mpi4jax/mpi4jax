@@ -39,7 +39,7 @@ We achieve this by defining a set of primitive functions matching MPI's operatio
 This has the result that users can communicate arbitrary JAX data without performance or usability penalties.
 In particular, `mpi4jax` is able to communicate data without copying from CPU and GPU memory (if built against a CUDA-aware MPI library) between one or multiple hosts (e.g. via an Infiniband network on a cluster).
 
-This also means that existing applications using e.g. NumPy and `mpi4py` can be ported seamlessly to the JAX ecosystem for potentially significant performance gains.
+This also means that existing applications using NumPy and `mpi4py` can be ported seamlessly to the JAX ecosystem for potentially significant performance gains.
 
 # Statement of Need
 
@@ -56,7 +56,7 @@ Two real-world use cases for `mpi4jax` are the ocean model Veros [@hafner_veros_
 
 - In the case of Veros, MPI primitives are needed to communicate overlapping grid cells between processes. Communication primitives are buried deep into the physical subroutines. Therefore, refactoring the codebase to leave `jax.jit` every time data needs to be communicated would severely break the control flow of the model and incur a hefty performance loss (in addition to the cost of copying data from and to JAX). Through `mpi4jax`, it is possible to apply the JIT compiler to whole subroutines to avoid this entirely.
 
-- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A x= y $. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
+- In the case of NetKet, a high efficiency algorithm for natural gradient optimization requires finding the solution of a large linear system $A x= y$. The matrix $A$ is determined by running automatic differentiation on a neural network model whose inputs might be distributed across several computing nodes and GPUs. Therefore, the need to differentiate through distributed reduction operations inside of a linear solver arises.
 
 # Implementation
 
@@ -110,7 +110,7 @@ def exchange_data(arr):
 
 As a result, we are successfully able to execute MPI primitives just as if they were JAX primitives. This incurs minimal overhead, as no data is copied between JAX and MPI. All `mpi4jax` primitives operate directly on device memory addresses (this is what we refer to as *zero-copy*).
 
-We can quantify this overhead by comparing the runtime of a JAX function with and without using an `mpi4jax` call. We also exclude the time spent inside the MPI library by using `mpi4jax`'s debug logging mechanism ([benchmark script available online](https://gist.github.com/dionhaefner/b071b8fa581f12874a98963a19752e7a)). This finally gives an overhead of about 1µs, which is negligible in virtually any real-world application.
+We can quantify this overhead by comparing the runtime of a JAX function with and without using an `mpi4jax` call. We also exclude the time spent inside the MPI library by using `mpi4jax`'s debug logging mechanism ([benchmark script available online](https://gist.github.com/dionhaefner/b071b8fa581f12874a98963a19752e7a)). This reveals an overhead of about 1µs, which is negligible in virtually any real-world application.
 
 As of yet, `mpi4jax` supports the MPI operations `allgather`, `allreduce`, `alltoall`, `bcast`, `gather`, `recv`, `reduce`, `scan`, `scatter`, `send`, and `sendrecv` [@mpistandard]. Most still unsupported operations such as `gatherv` could be implemented with little additional work if needed by an application.
 
@@ -184,7 +184,7 @@ Note how we are able to mix boundary communication with numerical computation in
 To verify the performance scaling of the solver with additional processes, we performed a rudimentary benchmark by running a bigger version of this example (shape 3600 $\times$ 1800) on several combinations of platform (CPU / GPU) and number of processes.
 
 | Platform | # processes | Elem. per worker | Time (s) | Rel. speedup |
-|----------|-------------|------------------|---------:|-------------:|
+|----------|-------------|-----------------:|---------:|-------------:|
 | CPU      | 1 (NumPy)   | 6.5M             | 770      | 1            |
 |          |             |                  |          |              |
 | CPU      | 1           | 6.5M             | 112      | 6.9          |
