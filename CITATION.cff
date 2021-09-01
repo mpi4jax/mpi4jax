@@ -1,0 +1,24 @@
+authors:
+  - family-names: Vicentini
+    given-names: Filippo
+  - family-names: Häfner
+    given-names: Dion
+cff-version: 1.2.0
+message: "If you use this software, please cite the article from preferred-citation."
+title: mpi4jax
+url: "https://github.com/mpi4jax/mpi4jax"
+preferred-citation:
+  type: article
+  title: "mpi4jax: Zero-copy MPI communication of JAX arrays"
+  authors:
+    - family-names: Häfner
+      given-names: Dion
+    - family-names: Vicentini
+      given-names: Filippo
+  year: 2021
+  journal: "Journal of Open Source Software"
+  volume: 6
+  number: 65
+  pages: "3419"
+  doi: "10.21105/joss.03419"
+  url: "https://doi.org/10.21105/joss.03419"
