@@ -1,7 +1,7 @@
 mpi4jax
 =======
 
-|PyPI Version| |Conda Version| |Tests| |codecov| |Documentation Status|
+|JOSS paper| |PyPI Version| |Conda Version| |Tests| |codecov| |Documentation Status|
 
 ``mpi4jax`` enables zero-copy, multi-host communication of `JAX <https://jax.readthedocs.io/>`_ arrays, even from jitted code and from GPU memory.
 
@@ -99,3 +99,5 @@ We welcome contributions of any kind `through pull requests <https://github.com/
    :target: https://anaconda.org/conda-forge/mpi4jax
 .. |Documentation Status| image:: https://readthedocs.org/projects/mpi4jax/badge/?version=latest
    :target: https://mpi4jax.readthedocs.io/en/latest/?badge=latest
+.. |JOSS paper| image:: https://joss.theoj.org/papers/10.21105/joss.03419/status.svg
+   :target: https://doi.org/10.21105/joss.03419
