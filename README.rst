@@ -88,6 +88,25 @@ If you have a question or feature request, or want to report a bug, feel free to
 
 We welcome contributions of any kind `through pull requests <https://github.com/mpi4jax/mpi4jax/pulls>`_. For information on running our tests, debugging, and contribution guidelines please `refer to the corresponding documentation page <https://mpi4jax.readthedocs.org/en/latest/developers.html>`_.
 
+How to cite
+-----------
+
+If you use ``mpi4jax`` in your work, please consider citing the following article:
+
+::
+
+  @article{mpi4jax,
+    doi = {10.21105/joss.03419},
+    url = {https://doi.org/10.21105/joss.03419},
+    year = {2021},
+    publisher = {The Open Journal},
+    volume = {6},
+    number = {65},
+    pages = {3419},
+    author = {Dion Häfner and Filippo Vicentini},
+    title = {mpi4jax: Zero-copy MPI communication of JAX arrays},
+    journal = {Journal of Open Source Software}
+  }
 
 .. |Tests| image:: https://github.com/mpi4jax/mpi4jax/workflows/Tests/badge.svg
    :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amaster
