@@ -30,7 +30,7 @@ mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
 # This function applies the primitive to an AST
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def alltoall(
     x,

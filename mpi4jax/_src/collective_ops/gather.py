@@ -30,7 +30,7 @@ mpi_gather_impl = default_primitive_impl(mpi_gather_p)
 @enforce_types(
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def gather(
     x,

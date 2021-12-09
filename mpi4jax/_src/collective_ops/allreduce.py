@@ -30,7 +30,7 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def allreduce(x, op, *, comm=None, token=None):
     """Perform an allreduce operation.

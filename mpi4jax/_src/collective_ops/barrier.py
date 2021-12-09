@@ -26,7 +26,7 @@ mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
 # This function applies the primitive to an AST
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def barrier(*, comm=None, token=None):
     """Perform a barrier operation.

@@ -31,7 +31,7 @@ mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
     op=(_MPI.Op, HashableMPIType),
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def reduce(x, op, root, *, comm=None, token=None):
     """Perform a reduce operation.

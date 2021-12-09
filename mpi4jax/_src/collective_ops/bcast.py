@@ -30,7 +30,7 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
 @enforce_types(
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), core.Token, core.Tracer),
 )
 def bcast(x, root, *, comm=None, token=None):
     """Perform a bcast (broadcast) operation.
