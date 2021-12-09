@@ -5,8 +5,8 @@ from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
 from jax.lib import xla_client
-
 from jax.lax import create_token
+
 from ..utils import (
     HashableMPIType,
     default_primitive_impl,
@@ -20,6 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
@@ -31,7 +32,7 @@ mpi_reduce_impl = default_primitive_impl(mpi_reduce_p)
     op=(_MPI.Op, HashableMPIType),
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def reduce(x, op, root, *, comm=None, token=None):
     """Perform a reduce operation.

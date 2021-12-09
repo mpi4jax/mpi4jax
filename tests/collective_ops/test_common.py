@@ -148,7 +148,7 @@ def test_set_logging_from_envvar():
     import os
     import importlib
 
-    import mpi4jax._src.xla_bridge as xla_bridge
+    from mpi4jax._src import xla_bridge
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging, get_logging
 
     os.environ["MPI4JAX_DEBUG"] = "1"

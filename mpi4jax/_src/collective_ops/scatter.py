@@ -20,6 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_scatter_p = Primitive("scatter_mpi")  # Create the primitive
@@ -30,7 +31,7 @@ mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
 @enforce_types(
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def scatter(
     x,

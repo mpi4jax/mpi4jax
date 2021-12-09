@@ -28,11 +28,11 @@ def test_missing_omnistaging(monkeypatch):
 
 
 def test_ensure_gpu_ext(monkeypatch):
-    import mpi4jax._src.xla_bridge
+    from mpi4jax._src import xla_bridge
     from mpi4jax._src.decorators import ensure_gpu_ext
 
     with monkeypatch.context() as m:
-        m.setattr(mpi4jax._src.xla_bridge, "HAS_GPU_EXT", False)
+        m.setattr(xla_bridge, "HAS_GPU_EXT", False)
 
         with pytest.raises(ImportError) as excinfo:
             ensure_gpu_ext()

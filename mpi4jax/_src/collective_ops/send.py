@@ -20,6 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
@@ -31,7 +32,7 @@ mpi_send_impl = default_primitive_impl(mpi_send_p)
     dest=_np.integer,
     tag=_np.integer,
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def send(x, dest, *, tag=0, comm=None, token=None):
     """Perform a send operation.

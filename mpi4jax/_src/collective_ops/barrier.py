@@ -17,6 +17,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
@@ -26,7 +27,7 @@ mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
 # This function applies the primitive to an AST
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def barrier(*, comm=None, token=None):
     """Perform a barrier operation.

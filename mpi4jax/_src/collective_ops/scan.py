@@ -5,8 +5,8 @@ from jax import abstract_arrays, core
 from jax.core import Primitive
 from jax.interpreters import xla
 from jax.lib import xla_client
-
 from jax.lax import create_token
+
 from ..utils import (
     HashableMPIType,
     default_primitive_impl,
@@ -20,6 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_scan_p = Primitive("scan_mpi")  # Create the primitive
@@ -30,7 +31,7 @@ mpi_scan_impl = default_primitive_impl(mpi_scan_p)
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), xla.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def scan(x, op, *, comm=None, token=None):
     """Perform a scan operation.
