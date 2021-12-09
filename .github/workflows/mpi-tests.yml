@@ -18,14 +18,21 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.7", "3.10"]
         mpi: [mpich, openmpi]
+        jax-version: ["latest"]
 
         include:
+          # test intelmpi
           - os: ubuntu-18.04
             python-version: "3.7"
             mpi: intelmpi
           - os: ubuntu-18.04
             python-version: "3.10"
             mpi: intelmpi
+          # test older JAX versions
+          - os: ubuntu-latest
+            python-version: "3.7"
+            mpi: openmpi
+            jax-version: "0.2.25"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
@@ -53,7 +60,11 @@ jobs:
           fi
 
           python -m pip install --upgrade pip
-          pip install jax jaxlib
+          if [ ${{ matrix.jax-version }} == 'latest' ]; then
+            pip install jax[cpu]
+          else
+            pip install jax[cpu]==${{ matrix.jax-version }}
+          fi
           pip install .[dev]
 
       - name: Single-execution test with pytest

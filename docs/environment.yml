@@ -13,7 +13,5 @@ dependencies:
   - sphinx_rtd_theme
   - pip
   - pip:
-    # JAX is behind on conda-forge,
-    # seems like pip is better supported
-    - jax
-    - jaxlib
+    # JAX is behind on conda-forge, seems like pip is better supported
+    - jax[cpu]

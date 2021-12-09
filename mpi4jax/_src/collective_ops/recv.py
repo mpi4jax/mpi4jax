@@ -21,6 +21,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..jax_compat import Tracer, Token
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -33,7 +34,7 @@ mpi_recv_impl = default_primitive_impl(mpi_recv_p)
     tag=_np.integer,
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     status=(type(None), _MPI.Status, HashableMPIType),
-    token=(type(None), core.Token, core.Tracer),
+    token=(type(None), Token, Tracer),
 )
 def recv(
     x,
