@@ -19,6 +19,7 @@ from ._src import (  # noqa: E402
     scatter,
     send,
     sendrecv,
+    has_cuda_support,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "scatter",
     "send",
     "sendrecv",
+    "has_cuda_support",
 ]

@@ -90,3 +90,15 @@ def unpack_hashable(obj):
         return obj.wrapped
 
     return obj
+
+
+# Miscellaneous Utilities
+
+
+def has_cuda_support() -> bool:
+    """Returns True if mpi4jax is built with CUDA support and can be used with GPU-based
+    jax-arrays, False otherwise.
+    """
+    from . import xla_bridge
+
+    return xla_bridge.HAS_GPU_EXT

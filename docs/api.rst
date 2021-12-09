@@ -1,3 +1,12 @@
+Utilities
+=========
+
+has_cuda_support
+----------------
+
+.. autofunction:: mpi4jax.has_cuda_support
+
+
 Communication primitives
 ========================
 

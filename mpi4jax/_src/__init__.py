@@ -19,10 +19,12 @@ from .collective_ops.scatter import scatter  # noqa: F401
 from .collective_ops.send import send  # noqa: F401
 from .collective_ops.sendrecv import sendrecv  # noqa: F401
 
+from .utils import has_cuda_support  # noqa: F401
+
 # check version of jaxlib
 from . import jax_compat
 
-jax_compat.check_jax_version()
+jax_compat.check_jax_version()  # noqa: F401
 
 # sanitize namespace
 del jax_compat, xla_bridge, MPI
