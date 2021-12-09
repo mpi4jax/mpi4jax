@@ -25,7 +25,7 @@ else:
 ##############
 # Requirements
 
-BASE_DEPENDENCIES = ["jax>=0.2.26", "mpi4py>=3.0.1", "numpy"]
+BASE_DEPENDENCIES = ["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"]
 DEV_DEPENDENCIES = [
     "pytest>=6",
     "pytest-cov>=2.10.1",
@@ -228,7 +228,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     install_requires=BASE_DEPENDENCIES,
     extras_require={
         "dev": DEV_DEPENDENCIES,
