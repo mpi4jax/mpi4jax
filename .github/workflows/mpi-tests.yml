@@ -18,19 +18,18 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.10"]
         mpi: [mpich, openmpi]
-        jax-version: ["latest"]
+        oldest_deps: false
 
         include:
           # test intelmpi
           - os: ubuntu-18.04
             python-version: "3.10"
             mpi: intelmpi
-            jax-version: "latest"
           # test older JAX and Python versions
           - os: ubuntu-latest
             python-version: "3.6"
             mpi: openmpi
-            jax-version: "0.2.17"  # last version with Python 3.6 support
+            oldest_deps: true
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
@@ -51,6 +50,13 @@ jobs:
         run: |
           sh ./conf/travis-install-mpi.sh ${{ matrix.mpi }}
 
+      - name: Pip install oldest dependencies
+        if: matrix.oldest_deps
+        run: |
+          python -m pip install --upgrade pip
+          python conf/compute_oldest_dependencies.py
+          pip install -r oldest_requirements.txt
+
       - name: Pip install python dependencies
         run: |
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
@@ -58,11 +64,6 @@ jobs:
           fi
 
           python -m pip install --upgrade pip
-          if [ ${{ matrix.jax-version }} == 'latest' ]; then
-            pip install jax[cpu]
-          else
-            pip install jax[cpu]==${{ matrix.jax-version }}
-          fi
           pip install .[dev]
 
       - name: Single-execution test with pytest
