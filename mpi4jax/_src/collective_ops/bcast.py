@@ -155,8 +155,16 @@ def mpi_bcast_xla_encode_gpu(c, x, token, root, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_bcast_abstract_eval(xs, token, root, comm):
+    comm = unpack_hashable(comm)
+    rank = comm.Get_rank()
+
+    if rank == root:
+        dims = (0,)
+    else:
+        dims = xs.shape
+
     return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.ShapedArray(dims, xs.dtype),
         core.abstract_token,
     )
 
