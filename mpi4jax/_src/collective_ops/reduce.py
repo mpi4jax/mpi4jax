@@ -86,7 +86,9 @@ def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):
 
     dtype_handle = to_dtype_handle(dtype)
 
+    # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
+
     if rank != root:
         dims = (0,)
 
@@ -130,7 +132,9 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 
     dtype_handle = to_dtype_handle(dtype)
 
+    # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
+
     if rank != root:
         dims = (0,)
 
@@ -164,8 +168,16 @@ def mpi_reduce_xla_encode_gpu(c, x, token, op, root, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_reduce_abstract_eval(xs, token, op, root, comm):
+    comm = unpack_hashable(comm)
+    rank = comm.Get_rank()
+
+    if rank != root:
+        dims = (0,)
+    else:
+        dims = xs.shape
+
     return (
-        abstract_arrays.ShapedArray(xs.shape, xs.dtype),
+        abstract_arrays.ShapedArray(dims, xs.dtype),
         core.abstract_token,
     )
 

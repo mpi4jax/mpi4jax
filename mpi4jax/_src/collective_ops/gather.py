@@ -100,12 +100,14 @@ def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):
     # compute total number of elements in array
     send_nitems = _np.prod(send_dims, dtype=int)
 
+    # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
     size = comm.Get_size()
     if rank == root:
         out_shape = (size, *send_dims)
     else:
         out_shape = (0,)
+
     sh = xla_client.Shape.tuple_shape(
         [
             xla_client.Shape.array_shape(send_dtype, out_shape),
@@ -149,12 +151,15 @@ def mpi_gather_xla_encode_gpu(c, sendbuf, token, root, comm):
     send_nitems = _np.prod(send_dims, dtype=int)
     send_dtype_handle = to_dtype_handle(send_dtype)
 
+    # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
     size = comm.Get_size()
+
     if rank == root:
         out_shape = (size, *send_dims)
     else:
         out_shape = (0,)
+
     sh = xla_client.Shape.tuple_shape(
         [
             xla_client.Shape.array_shape(send_dtype, out_shape),
@@ -195,7 +200,7 @@ def mpi_gather_abstract_eval(x, token, root, comm):
     if rank == root:
         out_shape = (size, *x.shape)
     else:
-        out_shape = x.shape
+        out_shape = (0,)
 
     return (
         abstract_arrays.ShapedArray(out_shape, x.dtype),
