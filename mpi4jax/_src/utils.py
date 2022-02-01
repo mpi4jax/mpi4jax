@@ -54,7 +54,7 @@ MPI_TYPE_MAP = {
     "uint16": "UINT16_T",
     "uint32": "UINT32_T",
     "uint64": "UINT64_T",
-    "bool_": "BOOL",
+    "bool": "BOOL",
 }
 
 
