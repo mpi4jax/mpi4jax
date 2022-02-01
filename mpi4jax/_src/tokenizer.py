@@ -4,7 +4,7 @@ from jax._src.util import safe_map
 token_override_registry = {}
 
 def _override_tokens(jaxpr, consts, token, *args):
-    if token is None:
+    if token is None: # Create a new token if one is not passed.
         token = jax.core.create_token()
     def read(v):
         if type(v) is jax.core.Literal:
@@ -20,13 +20,19 @@ def _override_tokens(jaxpr, consts, token, *args):
     safe_map(write, jaxpr.constvars, consts)
     safe_map(write, jaxpr.invars, args)
     for eqn in jaxpr.eqns:
+        # Here, we override the original primatives with our own
+        # token forcing method.
         if eqn.primitive in token_override_registry:
             token_override = token_override_registry[eqn.primitive]
             ans = token_override(
                 safe_map(read, eqn.invars), new_token=token, **eqn.params)
+            # We pass along the new token returned by the above binding
             token = ans[-1]
             safe_map(write, eqn.outvars, ans)
         else:
+            # Here, we are just reapplying the original operation if 
+            # not part of our communication protocol. 
+            # This code is mostly taken form jax.core.eval_jaxpr
             subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
             ans = eqn.primitive.bind(
                 *subfuns, *safe_map(read, eqn.invars), **bind_params)
