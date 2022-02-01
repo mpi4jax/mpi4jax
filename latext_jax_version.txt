@@ -1,2 +1,4 @@
+# this is only used to monitor JAX updates via dependabot
+# can safely be ignored
 jax==0.2.27
 jaxlib==0.1.76
