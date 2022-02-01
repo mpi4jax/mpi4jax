@@ -39,21 +39,22 @@ def to_mpi_ptr(mpi_obj):
     return _np.uintp(_MPI._addressof(mpi_obj))
 
 
+# store type names as strings since we cannot expect all type objects to be present on all platforms
 MPI_TYPE_MAP = {
-    _np.dtype(_np.float32): _MPI.FLOAT,
-    _np.dtype(_np.float64): _MPI.DOUBLE,
-    _np.dtype(_np.float128): _MPI.LONG_DOUBLE,
-    _np.dtype(_np.complex64): _MPI.COMPLEX,
-    _np.dtype(_np.complex128): _MPI.DOUBLE_COMPLEX,
-    _np.dtype(_np.int8): _MPI.INT8_T,
-    _np.dtype(_np.int16): _MPI.INT16_T,
-    _np.dtype(_np.int32): _MPI.INT32_T,
-    _np.dtype(_np.int64): _MPI.INT64_T,
-    _np.dtype(_np.uint8): _MPI.UINT8_T,
-    _np.dtype(_np.uint16): _MPI.UINT16_T,
-    _np.dtype(_np.uint32): _MPI.UINT32_T,
-    _np.dtype(_np.uint64): _MPI.UINT64_T,
-    _np.dtype(_np.bool_): _MPI.BOOL,
+    "float32": "FLOAT",
+    "float64": "DOUBLE",
+    "float128": "LONG_DOUBLE",
+    "complex64": "COMPLEX",
+    "complex128": "DOUBLE_COMPLEX",
+    "int8": "INT8_T",
+    "int16": "INT16_T",
+    "int32": "INT32_T",
+    "int64": "INT64_T",
+    "uint8": "UINT8_T",
+    "uint16": "UINT16_T",
+    "uint32": "UINT32_T",
+    "uint64": "UINT64_T",
+    "bool": "BOOL",
 }
 
 
@@ -61,10 +62,13 @@ def to_dtype_handle(dtype):
     """
     Returns the pointer to the MPI dtype of the input numpy dtype
     """
-    if dtype not in MPI_TYPE_MAP:
-        raise RuntimeError("Unknown MPI type for dtype {}".format(type(dtype)))
+    dtype_name = _np.dtype(dtype).name
 
-    return to_mpi_handle(MPI_TYPE_MAP[dtype])
+    if dtype_name not in MPI_TYPE_MAP:
+        raise RuntimeError("Unknown MPI type for dtype {}".format(dtype_name))
+
+    mpi_type = getattr(_MPI, MPI_TYPE_MAP[dtype_name])
+    return to_mpi_handle(mpi_type)
 
 
 # Helpers to make MPI objects hashable
