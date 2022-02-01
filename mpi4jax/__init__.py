@@ -10,6 +10,7 @@ from ._src import (  # noqa: E402
     allgather,
     allreduce,
     alltoall,
+    auto_tokenize,
     barrier,
     bcast,
     gather,

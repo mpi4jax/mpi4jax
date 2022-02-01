@@ -21,7 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
-
+from ..tokenizer import token_override_registry
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
 mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
@@ -65,6 +65,12 @@ def allreduce(x, op, *, comm=None, token=None):
     comm = wrap_as_hashable(comm)
     return tuple(mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False))
 
+def mpi_allreduce_token_override(in_args, new_token, op, comm, transpose):
+    x, _ = in_args
+    return mpi_allreduce_p.bind(
+        x, new_token, op=op, comm=comm, transpose=transpose)
+
+token_override_registry[mpi_allreduce_p] = mpi_allreduce_token_override
 
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
@@ -193,6 +199,7 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
     )
     return res, token_tan
 
+token_override_registry[mpi_allreduce_p] = mpi_allreduce_token_override
 
 mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
