@@ -33,7 +33,9 @@ def test_nested_jits():
             res, _ = allreduce(b, op=MPI.SUM)
             res, _ = allreduce(res, op=MPI.SUM)
             return res
-        return g(res)
+        res = g(res)
+        res = g(res)
+        return res
 
     res = auto_tokenize(f)(arr)
-    np.testing.assert_allclose(res, arr * size ** 3)
+    np.testing.assert_allclose(res, arr * size ** 5)
