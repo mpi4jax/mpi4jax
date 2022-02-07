@@ -75,7 +75,7 @@ def _auto_tokenize(f, token=None):
 
 def auto_tokenize(f, token=None):
     def wrapper(*args, **kwargs):
-        res = _auto_tokenize(f)(*args, **kwargs)
+        res = _auto_tokenize(f, token)(*args, **kwargs)
         res = res[:-1]  # Drop the token.
         if len(res) == 1:
             return res[0]
