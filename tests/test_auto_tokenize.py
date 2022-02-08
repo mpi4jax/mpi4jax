@@ -161,7 +161,6 @@ def test_fori_loop_tokenizer():
     def my_method(arr):
         return jax.lax.fori_loop(0, NUM_LOOPS, sum_loop, [arr])
 
-    j = jax.make_jaxpr(auto_tokenize(my_method))(jnp.ones((2, 2)))
     res = auto_tokenize(my_method)(jnp.ones((2, 2)))
     np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
 
@@ -182,7 +181,5 @@ def test_while_loop_tokenizer():
     def my_method(arr):
         return jax.lax.while_loop(cond, sum_loop, arr)
 
-    j = jax.make_jaxpr(auto_tokenize(my_method))(jnp.ones((2, 2)))
-    print(j)
     res = auto_tokenize(my_method)(jnp.ones((2, 2)))
     assert (res > np.ones((2, 2)) * 1000).all()
