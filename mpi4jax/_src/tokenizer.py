@@ -22,7 +22,7 @@ def xla_call_overrride(read, eqn, token):
     return token, ans
 
 
-def scan_call_override(read, eqn, token):
+def scan_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
     new_body_fn = lambda token, *args: _token_forwarding(
         jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token
@@ -39,7 +39,7 @@ def scan_call_override(read, eqn, token):
     return token, ans
 
 
-def while_call_override(read, eqn, token):
+def while_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
     new_body_fn = lambda token, *args: _token_forwarding(
         jax.core.jaxpr_as_fun(bind_params["body_jaxpr"]), token
@@ -58,6 +58,28 @@ def while_call_override(read, eqn, token):
     )
     # Update bind_params to account for the additional token.
     ans = eqn.primitive.bind(token, *safe_map(read, eqn.invars), **bind_params)
+    token = ans[0]
+    ans = ans[1:]  # Drop the token.
+    return token, ans
+
+
+def cond_override(read, eqn, token):
+    _, bind_params = eqn.primitive.get_bind_params(eqn.params)
+    branch_jaxprs = []
+    cond_var = eqn.invars[0]
+    other_vars = eqn.invars[1:]
+    for branch in bind_params["branches"]:
+        new_branch_fn = lambda token, *args: _token_forwarding(
+            jax.core.jaxpr_as_fun(branch), token
+        )(*args)
+        new_jaxpr = jax.make_jaxpr(new_branch_fn)(token, *safe_map(read, other_vars))
+        branch_jaxprs.append(new_jaxpr)
+    bind_params["branches"] = tuple(branch_jaxprs)
+    bind_params["linear"] = (False,) + bind_params["linear"]
+    print(bind_params)
+    ans = eqn.primitive.bind(
+        read(cond_var), token, *safe_map(read, other_vars), **bind_params
+    )
     token = ans[0]
     ans = ans[1:]  # Drop the token.
     return token, ans
@@ -92,15 +114,17 @@ def _override_tokens(jaxpr, consts, token, *args):
             token = ans[-1]
             safe_map(write, eqn.outvars, ans)
         else:
-            # Here, we are just reapplying the original operation if
-            # not part of our communication protocol.
-            # This code is mostly taken form jax.core.eval_jaxpr
             if eqn.primitive is xla.xla_call_p:
                 token, ans = xla_call_overrride(read, eqn, token)
             elif eqn.primitive is jax.lax.scan_p:
-                token, ans = scan_call_override(read, eqn, token)
+                token, ans = scan_override(read, eqn, token)
             elif eqn.primitive is jax.lax.while_p:
-                token, ans = while_call_override(read, eqn, token)
+                token, ans = while_override(read, eqn, token)
+            elif eqn.primitive is jax.lax.cond_p:
+                token, ans = cond_override(read, eqn, token)
+            # Here, we are just reapplying the original operation if
+            # not part of our communication protocol.
+            # This code is mostly taken form jax.core.eval_jaxpr
             else:
                 subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
                 ans = eqn.primitive.bind(
