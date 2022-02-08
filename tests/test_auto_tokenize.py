@@ -202,8 +202,6 @@ def test_cond_tokenizer():
     def my_method(arr):
         return jax.lax.cond(rank == 0, branch1, branch2, arr)
 
-    j = jax.make_jaxpr(auto_tokenize(my_method))(jnp.ones((2, 2), dtype=jnp.int32))
-    print(j)
     res = jax.jit(auto_tokenize(my_method))(jnp.ones((2, 2), dtype=jnp.int32))
     if rank == 0:
         assert (res == 1).all()

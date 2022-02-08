@@ -76,7 +76,6 @@ def cond_override(read, eqn, token):
         branch_jaxprs.append(new_jaxpr)
     bind_params["branches"] = tuple(branch_jaxprs)
     bind_params["linear"] = (False,) + bind_params["linear"]
-    print(bind_params)
     ans = eqn.primitive.bind(
         read(cond_var), token, *safe_map(read, other_vars), **bind_params
     )
