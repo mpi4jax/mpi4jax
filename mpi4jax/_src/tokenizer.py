@@ -7,6 +7,65 @@ from jax.interpreters import xla
 token_override_registry = {}
 
 
+def xla_call_overrride(read, eqn, token):
+    subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
+    bind_params["donated_invars"] = (False,) + bind_params["donated_invars"]
+    map_token = lambda func: lu.wrap_init(
+        lambda token, *args: _token_forwarding(func.call_wrapped, token)(
+            *args
+        )
+    )
+    subfuns = safe_map(map_token, subfuns)
+    ans = eqn.primitive.bind(
+        *subfuns, token, *safe_map(read, eqn.invars), **bind_params
+    )
+    token = ans[0]
+    ans = ans[1:]  # Drop the token.
+    return token, ans
+
+def scan_call_override(read, eqn, token):
+    _, bind_params = eqn.primitive.get_bind_params(eqn.params)
+    new_body_fn = lambda token, *args: _token_forwarding(
+        jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token
+    )(*args)
+    bind_params["jaxpr"] = jax.make_jaxpr(new_body_fn)(
+        token, *safe_map(read, eqn.invars)
+    )
+    # Update bind_params to account for the additional token.
+    bind_params["num_carry"] += 1
+    bind_params["linear"] = (False,) + bind_params["linear"]
+    ans = eqn.primitive.bind(
+        token, *safe_map(read, eqn.invars), **bind_params
+    )
+    token = ans[0]
+    ans = ans[1:]  # Drop the token.
+    return token, ans
+
+def while_call_override(read, eqn, token):
+    _, bind_params = eqn.primitive.get_bind_params(eqn.params)
+    new_body_fn = lambda token, *args: _token_forwarding(
+        jax.core.jaxpr_as_fun(bind_params["body_jaxpr"]), token
+    )(*args)
+    bind_params["body_jaxpr"] = jax.make_jaxpr(new_body_fn)(
+        token, *safe_map(read, eqn.invars)
+    )
+    # We use `auto_tokenize` here since the condition function
+    # is forced to only return a boolean value and cannot return
+    # a token.
+    new_cond_fn = lambda token, *args: auto_tokenize(
+        jax.core.jaxpr_as_fun(bind_params["cond_jaxpr"]), token
+    )(*args)
+    bind_params["cond_jaxpr"] = jax.make_jaxpr(new_cond_fn)(
+        token, *safe_map(read, eqn.invars)
+    )
+    # Update bind_params to account for the additional token.
+    ans = eqn.primitive.bind(
+        token, *safe_map(read, eqn.invars), **bind_params
+    )
+    token = ans[0]
+    ans = ans[1:]  # Drop the token.
+    return token, ans
+
 def _override_tokens(jaxpr, consts, token, *args):
     if token is None:  # Create a new token if one is not passed.
         token = jax.lax.create_token()
@@ -40,58 +99,11 @@ def _override_tokens(jaxpr, consts, token, *args):
             # not part of our communication protocol.
             # This code is mostly taken form jax.core.eval_jaxpr
             if eqn.primitive is xla.xla_call_p:
-                subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
-                bind_params["donated_invars"] = (False,) + bind_params["donated_invars"]
-                map_token = lambda func: lu.wrap_init(
-                    lambda token, *args: _token_forwarding(func.call_wrapped, token)(
-                        *args
-                    )
-                )
-                subfuns = safe_map(map_token, subfuns)
-                ans = eqn.primitive.bind(
-                    *subfuns, token, *safe_map(read, eqn.invars), **bind_params
-                )
-                token = ans[0]
-                ans = ans[1:]  # Drop the token.
+                token, ans = xla_call_overrride(read, eqn, token)
             elif eqn.primitive is jax.lax.scan_p:
-                _, bind_params = eqn.primitive.get_bind_params(eqn.params)
-                new_body_fn = lambda token, *args: _token_forwarding(
-                    jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token
-                )(*args)
-                bind_params["jaxpr"] = jax.make_jaxpr(new_body_fn)(
-                    token, *safe_map(read, eqn.invars)
-                )
-                # Update bind_params to account for the additional token.
-                bind_params["num_carry"] += 1
-                bind_params["linear"] = (False,) + bind_params["linear"]
-                ans = eqn.primitive.bind(
-                    token, *safe_map(read, eqn.invars), **bind_params
-                )
-                token = ans[0]
-                ans = ans[1:]  # Drop the token.
+                token, ans = scan_call_override(read, eqn, token)
             elif eqn.primitive is jax.lax.while_p:
-                _, bind_params = eqn.primitive.get_bind_params(eqn.params)
-                new_body_fn = lambda token, *args: _token_forwarding(
-                    jax.core.jaxpr_as_fun(bind_params["body_jaxpr"]), token
-                )(*args)
-                bind_params["body_jaxpr"] = jax.make_jaxpr(new_body_fn)(
-                    token, *safe_map(read, eqn.invars)
-                )
-                # We use `auto_tokenize` here since the condition function
-                # is forced to only return a boolean value and cannot return
-                # a token.
-                new_cond_fn = lambda token, *args: auto_tokenize(
-                    jax.core.jaxpr_as_fun(bind_params["cond_jaxpr"]), token
-                )(*args)
-                bind_params["cond_jaxpr"] = jax.make_jaxpr(new_cond_fn)(
-                    token, *safe_map(read, eqn.invars)
-                )
-                # Update bind_params to account for the additional token.
-                ans = eqn.primitive.bind(
-                    token, *safe_map(read, eqn.invars), **bind_params
-                )
-                token = ans[0]
-                ans = ans[1:]  # Drop the token.
+                token, ans = while_call_override(read, eqn, token)
             else:
                 subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
                 ans = eqn.primitive.bind(
