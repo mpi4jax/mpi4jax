@@ -160,7 +160,7 @@ def auto_tokenize(f, token=None):
     """Automatically manage tokens between all mpi4jax ops.
 
     Supports most JAX methods, including ones defined with `fori_loop`, `cond`, `jit`,
-    `while_loop`, and `scan`. 
+    `while_loop`, and `scan`.
 
     .. note::
 
@@ -174,9 +174,10 @@ def auto_tokenize(f, token=None):
             If not given, a new token is generated.
 
     Returns:
-        A transformed version of `f` that automatically manages all mpi4jax tokens. 
+        A transformed version of `f` that automatically manages all mpi4jax tokens.
 
     """
+
     def wrapper(*args, **kwargs):
         jaxpr, pytree = jax.make_jaxpr(f, return_shape=True)(*args, **kwargs)
         _, pytree = jax.tree_flatten(pytree)
