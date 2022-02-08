@@ -11,9 +11,7 @@ def xla_call_overrride(read, eqn, token):
     subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
     bind_params["donated_invars"] = (False,) + bind_params["donated_invars"]
     map_token = lambda func: lu.wrap_init(
-        lambda token, *args: _token_forwarding(func.call_wrapped, token)(
-            *args
-        )
+        lambda token, *args: _token_forwarding(func.call_wrapped, token)(*args)
     )
     subfuns = safe_map(map_token, subfuns)
     ans = eqn.primitive.bind(
@@ -22,6 +20,7 @@ def xla_call_overrride(read, eqn, token):
     token = ans[0]
     ans = ans[1:]  # Drop the token.
     return token, ans
+
 
 def scan_call_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -34,12 +33,11 @@ def scan_call_override(read, eqn, token):
     # Update bind_params to account for the additional token.
     bind_params["num_carry"] += 1
     bind_params["linear"] = (False,) + bind_params["linear"]
-    ans = eqn.primitive.bind(
-        token, *safe_map(read, eqn.invars), **bind_params
-    )
+    ans = eqn.primitive.bind(token, *safe_map(read, eqn.invars), **bind_params)
     token = ans[0]
     ans = ans[1:]  # Drop the token.
     return token, ans
+
 
 def while_call_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -59,12 +57,11 @@ def while_call_override(read, eqn, token):
         token, *safe_map(read, eqn.invars)
     )
     # Update bind_params to account for the additional token.
-    ans = eqn.primitive.bind(
-        token, *safe_map(read, eqn.invars), **bind_params
-    )
+    ans = eqn.primitive.bind(token, *safe_map(read, eqn.invars), **bind_params)
     token = ans[0]
     ans = ans[1:]  # Drop the token.
     return token, ans
+
 
 def _override_tokens(jaxpr, consts, token, *args):
     if token is None:  # Create a new token if one is not passed.
