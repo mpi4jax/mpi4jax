@@ -90,7 +90,7 @@ def gather(
 
 def mpi_gather_token_override(in_args, new_token, root, comm):
     x, _ = in_args
-    return mpi_gather_p.bind(x, token=new_token, root=root, comm=comm)
+    return mpi_gather_p.bind(x, new_token, root=root, comm=comm)
 
 
 token_override_registry[mpi_gather_p] = mpi_gather_token_override

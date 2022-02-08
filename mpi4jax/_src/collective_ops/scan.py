@@ -64,7 +64,7 @@ def scan(x, op, *, comm=None, token=None):
 
 def mpi_scan_token_override(in_args, new_token, op, comm):
     x, _ = in_args
-    return mpi_scan_p.bind(x, token=new_token, op=op, comm=comm)
+    return mpi_scan_p.bind(x, new_token, op=op, comm=comm)
 
 
 token_override_registry[mpi_scan_p] = mpi_scan_token_override

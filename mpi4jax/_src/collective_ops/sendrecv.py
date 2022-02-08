@@ -104,6 +104,26 @@ def sendrecv(
     )
 
 
+def mpi_sendrecv_token_override(
+    in_args, new_token, source, dest, sendtag, recvtag, comm, status, _must_transpose
+):
+    sendbuff, recvbuff, _ = in_args
+    return mpi_sendrecv_p.bind(
+        sendbuff,
+        recvbuff,
+        new_token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+        _must_transpose=_must_transpose,
+    )
+
+
+token_override_registry[mpi_sendrecv_p] = mpi_sendrecv_token_override
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(

@@ -77,7 +77,7 @@ def alltoall(
 
 def mpi_alltoall_token_override(in_args, new_token, comm):
     x, _ = in_args
-    return mpi_allgather_p.bind(x, token=new_token, comm=comm)
+    return mpi_alltoall_p.bind(x, new_token, comm=comm)
 
 
 token_override_registry[mpi_alltoall_p] = mpi_alltoall_token_override

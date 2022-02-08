@@ -77,7 +77,7 @@ def allgather(
 
 def mpi_allgather_token_override(in_args, new_token, comm):
     x, _ = in_args
-    return mpi_allgather_p.bind(x, token=new_token, comm=comm)
+    return mpi_allgather_p.bind(x, new_token, comm=comm)
 
 
 token_override_registry[mpi_allgather_p] = mpi_allgather_token_override

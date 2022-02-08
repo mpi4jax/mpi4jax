@@ -74,7 +74,7 @@ def reduce(x, op, root, *, comm=None, token=None):
 
 def mpi_reduce_token_override(in_args, new_token, op, root, comm):
     x, _ = in_args
-    return mpi_reduce_p.bind(x, token=new_token, op=op, root=root, comm=comm)
+    return mpi_reduce_p.bind(x, new_token, op=op, root=root, comm=comm)
 
 
 token_override_registry[mpi_reduce_p] = mpi_reduce_token_override

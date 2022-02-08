@@ -55,7 +55,7 @@ def barrier(*, comm=None, token=None):
 
 
 def mpi_barrier_token_override(in_args, new_token, comm):
-    return (mpi_barrier_p.bind(token=new_token, comm=comm),)
+    return (mpi_barrier_p.bind(new_token, comm=comm),)
 
 
 token_override_registry[mpi_barrier_p] = mpi_barrier_token_override

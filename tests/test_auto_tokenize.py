@@ -73,11 +73,12 @@ def test_send_recv_tokenizer():
 
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_hotpotato_tokenizer():
-    from mpi4jax import recv, send, auto_tokenize
+    from mpi4jax import recv, send, barrier, auto_tokenize
 
     def hot_potato(arr):
-        # Here, we test a crazy send/recv pattern that is extremely likely to return the
+        # Here, we test a send/recv pattern that is extremely likely to return the
         # wrong result unless the order is preserved.
+        barrier()  # Free barrier test aswell.
         if rank == 0:
             a = arr + 1
             b, _ = recv(arr, source=1, comm=comm)
@@ -124,7 +125,6 @@ def test_send_recv_hotpotato_tokenizer():
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_fori_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
@@ -142,7 +142,6 @@ def test_fori_loop_tokenizer():
     np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_while_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
@@ -151,7 +150,7 @@ def test_while_loop_tokenizer():
         return res
 
     def cond(arr):
-        return jnp.all(arr[0] < 1000)
+        return jnp.all(arr < 1000)
 
     def my_method(arr):
         return jax.lax.while_loop(cond, sum_loop, arr)
@@ -160,7 +159,6 @@ def test_while_loop_tokenizer():
     assert (res > np.ones((2, 2)) * 1000).all()
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_cond_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
@@ -176,8 +174,111 @@ def test_cond_tokenizer():
         return jax.lax.cond(bool, branch1, branch2, arr)
 
     res1 = jax.jit(auto_tokenize(my_method))(
-        jnp.asarray(True), jnp.ones((2, 2), dtype=jnp.int32)).block_until_ready()
+        jnp.asarray(True), jnp.ones((2, 2), dtype=jnp.int32)
+    ).block_until_ready()
     res2 = jax.jit(auto_tokenize(my_method))(
-        jnp.asarray(False), jnp.ones((2, 2), dtype=jnp.int32)).block_until_ready()
+        jnp.asarray(False), jnp.ones((2, 2), dtype=jnp.int32)
+    ).block_until_ready()
     assert (res1 == 1).all()
     assert (res2 == size).all()
+
+
+def test_allgather_scalar():
+    from mpi4jax import allgather, auto_tokenize
+
+    @jax.jit
+    @auto_tokenize
+    def f(arr):
+        res, _ = allgather(arr)
+        return res
+
+    res = f(jnp.asarray(rank))
+    assert jnp.array_equal(res, jnp.arange(size))
+
+
+def test_alltoall_jit():
+    from mpi4jax import alltoall, auto_tokenize
+
+    arr = jnp.ones((size, 3, 2)) * rank
+
+    res = jax.jit(auto_tokenize(lambda x: alltoall(x)[0]))(arr)
+    for p in range(size):
+        assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
+
+
+def test_bcast_scalar_jit():
+    from mpi4jax import bcast, auto_tokenize
+
+    arr = 1
+    _arr = 1
+
+    if rank != 0:
+        _arr = _arr * 0
+
+    res = jax.jit(auto_tokenize(lambda x: bcast(x, root=0)[0]))(_arr)
+    assert jnp.array_equal(res, arr)
+    if rank == 0:
+        assert jnp.array_equal(_arr, arr)
+
+
+def test_gather_scalar_jit():
+    from mpi4jax import gather, auto_tokenize
+
+    arr = rank
+    res = jax.jit(auto_tokenize(lambda x: gather(x, root=0)[0]))(arr)
+    if rank == 0:
+        assert jnp.array_equal(res, jnp.arange(size))
+    else:
+        assert jnp.array_equal(res, arr)
+
+
+def test_reduce_scalar_jit():
+    from mpi4jax import reduce, auto_tokenize
+
+    arr = rank
+    res = jax.jit(auto_tokenize(lambda x: reduce(x, op=MPI.SUM, root=0)[0]))(arr)
+    if rank == 0:
+        assert jnp.array_equal(res, sum(range(size)))
+    else:
+        assert jnp.array_equal(res, arr)
+
+
+def test_scan_scalar_jit():
+    from mpi4jax import scan, auto_tokenize
+
+    arr = rank
+    res = jax.jit(auto_tokenize(lambda x: scan(x, op=MPI.SUM)[0]))(arr)
+    assert jnp.array_equal(res, sum(range(rank + 1)))
+
+
+def test_scatter_jit():
+    from mpi4jax import scatter, auto_tokenize
+
+    if rank == 0:
+        arr = jnp.stack([jnp.ones((3, 2)) * r for r in range(size)], axis=0)
+    else:
+        arr = jnp.ones((3, 2)) * rank
+
+    res = jax.jit(auto_tokenize(lambda x: scatter(x, root=0)[0]))(arr)
+    assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
+
+
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_sendrecv_status_jit():
+    from mpi4jax import sendrecv, auto_tokenize
+
+    arr = jnp.ones((3, 2)) * rank
+    _arr = arr.copy()
+
+    other = 1 - rank
+
+    status = MPI.Status()
+    res = jax.jit(
+        auto_tokenize(
+            lambda x, y: sendrecv(x, y, source=other, dest=other, status=status)[0]
+        )
+    )(arr, arr)
+
+    assert jnp.array_equal(res, jnp.ones_like(arr) * other)
+    assert jnp.array_equal(_arr, arr)
+    assert status.Get_source() == other
