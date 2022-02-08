@@ -8,11 +8,10 @@ recursive_token_forwarding_registry = {}  # Dict[Primitive, Callable]
 
 
 def safe_map(f, *args):
-    args = list(map(list, args))
-    n = len(args[0])
-    for arg in args[1:]:
-        assert len(arg) == n, "length mismatch: {}".format(list(map(len, args)))
-    return list(map(f, *args))
+    args = [list(arg) for arg in args]
+    for arg in args:
+        assert len(arg) == len(args[0]), f"Mismatched lengths: {[len(x) for x in args]}"
+    return [f(*arg) for arg in zip(*args)]
 
 
 def xla_call_overrride(read, eqn, token):
