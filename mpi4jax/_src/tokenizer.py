@@ -54,7 +54,7 @@ def _override_tokens(jaxpr, consts, token, *args):
                 token = ans[0]
                 ans = ans[1:]  # Drop the token.
             elif eqn.primitive is jax.lax.scan_p:
-                subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
+                _, bind_params = eqn.primitive.get_bind_params(eqn.params)
                 new_body_fn = lambda token, *args: _token_forwarding(
                     jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token
                 )(*args)
@@ -64,6 +64,29 @@ def _override_tokens(jaxpr, consts, token, *args):
                 # Update bind_params to account for the additional token.
                 bind_params["num_carry"] += 1
                 bind_params["linear"] = (False,) + bind_params["linear"]
+                ans = eqn.primitive.bind(
+                    token, *safe_map(read, eqn.invars), **bind_params
+                )
+                token = ans[0]
+                ans = ans[1:]  # Drop the token.
+            elif eqn.primitive is jax.lax.while_p:
+                _, bind_params = eqn.primitive.get_bind_params(eqn.params)
+                new_body_fn = lambda token, *args: _token_forwarding(
+                    jax.core.jaxpr_as_fun(bind_params["body_jaxpr"]), token
+                )(*args)
+                bind_params["body_jaxpr"] = jax.make_jaxpr(new_body_fn)(
+                    token, *safe_map(read, eqn.invars)
+                )
+                # We use `auto_tokenize` here since the condition function
+                # is forced to only return a boolean value and cannot return
+                # a token.
+                new_cond_fn = lambda token, *args: auto_tokenize(
+                    jax.core.jaxpr_as_fun(bind_params["cond_jaxpr"]), token
+                )(*args)
+                bind_params["cond_jaxpr"] = jax.make_jaxpr(new_cond_fn)(
+                    token, *safe_map(read, eqn.invars)
+                )
+                # Update bind_params to account for the additional token.
                 ans = eqn.primitive.bind(
                     token, *safe_map(read, eqn.invars), **bind_params
                 )
@@ -81,7 +104,7 @@ def _override_tokens(jaxpr, consts, token, *args):
     return (token,) + tuple(safe_map(read, jaxpr.outvars))
 
 
-def _token_forwarding(f, token=None, return_shape=False):
+def _token_forwarding(f, token=None):
     def wrapper(*args, **kwargs):
         jaxpr = jax.make_jaxpr(f)(*args, **kwargs)
         return _override_tokens(jaxpr.jaxpr, jaxpr.consts, token, *args, **kwargs)
