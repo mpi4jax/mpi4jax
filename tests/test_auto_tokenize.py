@@ -71,7 +71,7 @@ def test_nested_jits():
     np.testing.assert_allclose(res, arr * size ** 5)
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
+@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
 
@@ -94,7 +94,7 @@ def test_send_recv_tokenizer():
         np.testing.assert_allclose(res, jnp.zeros((2, 2)))
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
+@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_hotpotato_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
 
@@ -147,7 +147,7 @@ def test_send_recv_hotpotato_tokenizer():
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
+@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_fori_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
@@ -165,7 +165,7 @@ def test_fori_loop_tokenizer():
     np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
 
 
-@pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
+@pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_while_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
