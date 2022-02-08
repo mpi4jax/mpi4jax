@@ -3,15 +3,17 @@ from jax import linear_util as lu
 from jax.interpreters import xla
 
 
-token_override_registry = {} # Dict[Callable, Callable]
-recursive_token_forwarding_registry = {} # Dict[Primitive, Callable]
+token_override_registry = {}  # Dict[Callable, Callable]
+recursive_token_forwarding_registry = {}  # Dict[Primitive, Callable]
+
 
 def safe_map(f, *args):
-  args = list(map(list, args))
-  n = len(args[0])
-  for arg in args[1:]:
-    assert len(arg) == n, 'length mismatch: {}'.format(list(map(len, args)))
-  return list(map(f, *args))
+    args = list(map(list, args))
+    n = len(args[0])
+    for arg in args[1:]:
+        assert len(arg) == n, "length mismatch: {}".format(list(map(len, args)))
+    return list(map(f, *args))
+
 
 def xla_call_overrride(read, eqn, token):
     subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -27,7 +29,9 @@ def xla_call_overrride(read, eqn, token):
     ans = ans[1:]  # Drop the token.
     return token, ans
 
+
 recursive_token_forwarding_registry[xla.xla_call_p] = xla_call_overrride
+
 
 def scan_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -45,7 +49,9 @@ def scan_override(read, eqn, token):
     ans = ans[1:]  # Drop the token.
     return token, ans
 
+
 recursive_token_forwarding_registry[jax.lax.scan_p] = scan_override
+
 
 def while_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -70,7 +76,9 @@ def while_override(read, eqn, token):
     ans = ans[1:]  # Drop the token.
     return token, ans
 
+
 recursive_token_forwarding_registry[jax.lax.while_p] = while_override
+
 
 def cond_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -123,11 +131,11 @@ def _override_tokens(jaxpr, consts, token, *args):
             safe_map(write, eqn.outvars, ans)
         else:
             if eqn.primitive in recursive_token_forwarding_registry:
-                rewrite_func = recursive_token_forwarding_registry[eqn.primitive]
-                token, ans = rewrite_func(read, eqn, token)
+                rewrite = recursive_token_forwarding_registry[eqn.primitive]
+                token, ans = rewrite(read, eqn, token)
             # Here, we are just reapplying the original operation if
             # not part of our communication protocol.
-            # This code is mostly taken form jax.core.eval_jaxpr
+            # This code is mostly taken from jax.core.eval_jaxpr
             else:
                 subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
                 ans = eqn.primitive.bind(
