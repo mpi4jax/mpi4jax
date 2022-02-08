@@ -42,19 +42,28 @@ def _override_tokens(jaxpr, consts, token, *args):
             if eqn.primitive is xla.xla_call_p:
                 subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
                 bind_params["donated_invars"] = (False,) + bind_params["donated_invars"]
-                map_token = lambda x: lu.wrap_init(
-                    lambda token, *args: _auto_tokenize(x.call_wrapped, token)(*args)
+                map_token = lambda func: lu.wrap_init(
+                    lambda token, *args: _token_forwarding(func.call_wrapped, token)(*args)
                 )
                 subfuns = safe_map(map_token, subfuns)
                 ans = eqn.primitive.bind(
                     *subfuns, token, *safe_map(read, eqn.invars), **bind_params
                 )
-                token = ans[-1]
-                ans = ans[:-1]  # Drop the token.
+                token = ans[0]
+                ans = ans[1:]  # Drop the token.
+            elif eqn.primitive is jax.lax.scan_p:
+                subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
+                new_body_fn = lambda token, *args: _token_forwarding(
+                    jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token)(*args)
+                bind_params["jaxpr"] = jax.make_jaxpr(new_body_fn)(token, *safe_map(read, eqn.invars))
+                # Update bind_params to account for the additional token.
+                bind_params["num_carry"] += 1
+                bind_params["linear"] = (False,) + bind_params["linear"]  
+                ans = eqn.primitive.bind(token, *safe_map(read, eqn.invars), **bind_params)
+                token = ans[0]
+                ans = ans[1:]  # Drop the token.
             else:
                 subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
-                # subfuns = safe_map(lambda x: lu.wrap_init(_auto_tokenize(x.call_wrapped)), subfuns)
-
                 ans = eqn.primitive.bind(
                     *subfuns, *safe_map(read, eqn.invars), **bind_params
                 )
@@ -62,23 +71,20 @@ def _override_tokens(jaxpr, consts, token, *args):
                 safe_map(write, eqn.outvars, ans)
             else:
                 write(eqn.outvars[0], ans)
-    return tuple(safe_map(read, jaxpr.outvars)) + (token,)
+    return (token,) + tuple(safe_map(read, jaxpr.outvars))
 
 
-def _auto_tokenize(f, token=None):
+def _token_forwarding(f, token=None, return_shape=False):
     def wrapper(*args, **kwargs):
         jaxpr = jax.make_jaxpr(f)(*args, **kwargs)
         return _override_tokens(jaxpr.jaxpr, jaxpr.consts, token, *args, **kwargs)
-
     return wrapper
 
 
 def auto_tokenize(f, token=None):
     def wrapper(*args, **kwargs):
-        res = _auto_tokenize(f, token)(*args, **kwargs)
-        res = res[:-1]  # Drop the token.
-        if len(res) == 1:
-            return res[0]
-        return tuple(res)
-
+        jaxpr, pytree = jax.make_jaxpr(f, return_shape=True)(*args, **kwargs)
+        _, pytree = jax.tree_flatten(pytree)
+        res = _override_tokens(jaxpr.jaxpr, jaxpr.consts, token, *args, **kwargs)
+        return jax.tree_unflatten(pytree, res[1:]) # Drop the token.
     return wrapper

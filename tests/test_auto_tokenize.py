@@ -98,8 +98,8 @@ def test_send_recv_hotpotato_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
 
     def hot_potato(arr):
-        # Here, we test a crazy send/recv pattern that is extremely likely to deadlock unless
-        # the order is preserved.
+        # Here, we test a crazy send/recv pattern that is extremely likely to return the
+        # wrong result unless the order is preserved.
         if rank == 0:
             a = arr + 1
             b, _ = recv(arr, source=1, comm=comm)
@@ -144,3 +144,21 @@ def test_send_recv_hotpotato_tokenizer():
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * -4)
     if rank == 1:
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
+
+@pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
+def test_fori_loop_tokenizer():
+    from mpi4jax import allreduce, auto_tokenize
+    NUM_LOOPS = 6
+
+    def sum_loop(i, args):
+        arr, = args
+        res, _ = allreduce(arr, op=MPI.SUM)
+        return [res]
+
+    def my_method(arr):
+        return jax.lax.fori_loop(0, NUM_LOOPS, sum_loop, [arr])
+
+    j = jax.make_jaxpr(auto_tokenize(my_method))(jnp.ones((2, 2)))
+    print(j)
+    res = auto_tokenize(my_method)(jnp.ones((2, 2)))
+    np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
