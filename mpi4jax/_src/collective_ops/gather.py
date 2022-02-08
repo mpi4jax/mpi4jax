@@ -21,6 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
+from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_gather_p = Primitive("gather_mpi")  # Create the primitive
@@ -86,6 +87,12 @@ def gather(
 
     return (res, token)
 
+def mpi_gather_token_override(in_args, new_token, root, comm):
+    x, _ = in_args
+    return mpi_gather_p.bind(x, token=new_token, root=root, comm=comm)
+
+
+token_override_registry[mpi_gather_p] = mpi_gather_token_override
 
 # This function compiles the operation
 @translation_rule_cpu

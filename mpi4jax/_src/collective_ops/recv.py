@@ -22,6 +22,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
+from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -83,6 +84,12 @@ def recv(
         mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
     )
 
+def mpi_recv_token_override(in_args, new_token, source, tag, comm, status):
+    x, _ = in_args
+    return mpi_recv_p.bind(x, new_token, source=source, tag=tag, comm=comm, status=status)
+
+
+token_override_registry[mpi_recv_p] = mpi_recv_token_override
 
 # This function compiles the operation
 @translation_rule_cpu

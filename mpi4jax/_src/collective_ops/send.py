@@ -21,6 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
+from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
@@ -59,6 +60,12 @@ def send(x, dest, *, tag=0, comm=None, token=None):
     comm = wrap_as_hashable(comm)
     return mpi_send_p.bind(x, token, dest=dest, tag=tag, comm=comm)
 
+def mpi_send_token_override(in_args, new_token, dest, tag, comm):
+    x, _ = in_args
+    return (mpi_send_p.bind(x, new_token, dest=dest, tag=tag, comm=comm),)
+
+
+token_override_registry[mpi_send_p] = mpi_send_token_override
 
 # This function compiles the operation
 @translation_rule_cpu

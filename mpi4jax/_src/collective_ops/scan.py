@@ -21,6 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
+from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_scan_p = Primitive("scan_mpi")  # Create the primitive
@@ -60,6 +61,13 @@ def scan(x, op, *, comm=None, token=None):
     comm = wrap_as_hashable(comm)
     return tuple(mpi_scan_p.bind(x, token, op=op, comm=comm))
 
+
+def mpi_scan_token_override(in_args, new_token, op, comm):
+    x, _ = in_args
+    return mpi_scan_p.bind(x, token=new_token, op=op, comm=comm)
+
+
+token_override_registry[mpi_scan_p] = mpi_scan_token_override
 
 # This function compiles the operation
 @translation_rule_cpu
