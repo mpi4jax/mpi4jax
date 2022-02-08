@@ -155,7 +155,7 @@ def _token_forwarding(f, token):
     return wrapper
 
 
-def auto_tokenize(f, token=None):
+def auto_tokenize(f):
     """Automatically manage tokens between all mpi4jax ops.
 
     Supports most JAX methods, including ones defined with `fori_loop`, `cond`, `jit`,
@@ -180,7 +180,7 @@ def auto_tokenize(f, token=None):
     def wrapper(*args, **kwargs):
         jaxpr, pytree = jax.make_jaxpr(f, return_shape=True)(*args, **kwargs)
         _, pytree = jax.tree_flatten(pytree)
-        res = _override_tokens(jaxpr.jaxpr, jaxpr.consts, token, *args, **kwargs)
+        res = _override_tokens(jaxpr.jaxpr, jaxpr.consts, None, *args, **kwargs)
         return jax.tree_unflatten(pytree, res[1:])  # Drop the token.
 
     return wrapper

@@ -53,8 +53,6 @@ def test_send_recv_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
 
     def simple_message_pass(arr):
-        # Here, we test a crazy send/recv pattern that is extremely likely to deadlock unless
-        # the order is preserved.
         if rank == 0:
             b, _ = recv(arr, source=1, comm=comm)
             return b
