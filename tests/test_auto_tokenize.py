@@ -172,11 +172,12 @@ def test_cond_tokenizer():
         res, _ = allreduce(arr, op=MPI.SUM)
         return res
 
-    def my_method(arr):
-        return jax.lax.cond(rank == 0, branch1, branch2, arr)
+    def my_method(bool, arr):
+        return jax.lax.cond(bool, branch1, branch2, arr)
 
-    res = jax.jit(auto_tokenize(my_method))(jnp.ones((2, 2), dtype=jnp.int32))
-    if rank == 0:
-        assert (res == 1).all()
-    else:
-        assert (res == size).all()
+    res1 = jax.jit(auto_tokenize(my_method))(
+        jnp.asarray(True), jnp.ones((2, 2), dtype=jnp.int32)).block_until_ready()
+    res2 = jax.jit(auto_tokenize(my_method))(
+        jnp.asarray(False), jnp.ones((2, 2), dtype=jnp.int32)).block_until_ready()
+    assert (res1 == 1).all()
+    assert (res2 == size).all()
