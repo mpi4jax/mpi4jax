@@ -63,9 +63,9 @@ def while_override(read, eqn, token):
     # We use `auto_tokenize` here since the condition function
     # is forced to only return a boolean value and cannot return
     # a token.
-    new_cond_fn = lambda token, *args: auto_tokenize(  # noqa: E731
+    new_cond_fn = lambda token, *args: _token_forwarding(  # noqa: E731
         jax.core.jaxpr_as_fun(bind_params["cond_jaxpr"]), token
-    )(*args)
+    )(*args)[1:]
     bind_params["cond_jaxpr"] = jax.make_jaxpr(new_cond_fn)(
         token, *safe_map(read, eqn.invars)
     )
