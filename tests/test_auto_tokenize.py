@@ -87,7 +87,7 @@ def test_send_recv_tokenizer():
             return arr
         return jnp.zeros_like(arr)
 
-    res = auto_tokenize(simple_message_pass)(jnp.zeros((2, 2)))
+    res = jax.jit(auto_tokenize(simple_message_pass))(jnp.zeros((2, 2)))
     if rank == 0:
         np.testing.assert_allclose(res, jnp.ones((2, 2)))
     if rank == 1:
@@ -125,8 +125,22 @@ def test_send_recv_hotpotato_tokenizer():
             return d + e
         return jnp.zeros_like(arr)
 
-    res = auto_tokenize(hot_potato)(jnp.zeros((2, 2)))
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # ! Proof that this test actually works !
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #
+    # Uncomment the below line of code. 
+    # The final result will be wrong and the asserts will fail.
+    #
+    # ---------------------------
+    # auto_tokenize = lambda x: x
+    # ---------------------------
+
+    real_result = hot_potato(jnp.zeros((2, 2)))
+    jitted_tokenized = jax.jit(auto_tokenize(jax.jit(hot_potato)))(jnp.zeros((2, 2)))
+    np.testing.assert_allclose(real_result, jitted_tokenized)
+    # Assert to ourselves the results are correct.
     if rank == 0:
-        np.testing.assert_allclose(res, jnp.ones((2, 2)) * -4)
+        np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * -4)
     if rank == 1:
-        np.testing.assert_allclose(res, jnp.ones((2, 2)) * 11)
+        np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
