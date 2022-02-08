@@ -48,29 +48,6 @@ def test_nested_jits():
     np.testing.assert_allclose(res, arr * size ** 5)
 
 
-def test_nested_jits():
-    from mpi4jax import allreduce, auto_tokenize
-
-    arr = jnp.ones((3, 2))
-
-    @jax.jit
-    def f(a):
-        res, _ = allreduce(a, op=MPI.SUM)
-
-        @jax.jit
-        def g(b):
-            res, _ = allreduce(b, op=MPI.SUM)
-            res, _ = allreduce(res, op=MPI.SUM)
-            return res
-
-        res = g(res)
-        res = g(res)
-        return res
-
-    res = auto_tokenize(f)(arr)
-    np.testing.assert_allclose(res, arr * size ** 5)
-
-
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
@@ -169,8 +146,6 @@ def test_fori_loop_tokenizer():
 def test_while_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
 
-    NUM_LOOPS = 6
-
     def sum_loop(arr):
         res, _ = allreduce(arr, op=MPI.SUM)
         return res
@@ -188,8 +163,6 @@ def test_while_loop_tokenizer():
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_cond_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
-
-    NUM_LOOPS = 6
 
     def branch1(arr):
         res, _ = allreduce(arr, op=MPI.PROD)
