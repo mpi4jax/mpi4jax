@@ -157,6 +157,26 @@ def _token_forwarding(f, token):
 
 
 def auto_tokenize(f, token=None):
+    """Automatically insert tokens between all mpi4jax ops.
+
+    Supports most JAX methods, including ones defined with `fori_loop`, `cond`, `jit`,
+    `while_loop`, and `scan`. 
+
+    .. note::
+
+       This transforms all existing mpi4jax ops and overrides their token management
+       completely. We do not recommend using this transform if you need more control
+       over the token managment.
+
+    Arguments:
+        f: Any JAX function.
+        token (Optional[Token]): XLA token to use to ensure correct execution order.
+            If not given, a new token is generated.
+
+    Returns:
+        A transformed version of `f` that automatically manages all mpi4jax tokens. 
+
+    """
     def wrapper(*args, **kwargs):
         jaxpr, pytree = jax.make_jaxpr(f, return_shape=True)(*args, **kwargs)
         _, pytree = jax.tree_flatten(pytree)
