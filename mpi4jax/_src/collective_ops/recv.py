@@ -84,9 +84,12 @@ def recv(
         mpi_recv_p.bind(x, token, source=source, tag=tag, comm=comm, status=status)
     )
 
+
 def mpi_recv_token_override(in_args, new_token, source, tag, comm, status):
     x, _ = in_args
-    return mpi_recv_p.bind(x, new_token, source=source, tag=tag, comm=comm, status=status)
+    return mpi_recv_p.bind(
+        x, new_token, source=source, tag=tag, comm=comm, status=status
+    )
 
 
 token_override_registry[mpi_recv_p] = mpi_recv_token_override

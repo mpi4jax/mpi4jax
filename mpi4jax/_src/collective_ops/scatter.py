@@ -92,6 +92,7 @@ def scatter(
         )
     )
 
+
 def mpi_scatter_token_override(in_args, new_token, root, comm):
     x, _ = in_args
     return mpi_scatter_p.bind(x, token=new_token, root=root, comm=comm)

@@ -93,6 +93,7 @@ def test_send_recv_tokenizer():
     if rank == 1:
         np.testing.assert_allclose(res, jnp.zeros((2, 2)))
 
+
 @pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
 def test_send_recv_hotpotato_tokenizer():
     from mpi4jax import recv, send, auto_tokenize
@@ -116,7 +117,7 @@ def test_send_recv_hotpotato_tokenizer():
             a = arr + 2
             send(a, dest=0, comm=comm)
             b, _ = recv(arr, source=0, comm=comm)
-            send(a + b , dest=0, comm=comm)
+            send(a + b, dest=0, comm=comm)
             send(a * b, dest=0, comm=comm)
             c, _ = recv(arr, source=0, comm=comm)
             send(b - c, dest=0, comm=comm)
@@ -129,7 +130,7 @@ def test_send_recv_hotpotato_tokenizer():
     # ! Proof that this test actually works !
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     #
-    # Uncomment the below line of code. 
+    # Uncomment the below line of code.
     # The final result will be wrong and the asserts will fail.
     #
     # ---------------------------
@@ -145,13 +146,15 @@ def test_send_recv_hotpotato_tokenizer():
     if rank == 1:
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
 
+
 @pytest.mark.skipif(size < 2, reason="need 2 processes to test send/recv")
 def test_fori_loop_tokenizer():
     from mpi4jax import allreduce, auto_tokenize
+
     NUM_LOOPS = 6
 
     def sum_loop(i, args):
-        arr, = args
+        (arr,) = args
         res, _ = allreduce(arr, op=MPI.SUM)
         return [res]
 

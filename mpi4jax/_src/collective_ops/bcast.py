@@ -72,6 +72,7 @@ def bcast(x, root, *, comm=None, token=None):
 
     return (res, token)
 
+
 def mpi_bcast_token_override(in_args, new_token, root, comm):
     x, _ = in_args
     return mpi_bcast_p.bind(x, token=new_token, root=root, comm=comm)

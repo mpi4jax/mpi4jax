@@ -53,6 +53,7 @@ def barrier(*, comm=None, token=None):
     comm = wrap_as_hashable(comm)
     return mpi_barrier_p.bind(token, comm=comm)
 
+
 def mpi_barrier_token_override(in_args, new_token, comm):
     return (mpi_barrier_p.bind(token=new_token, comm=comm),)
 
