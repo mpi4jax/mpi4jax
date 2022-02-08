@@ -68,6 +68,7 @@ def mpi_send_token_override(in_args, new_token, dest, tag, comm):
 
 token_override_registry[mpi_send_p] = mpi_send_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_send_xla_encode_cpu(c, x, token, dest, tag, comm):

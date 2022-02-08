@@ -124,6 +124,7 @@ def mpi_sendrecv_token_override(
 
 token_override_registry[mpi_sendrecv_p] = mpi_sendrecv_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(

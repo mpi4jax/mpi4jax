@@ -60,6 +60,7 @@ def mpi_barrier_token_override(in_args, new_token, comm):
 
 token_override_registry[mpi_barrier_p] = mpi_barrier_token_override
 
+
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial

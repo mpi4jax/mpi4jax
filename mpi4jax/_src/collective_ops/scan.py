@@ -69,6 +69,7 @@ def mpi_scan_token_override(in_args, new_token, op, comm):
 
 token_override_registry[mpi_scan_p] = mpi_scan_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_scan_xla_encode_cpu(c, x, token, op, comm):

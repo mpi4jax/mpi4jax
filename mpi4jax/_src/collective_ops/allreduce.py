@@ -74,6 +74,7 @@ def mpi_allreduce_token_override(in_args, new_token, op, comm, transpose):
 
 token_override_registry[mpi_allreduce_p] = mpi_allreduce_token_override
 
+
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial

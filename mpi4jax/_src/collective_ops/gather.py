@@ -95,6 +95,7 @@ def mpi_gather_token_override(in_args, new_token, root, comm):
 
 token_override_registry[mpi_gather_p] = mpi_gather_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_gather_xla_encode_cpu(c, sendbuf, token, root, comm):

@@ -82,6 +82,7 @@ def mpi_alltoall_token_override(in_args, new_token, comm):
 
 token_override_registry[mpi_alltoall_p] = mpi_alltoall_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_alltoall_xla_encode_cpu(c, x, token, comm):

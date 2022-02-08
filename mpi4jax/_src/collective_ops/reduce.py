@@ -79,6 +79,7 @@ def mpi_reduce_token_override(in_args, new_token, op, root, comm):
 
 token_override_registry[mpi_reduce_p] = mpi_reduce_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_reduce_xla_encode_cpu(c, x, token, op, root, comm):

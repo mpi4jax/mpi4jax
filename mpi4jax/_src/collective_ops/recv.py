@@ -94,6 +94,7 @@ def mpi_recv_token_override(in_args, new_token, source, tag, comm, status):
 
 token_override_registry[mpi_recv_p] = mpi_recv_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):

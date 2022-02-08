@@ -82,6 +82,7 @@ def mpi_allgather_token_override(in_args, new_token, comm):
 
 token_override_registry[mpi_allgather_p] = mpi_allgather_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):

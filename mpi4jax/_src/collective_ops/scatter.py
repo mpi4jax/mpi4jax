@@ -100,6 +100,7 @@ def mpi_scatter_token_override(in_args, new_token, root, comm):
 
 token_override_registry[mpi_scatter_p] = mpi_scatter_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_scatter_xla_encode_cpu(c, x, token, root, comm):

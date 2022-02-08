@@ -18,7 +18,7 @@ def safe_map(f, *args):
 def xla_call_overrride(read, eqn, token):
     subfuns, bind_params = eqn.primitive.get_bind_params(eqn.params)
     bind_params["donated_invars"] = (False,) + bind_params["donated_invars"]
-    map_token = lambda func: lu.wrap_init(
+    map_token = lambda func: lu.wrap_init(  # noqa: E731
         lambda token, *args: _token_forwarding(func.call_wrapped, token)(*args)
     )
     subfuns = safe_map(map_token, subfuns)
@@ -35,7 +35,7 @@ recursive_token_forwarding_registry[xla.xla_call_p] = xla_call_overrride
 
 def scan_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
-    new_body_fn = lambda token, *args: _token_forwarding(
+    new_body_fn = lambda token, *args: _token_forwarding(  # noqa: E731
         jax.core.jaxpr_as_fun(bind_params["jaxpr"]), token
     )(*args)
     bind_params["jaxpr"] = jax.make_jaxpr(new_body_fn)(
@@ -55,7 +55,7 @@ recursive_token_forwarding_registry[jax.lax.scan_p] = scan_override
 
 def while_override(read, eqn, token):
     _, bind_params = eqn.primitive.get_bind_params(eqn.params)
-    new_body_fn = lambda token, *args: _token_forwarding(
+    new_body_fn = lambda token, *args: _token_forwarding(  # noqa: E731
         jax.core.jaxpr_as_fun(bind_params["body_jaxpr"]), token
     )(*args)
     bind_params["body_jaxpr"] = jax.make_jaxpr(new_body_fn)(
@@ -64,7 +64,7 @@ def while_override(read, eqn, token):
     # We use `auto_tokenize` here since the condition function
     # is forced to only return a boolean value and cannot return
     # a token.
-    new_cond_fn = lambda token, *args: auto_tokenize(
+    new_cond_fn = lambda token, *args: auto_tokenize(  # noqa: E731
         jax.core.jaxpr_as_fun(bind_params["cond_jaxpr"]), token
     )(*args)
     bind_params["cond_jaxpr"] = jax.make_jaxpr(new_cond_fn)(
@@ -86,7 +86,7 @@ def cond_override(read, eqn, token):
     cond_var = eqn.invars[0]
     other_vars = eqn.invars[1:]
     for branch in bind_params["branches"]:
-        new_branch_fn = lambda token, *args: _token_forwarding(
+        new_branch_fn = lambda token, *args: _token_forwarding(  # noqa: E731
             jax.core.jaxpr_as_fun(branch), token
         )(*args)
         new_jaxpr = jax.make_jaxpr(new_branch_fn)(token, *safe_map(read, other_vars))

@@ -80,6 +80,7 @@ def mpi_bcast_token_override(in_args, new_token, root, comm):
 
 token_override_registry[mpi_bcast_p] = mpi_bcast_token_override
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_bcast_xla_encode_cpu(c, x, token, root, comm):
