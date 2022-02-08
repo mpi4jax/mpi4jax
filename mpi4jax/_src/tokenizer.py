@@ -157,7 +157,7 @@ def _token_forwarding(f, token):
 
 
 def auto_tokenize(f, token=None):
-    """Automatically insert tokens between all mpi4jax ops.
+    """Automatically manage tokens between all mpi4jax ops.
 
     Supports most JAX methods, including ones defined with `fori_loop`, `cond`, `jit`,
     `while_loop`, and `scan`. 
@@ -165,7 +165,7 @@ def auto_tokenize(f, token=None):
     .. note::
 
        This transforms all existing mpi4jax ops and overrides their token management
-       completely. We do not recommend using this transform if you need more control
+       completely. We do not recommend using this transform if you need any control
        over the token managment.
 
     Arguments:
