@@ -145,6 +145,7 @@ def test_while_loop_tokenizer():
 
     def sum_loop(arr):
         res, _ = allreduce(arr, op=MPI.SUM)
+        res = res + 1
         return res
 
     def cond(arr):
@@ -154,7 +155,7 @@ def test_while_loop_tokenizer():
         return jax.lax.while_loop(cond, sum_loop, arr)
 
     res = jax.jit(auto_tokenize(my_method))(jnp.ones((2, 2)))
-    assert (res > np.ones((2, 2)) * 1000).all()
+    assert (res >= np.ones((2, 2)) * 1000).all()
 
 
 def test_cond_tokenizer():
