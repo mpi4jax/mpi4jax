@@ -26,6 +26,11 @@ jobs:
             python-version: "3.10"
             mpi: intelmpi
             jax-version: "latest"
+          # test older Python versions
+          - os: ubuntu-latest
+            python-version: "3.7"
+            mpi: openmpi
+            jax-version: "latest"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
