@@ -935,6 +935,7 @@ cdef register_custom_call_target(fn_name, void* fn):
 register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
 register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
 register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
+register_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_gpu))
 register_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_gpu))
 register_custom_call_target(b"mpi_gather", <void*>(mpi_gather_gpu))
 register_custom_call_target(b"mpi_recv", <void*>(mpi_recv_gpu))
