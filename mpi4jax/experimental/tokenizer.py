@@ -99,7 +99,9 @@ def cond_override(read, eqn, token):
     ans = ans[1:]  # Drop the token.
     return token, ans
 
+
 recursive_token_forwarding_registry[jax.lax.cond_p] = cond_override
+
 
 def _override_tokens(jaxpr, consts, token, *args):
     if token is None:  # Create a new token if one is not passed.
