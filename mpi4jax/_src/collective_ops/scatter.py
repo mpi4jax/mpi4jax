@@ -21,7 +21,6 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
-from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_scatter_p = Primitive("scatter_mpi")  # Create the primitive
@@ -91,14 +90,6 @@ def scatter(
             comm=comm,
         )
     )
-
-
-def mpi_scatter_token_override(in_args, new_token, root, comm):
-    x, _ = in_args
-    return mpi_scatter_p.bind(x, new_token, root=root, comm=comm)
-
-
-token_override_registry[mpi_scatter_p] = mpi_scatter_token_override
 
 
 # This function compiles the operation

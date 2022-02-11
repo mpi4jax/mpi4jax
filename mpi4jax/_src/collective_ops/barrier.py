@@ -18,7 +18,6 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
-from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
@@ -52,13 +51,6 @@ def barrier(*, comm=None, token=None):
 
     comm = wrap_as_hashable(comm)
     return mpi_barrier_p.bind(token, comm=comm)
-
-
-def mpi_barrier_token_override(in_args, new_token, comm):
-    return (mpi_barrier_p.bind(new_token, comm=comm),)
-
-
-token_override_registry[mpi_barrier_p] = mpi_barrier_token_override
 
 
 # This function compiles the operation

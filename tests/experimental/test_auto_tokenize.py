@@ -1,3 +1,4 @@
+import sys
 import pytest
 
 from mpi4py import MPI
@@ -5,14 +6,16 @@ from mpi4py import MPI
 import jax
 import jax.numpy as jnp
 import numpy as np
+from mpi4jax.experimental import auto_tokenize
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_allreduce():
-    from mpi4jax import allreduce, auto_tokenize
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
 
@@ -25,8 +28,9 @@ def test_allreduce():
     np.testing.assert_allclose(res, arr * size ** 2)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_nested_jits():
-    from mpi4jax import allreduce, auto_tokenize
+    from mpi4jax import allreduce
 
     arr = jnp.ones((3, 2))
 
@@ -48,9 +52,10 @@ def test_nested_jits():
     np.testing.assert_allclose(res, arr * size ** 5)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_tokenizer():
-    from mpi4jax import recv, send, auto_tokenize
+    from mpi4jax import recv, send
 
     def simple_message_pass(arr):
         if rank == 0:
@@ -69,9 +74,10 @@ def test_send_recv_tokenizer():
         np.testing.assert_allclose(res, jnp.zeros((2, 2)))
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_hotpotato_tokenizer():
-    from mpi4jax import recv, send, barrier, auto_tokenize
+    from mpi4jax import recv, send, barrier
 
     def hot_potato(arr):
         # Here, we test a send/recv pattern that is extremely likely to return the
@@ -123,8 +129,9 @@ def test_send_recv_hotpotato_tokenizer():
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_fori_loop_tokenizer():
-    from mpi4jax import allreduce, auto_tokenize
+    from mpi4jax import allreduce
 
     NUM_LOOPS = 6
 
@@ -140,8 +147,9 @@ def test_fori_loop_tokenizer():
     np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_while_loop_tokenizer():
-    from mpi4jax import allreduce, auto_tokenize
+    from mpi4jax import allreduce
 
     def sum_loop(arr):
         res, _ = allreduce(arr, op=MPI.SUM)
@@ -158,8 +166,9 @@ def test_while_loop_tokenizer():
     assert (res >= np.ones((2, 2)) * 1000).all()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_cond_tokenizer():
-    from mpi4jax import allreduce, auto_tokenize
+    from mpi4jax import allreduce
 
     def branch1(arr):
         res, _ = allreduce(arr, op=MPI.PROD)
@@ -182,8 +191,9 @@ def test_cond_tokenizer():
     assert (res2 == size).all()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_allgather_scalar():
-    from mpi4jax import allgather, auto_tokenize
+    from mpi4jax import allgather
 
     @jax.jit
     @auto_tokenize
@@ -195,8 +205,9 @@ def test_allgather_scalar():
     assert jnp.array_equal(res, jnp.arange(size))
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_alltoall_jit():
-    from mpi4jax import alltoall, auto_tokenize
+    from mpi4jax import alltoall
 
     arr = jnp.ones((size, 3, 2)) * rank
 
@@ -205,8 +216,9 @@ def test_alltoall_jit():
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_bcast_scalar_jit():
-    from mpi4jax import bcast, auto_tokenize
+    from mpi4jax import bcast
 
     arr = 1
     _arr = 1
@@ -220,8 +232,9 @@ def test_bcast_scalar_jit():
         assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_gather_scalar_jit():
-    from mpi4jax import gather, auto_tokenize
+    from mpi4jax import gather
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: gather(x, root=0)[0]))(arr)
@@ -231,8 +244,9 @@ def test_gather_scalar_jit():
         assert jnp.array_equal(res, arr)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_reduce_scalar_jit():
-    from mpi4jax import reduce, auto_tokenize
+    from mpi4jax import reduce
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: reduce(x, op=MPI.SUM, root=0)[0]))(arr)
@@ -242,16 +256,18 @@ def test_reduce_scalar_jit():
         assert jnp.array_equal(res, arr)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_scan_scalar_jit():
-    from mpi4jax import scan, auto_tokenize
+    from mpi4jax import scan
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: scan(x, op=MPI.SUM)[0]))(arr)
     assert jnp.array_equal(res, sum(range(rank + 1)))
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_scatter_jit():
-    from mpi4jax import scatter, auto_tokenize
+    from mpi4jax import scatter
 
     if rank == 0:
         arr = jnp.stack([jnp.ones((3, 2)) * r for r in range(size)], axis=0)
@@ -262,9 +278,10 @@ def test_scatter_jit():
     assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_status_jit():
-    from mpi4jax import sendrecv, auto_tokenize
+    from mpi4jax import sendrecv
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()

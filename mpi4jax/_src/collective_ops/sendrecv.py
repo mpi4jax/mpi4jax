@@ -22,7 +22,6 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
-from ..tokenizer import token_override_registry
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -102,27 +101,6 @@ def sendrecv(
             _must_transpose=False,
         )
     )
-
-
-def mpi_sendrecv_token_override(
-    in_args, new_token, source, dest, sendtag, recvtag, comm, status, _must_transpose
-):
-    sendbuff, recvbuff, _ = in_args
-    return mpi_sendrecv_p.bind(
-        sendbuff,
-        recvbuff,
-        new_token,
-        source=source,
-        dest=dest,
-        sendtag=sendtag,
-        recvtag=recvtag,
-        comm=comm,
-        status=status,
-        _must_transpose=_must_transpose,
-    )
-
-
-token_override_registry[mpi_sendrecv_p] = mpi_sendrecv_token_override
 
 
 # This function compiles the operation
