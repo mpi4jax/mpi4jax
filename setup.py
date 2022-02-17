@@ -1,5 +1,6 @@
 import os
 import sys
+from glob import glob
 from subprocess import PIPE, check_output
 
 from setuptools import setup, find_packages
@@ -143,13 +144,24 @@ def cuda_info(cmd):
             return [incdir]
 
     if cmd == "libdirs":
-        for libdir in ("lib64", "lib"):
+        dirs = []
+        for libdir in ("lib64", "lib", "bin"):
             full_dir = os.path.join(cuda_path, libdir)
             if os.path.isdir(full_dir):
-                return [full_dir]
+                dirs.append(full_dir)
+        return dirs
 
     if cmd == "libs":
-        return ["cudart"]
+        if sys.platform.startswith("win32"):
+            pattern = os.path.join(cuda_path, "bin", "cudart64_*.dll")
+            files = glob(pattern)
+            if len(files) != 1:
+                raise RuntimeError("cudart64_*.dll not found, or found more than one")
+            lib_name = os.path.basename(files[0])
+            lib_name = os.path.splitext(lib_name)[0]
+            return [lib_name]
+        else:
+            return ["cudart"]
 
     return []
 
