@@ -1,5 +1,6 @@
 import os
 import sys
+from subprocess import PIPE, check_output
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
@@ -65,11 +66,20 @@ def print_warning(*lines):
 ############
 
 
+def exec_in_terminal(command):
+    return check_output(command, stderr=PIPE).strip().decode("utf8")
+
+
 def mpi_info(cmd):
     config = mpi4py.get_config()
-    cmd_compile = " ".join([config["mpicc"], "-show"])
-    out_stream = os.popen(cmd_compile)
-    flags = out_stream.read().strip()
+
+    if sys.platform.startswith("win32"):
+        # On Windows, mpi4py is usually installed from a wheel compiled with MS-MPI.
+        # We assume that the user has installed mpiexec from the MS-MPI installer (strangely, there is no mpicc),
+        # and mpicc from mingw-w64.
+        config["mpicc"] = exec_in_terminal(["where", "mpicc"])
+
+    flags = exec_in_terminal([config["mpicc"], "-show"])
     flags = flags.replace(",", " ").split()
 
     if cmd == "compile":
