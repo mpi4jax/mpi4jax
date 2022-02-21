@@ -74,7 +74,7 @@ sendrecv
 Experimental
 ============
 
-sendrecv
+auto_tokenize
 --------
 
 .. autofunction:: mpi4jax.experimental.auto_tokenize
