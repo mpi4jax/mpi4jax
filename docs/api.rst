@@ -69,3 +69,12 @@ sendrecv
 --------
 
 .. autofunction:: mpi4jax.sendrecv
+
+
+Experimental
+============
+
+sendrecv
+--------
+
+.. autofunction:: mpi4jax.experimental.auto_tokenize

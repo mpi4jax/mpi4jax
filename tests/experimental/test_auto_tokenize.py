@@ -298,3 +298,71 @@ def test_sendrecv_status_jit():
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
     assert status.Get_source() == other
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_while_loop_consistency():
+    from mpi4jax import allreduce, sendrecv, barrier
+
+    def cond(value):
+        barrier()
+        if rank == 1 or rank == 0:
+            new_value, _ = sendrecv(value, jnp.zeros_like(value), source=1-rank, dest=1-rank)
+        return jnp.all(new_value < 10)
+
+    def loop(value):
+        barrier()
+        new_value, _ = allreduce(value, MPI.SUM)
+        return new_value
+
+    @jax.jit
+    @auto_tokenize
+    def exec(value):
+        return jax.lax.while_loop(cond, loop, value)
+
+    res = exec(1.0)
+    assert(res >= 10)
+
+
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
+def test_cond_consistency():
+    from mpi4jax import recv, send
+
+    def hot_potato_right(arr):
+        a = arr + 1
+        b, _ = recv(arr, source=1, comm=comm)
+        send(a, dest=1, comm=comm)
+        c, _ = recv(arr, source=1, comm=comm)
+        d, _ = recv(arr, source=1, comm=comm)
+        e = c + d
+        send(e, dest=1, comm=comm)
+        f, _ = recv(arr, source=1, comm=comm)
+        send(e + f, dest=1, comm=comm)
+        send(e * d, dest=1, comm=comm)
+        return f
+    
+    def hot_potato_left(arr):
+        a = arr + 2
+        send(a, dest=0, comm=comm)
+        b, _ = recv(arr, source=0, comm=comm)
+        send(a + b, dest=0, comm=comm)
+        send(a * b, dest=0, comm=comm)
+        c, _ = recv(arr, source=0, comm=comm)
+        send(b - c, dest=0, comm=comm)
+        d, _ = recv(arr, source=0, comm=comm)
+        e, _ = recv(arr, source=0, comm=comm)
+        return d + e
+
+    @jax.jit
+    @auto_tokenize
+    def exec(arr, my_rank):
+        return jax.lax.cond(my_rank == 0, hot_potato_right, hot_potato_left, arr)
+
+    res = exec(jnp.zeros((2, 2)), rank)
+    if rank == 0:
+        np.testing.assert_allclose(res, jnp.ones((2, 2)) * -4)
+    if rank == 1:
+        np.testing.assert_allclose(res, jnp.ones((2, 2)) * 11)
