@@ -1,4 +1,4 @@
-import sys
+import importlib
 import pytest
 
 from mpi4py import MPI
@@ -7,15 +7,20 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from mpi4jax._src.jax_compat import versiontuple
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+jax_version = versiontuple(jax.__version__)
+min_version = versiontuple("0.2.27")
 
+
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_allreduce():
     from mpi4jax import allreduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = jnp.ones((3, 2))
 
@@ -28,10 +33,10 @@ def test_allreduce():
     np.testing.assert_allclose(res, arr * size ** 2)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_nested_jits():
     from mpi4jax import allreduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = jnp.ones((3, 2))
 
@@ -53,11 +58,11 @@ def test_nested_jits():
     np.testing.assert_allclose(res, arr * size ** 5)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_tokenizer():
     from mpi4jax import recv, send
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def simple_message_pass(arr):
         if rank == 0:
@@ -76,12 +81,11 @@ def test_send_recv_tokenizer():
         np.testing.assert_allclose(res, jnp.zeros((2, 2)))
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 @pytest.mark.skipif(size < 2, reason="need 2 processes")
 def test_send_recv_hotpotato_tokenizer():
     from mpi4jax import recv, send, barrier
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def hot_potato(arr):
         # Here, we test a send/recv pattern that is extremely likely to return the
@@ -135,8 +139,7 @@ def test_send_recv_hotpotato_tokenizer():
 
 def test_fori_loop_tokenizer():
     from mpi4jax import allreduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     NUM_LOOPS = 6
 
@@ -152,10 +155,10 @@ def test_fori_loop_tokenizer():
     np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_while_loop_tokenizer():
     from mpi4jax import allreduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def sum_loop(arr):
         res, _ = allreduce(arr, op=MPI.SUM)
@@ -172,10 +175,10 @@ def test_while_loop_tokenizer():
     assert (res >= np.ones((2, 2)) * 1000).all()
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_cond_tokenizer():
     from mpi4jax import allreduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def branch1(arr):
         res, _ = allreduce(arr, op=MPI.PROD)
@@ -198,10 +201,10 @@ def test_cond_tokenizer():
     assert (res2 == size).all()
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_allgather_scalar():
     from mpi4jax import allgather
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     @jax.jit
     @auto_tokenize
@@ -213,10 +216,10 @@ def test_allgather_scalar():
     assert jnp.array_equal(res, jnp.arange(size))
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_alltoall_jit():
     from mpi4jax import alltoall
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = jnp.ones((size, 3, 2)) * rank
 
@@ -225,10 +228,10 @@ def test_alltoall_jit():
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_bcast_scalar_jit():
     from mpi4jax import bcast
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = 1
     _arr = 1
@@ -242,10 +245,10 @@ def test_bcast_scalar_jit():
         assert jnp.array_equal(_arr, arr)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_gather_scalar_jit():
     from mpi4jax import gather
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: gather(x, root=0)[0]))(arr)
@@ -255,10 +258,10 @@ def test_gather_scalar_jit():
         assert jnp.array_equal(res, arr)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_reduce_scalar_jit():
     from mpi4jax import reduce
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: reduce(x, op=MPI.SUM, root=0)[0]))(arr)
@@ -268,20 +271,20 @@ def test_reduce_scalar_jit():
         assert jnp.array_equal(res, arr)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_scan_scalar_jit():
     from mpi4jax import scan
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = rank
     res = jax.jit(auto_tokenize(lambda x: scan(x, op=MPI.SUM)[0]))(arr)
     assert jnp.array_equal(res, sum(range(rank + 1)))
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_scatter_jit():
     from mpi4jax import scatter
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     if rank == 0:
         arr = jnp.stack([jnp.ones((3, 2)) * r for r in range(size)], axis=0)
@@ -292,11 +295,11 @@ def test_scatter_jit():
     assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_sendrecv_status_jit():
     from mpi4jax import sendrecv
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     arr = jnp.ones((3, 2)) * rank
     _arr = arr.copy()
@@ -315,11 +318,11 @@ def test_sendrecv_status_jit():
     assert status.Get_source() == other
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_while_loop_consistency():
     from mpi4jax import allreduce, sendrecv, barrier
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def cond(value):
         barrier()
@@ -343,11 +346,11 @@ def test_while_loop_consistency():
     assert res >= 10
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 @pytest.mark.skipif(size < 2 or rank > 1, reason="Runs only on rank 0 and 1")
 def test_cond_consistency():
     from mpi4jax import recv, send
-
-    auto_tokenize = pytest.importorskip("mpi4jax.experimental").auto_tokenize
+    from mpi4jax.experimental import auto_tokenize
 
     def hot_potato_right(args):
         arr, t = args
@@ -386,4 +389,23 @@ def test_cond_consistency():
         return res1
 
     res = run(jnp.zeros((2, 2)), rank)
-    np.testing.assert_allclose(res, jnp.ones((2, 2)) * 11)
+
+    if rank == 0:
+        expected = -4
+    else:
+        expected = 11
+
+    np.testing.assert_allclose(res, jnp.ones((2, 2)) * expected)
+
+
+def test_error_on_old_jax(monkeypatch):
+    with monkeypatch.context() as m:
+        fake_version = "0.0.0"
+        m.setattr(jax, "__version__", fake_version)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            import mpi4jax.experimental.tokenizer
+
+            importlib.reload(mpi4jax.experimental.tokenizer)
+
+        assert fake_version in str(excinfo.value)

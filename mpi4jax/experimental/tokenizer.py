@@ -7,7 +7,7 @@ from .._src.jax_compat import versiontuple
 MINIMUM_JAX_VERSION = "0.2.27"
 
 if versiontuple(jax.__version__) < versiontuple(MINIMUM_JAX_VERSION):
-    raise ImportError(
+    raise RuntimeError(
         f"auto_tokenize requires jax>={MINIMUM_JAX_VERSION}, but you have {jax.__version__}. "
         "Consider upgrading JAX via `pip install -U jax`."
     )
