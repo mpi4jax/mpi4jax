@@ -386,4 +386,4 @@ def test_cond_consistency():
         return res1
 
     res = run(jnp.zeros((2, 2)), rank)
-    np.testing.assert_allclose(res, jnp.ones((2, 2)) * -4)
+    np.testing.assert_allclose(res, jnp.ones((2, 2)) * 11)
