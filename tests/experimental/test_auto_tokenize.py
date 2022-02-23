@@ -137,6 +137,7 @@ def test_send_recv_hotpotato_tokenizer():
         np.testing.assert_allclose(jitted_tokenized, jnp.ones((2, 2)) * 11)
 
 
+@pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
 def test_fori_loop_tokenizer():
     from mpi4jax import allreduce
     from mpi4jax.experimental import auto_tokenize
