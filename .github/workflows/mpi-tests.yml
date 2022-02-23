@@ -66,6 +66,7 @@ jobs:
           pip install .[dev]
 
       - name: Single-execution test with pytest
+        timeout-minutes: 5
         run: |
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
@@ -73,6 +74,7 @@ jobs:
           pytest .
 
       - name: mpirun test with pytest
+        timeout-minutes: 5
         run: |
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
