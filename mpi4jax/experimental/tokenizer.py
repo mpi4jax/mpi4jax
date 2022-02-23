@@ -173,9 +173,9 @@ def _token_forwarding(f, token):
 def auto_tokenize(f):
     """Automatically manage tokens between all mpi4jax ops.
 
-    Supports most JAX operations, including `fori_loop`, `cond`, `jit`,
-    `while_loop`, and `scan`. This transforms *all* operations in the decorated
-    function, even through subfunctions and nested applications of jax.jit.
+    Supports most JAX operations, including ``fori_loop``, ``cond``, ``jit``,
+    ``while_loop``, and ``scan``. This transforms *all* operations in the decorated
+    function, even through subfunctions and nested applications of ``jax.jit``.
 
     .. note::
 
@@ -186,7 +186,7 @@ def auto_tokenize(f):
         f: Any function that uses mpi4jax primitives (jitted or not).
 
     Returns:
-        A transformed version of `f` that automatically manages all mpi4jax tokens.
+        A transformed version of ``f`` that automatically manages all mpi4jax tokens.
 
     Example:
 
