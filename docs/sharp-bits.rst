@@ -28,9 +28,10 @@ Those functions will then be executed in the same order as the sequence of token
 
 .. note::
 
-    You can also try to use the ``auto_tokenize`` transform from the ``mpi4jax.experimental`` 
-    module to automatically manage tokens for you on any given python function.
-    This method is still in the early stages of development, so use with caution. 
+    You can also try to use the :func:`~mpi4jax.experimental.auto_tokenize` transform
+    from the ``mpi4jax.experimental`` module to automatically manage tokens for you on
+    any given Python function. This method is still in the early stages of development,
+    so use with caution.
 
 
 No in-place operations in JAX

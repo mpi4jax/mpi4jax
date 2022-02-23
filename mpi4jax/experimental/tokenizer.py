@@ -196,7 +196,6 @@ def auto_tokenize(f):
         ...     res, _ = allreduce(a, op=MPI.SUM)
         ...     res, _ = allreduce(res, op=MPI.SUM)
         ...     return res
-
         >>> arr = jnp.ones((3, 2))
         >>> res = f(arr)
 
