@@ -2,9 +2,21 @@ import jax
 from jax import linear_util as lu
 from jax.interpreters import xla
 
+from .._src.jax_compat import versiontuple
 
-token_override_registry = {}  # Dict[Callable, Callable]
-recursive_token_forwarding_registry = {}  # Dict[Primitive, Callable]
+MINIMUM_JAX_VERSION = "0.2.27"
+
+if versiontuple(jax.__version__) < versiontuple(MINIMUM_JAX_VERSION):
+    raise ImportError(
+        f"auto_tokenize requires jax>={MINIMUM_JAX_VERSION}, but you have {jax.__version__}. "
+        "Consider upgrading JAX via `pip install -U jax`."
+    )
+
+# registry for wrapped mpi4jax ops
+from .register_overrides import token_override_registry  # noqa: E402
+
+# registry for wrapped JAX primitives
+recursive_token_forwarding_registry = {}
 
 
 def safe_map(f, *args):
@@ -161,22 +173,32 @@ def _token_forwarding(f, token):
 def auto_tokenize(f):
     """Automatically manage tokens between all mpi4jax ops.
 
-    Supports most JAX methods, including ones defined with `fori_loop`, `cond`, `jit`,
-    `while_loop`, and `scan`.
+    Supports most JAX operations, including `fori_loop`, `cond`, `jit`,
+    `while_loop`, and `scan`. This transforms *all* operations in the decorated
+    function, even through subfunctions and nested applications of jax.jit.
 
     .. note::
 
-       This transforms all existing mpi4jax ops and overrides their token management
-       completely. We do not recommend using this transform if you need any control
-       over the token managment.
+       This transforms overrides all mpi4jax token management completely.
+       Do not use this transform if you need manual control over the token managment.
 
     Arguments:
-        f: Any JAX function.
-        token (Optional[Token]): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
+        f: Any function that uses mpi4jax primitives (jitted or not).
 
     Returns:
         A transformed version of `f` that automatically manages all mpi4jax tokens.
+
+    Example:
+
+        >>> @auto_tokenize
+        ... def f(a):
+        ...     # no token handling necessary
+        ...     res, _ = allreduce(a, op=MPI.SUM)
+        ...     res, _ = allreduce(res, op=MPI.SUM)
+        ...     return res
+
+        >>> arr = jnp.ones((3, 2))
+        >>> res = f(arr)
 
     """
 

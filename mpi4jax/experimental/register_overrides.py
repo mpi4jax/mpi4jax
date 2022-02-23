@@ -11,7 +11,8 @@ from .._src.collective_ops.send import mpi_send_p
 from .._src.collective_ops.scatter import mpi_scatter_p
 from .._src.collective_ops.sendrecv import mpi_sendrecv_p
 
-from .tokenizer import token_override_registry
+
+token_override_registry = {}
 
 
 def mpi_allgather_token_override(in_args, new_token, comm):
