@@ -22,7 +22,6 @@ from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import Tracer, Token
 
-
 # The Jax primitive
 mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
 mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
