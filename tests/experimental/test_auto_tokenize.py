@@ -30,7 +30,7 @@ def test_allreduce():
         return res
 
     res = auto_tokenize(f)(arr)
-    np.testing.assert_allclose(res, arr * size ** 2)
+    np.testing.assert_allclose(res, arr * size**2)
 
 
 @pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
@@ -55,7 +55,7 @@ def test_nested_jits():
         return res
 
     res = auto_tokenize(f)(arr)
-    np.testing.assert_allclose(res, arr * size ** 5)
+    np.testing.assert_allclose(res, arr * size**5)
 
 
 @pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
@@ -153,7 +153,7 @@ def test_fori_loop_tokenizer():
         return jax.lax.fori_loop(0, NUM_LOOPS, sum_loop, [arr])
 
     res = jax.jit(auto_tokenize(my_method))(jnp.ones((2, 2)))
-    np.testing.assert_allclose(res[0], np.ones((2, 2)) * size ** NUM_LOOPS)
+    np.testing.assert_allclose(res[0], np.ones((2, 2)) * size**NUM_LOOPS)
 
 
 @pytest.mark.skipif(jax_version < min_version, reason="Requires more recent JAX")
