@@ -1,4 +1,4 @@
 # this is only used to monitor JAX updates via dependabot
 # can safely be ignored
-jax==0.3.6
+jax==0.3.7
 jaxlib==0.3.7
