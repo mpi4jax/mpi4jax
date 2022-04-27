@@ -1,11 +1,10 @@
 import os
 import atexit
 import warnings
-import threading
 import functools
 
 # to avoid excessive overhead, we ensure that some functions run only once
-_runtime_state = threading.local()
+_runtime_state = object()
 _runtime_state.platforms_to_flush = set()
 _runtime_state.cuda_mpi_setup_done = False
 
