@@ -1,22 +1,22 @@
 import os
 import atexit
 import warnings
-import threading
 import functools
 
-# to avoid excessive overhead, we ensure that some functions run only once
-_runtime_state = threading.local()
-_runtime_state.platforms_to_flush = set()
-_runtime_state.cuda_mpi_setup_done = False
+# global variables to keep track of state
+_platforms_to_flush = set()
+_cuda_mpi_setup_done = False
 
 
 def ensure_platform_flush(platform):
     # at exit, we wait for all pending operations to finish
     # this prevents deadlocks (see mpi4jax#22)
-    if platform in _runtime_state.platforms_to_flush:
+    global _platforms_to_flush
+
+    if platform in _platforms_to_flush:
         return
 
-    _runtime_state.platforms_to_flush.add(platform)
+    _platforms_to_flush.add(platform)
 
     from .flush import flush
 
@@ -50,10 +50,12 @@ def _is_falsy(str_val):
 
 
 def setup_cuda_mpi():
-    if _runtime_state.cuda_mpi_setup_done:
+    global _cuda_mpi_setup_done
+
+    if _cuda_mpi_setup_done:
         return
 
-    _runtime_state.cuda_mpi_setup_done = True
+    _cuda_mpi_setup_done = True
 
     gpu_copy_behavior = os.getenv("MPI4JAX_USE_CUDA_MPI", "")
 
