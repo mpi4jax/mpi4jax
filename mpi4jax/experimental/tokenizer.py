@@ -129,7 +129,11 @@ def _override_tokens(jaxpr, consts, token, *args):
         env[v] = val
 
     env = {}
-    write(jax.core.unitvar, jax.core.unit)
+
+    # compatibility with jax<0.3.10
+    if hasattr(jax.core, "unitvar"):
+        write(jax.core.unitvar, jax.core.unit)
+
     safe_map(write, jaxpr.constvars, consts)
     safe_map(write, jaxpr.invars, args)
     for eqn in jaxpr.eqns:
