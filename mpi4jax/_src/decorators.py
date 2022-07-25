@@ -24,13 +24,6 @@ def ensure_platform_flush(platform):
     atexit.register(flush_platform)
 
 
-def ensure_omnistaging():
-    import jax.config
-
-    if not jax.config.omnistaging_enabled:
-        raise RuntimeError("mpi4jax requires JAX omnistaging to be enabled.")
-
-
 def ensure_gpu_ext():
     from .xla_bridge import HAS_GPU_EXT
 
@@ -86,7 +79,6 @@ def translation_rule_cpu(func):
     # functions to call before running the translation rule
     setup_funcs = (
         functools.partial(ensure_platform_flush, "cpu"),
-        ensure_omnistaging,
     )
 
     @functools.wraps(func)
@@ -107,7 +99,6 @@ def translation_rule_gpu(func):
     setup_funcs = (
         ensure_gpu_ext,
         functools.partial(ensure_platform_flush, "gpu"),
-        ensure_omnistaging,
         setup_cuda_mpi,
     )
 
