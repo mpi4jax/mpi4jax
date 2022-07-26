@@ -207,8 +207,8 @@ def auto_tokenize(f):
 
     def wrapper(*args, **kwargs):
         jaxpr, pytree = jax.make_jaxpr(f, return_shape=True)(*args, **kwargs)
-        _, pytree = jax.tree_flatten(pytree)
+        _, pytree = jax.tree_util.tree_flatten(pytree)
         res = _override_tokens(jaxpr.jaxpr, jaxpr.consts, None, *args, **kwargs)
-        return jax.tree_unflatten(pytree, res[1:])  # Drop the token.
+        return jax.tree_util.tree_unflatten(pytree, res[1:])  # Drop the token.
 
     return wrapper

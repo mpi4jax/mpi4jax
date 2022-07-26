@@ -77,9 +77,7 @@ def translation_rule_cpu(func):
     This runs generic setup and boilerplate functions.
     """
     # functions to call before running the translation rule
-    setup_funcs = (
-        functools.partial(ensure_platform_flush, "cpu"),
-    )
+    setup_funcs = (functools.partial(ensure_platform_flush, "cpu"),)
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
