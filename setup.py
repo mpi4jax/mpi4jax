@@ -67,7 +67,11 @@ def print_warning(*lines):
 
 def mpi_info(cmd):
     config = mpi4py.get_config()
-    cmd_compile = " ".join([config["mpicc"], "--cray-print-opts=all"])
+    if 'CRAY_MPICH_VER' in os.environ:
+        show_flag = "--cray-print-opts=all"
+    else:
+        show_flag = "-show"
+    cmd_compile = " ".join([config["mpicc"], show_flag])
     out_stream = os.popen(cmd_compile)
     flags = out_stream.read().strip()
     flags = flags.replace(",", " ").split()
