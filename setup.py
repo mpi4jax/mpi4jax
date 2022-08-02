@@ -3,6 +3,7 @@ import sys
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
+from setuptools.command.build_ext import build_ext
 
 # ensure vendored versioneer is on path
 sys.path.append(os.path.dirname(__file__))
@@ -65,30 +66,17 @@ def print_warning(*lines):
 ############
 
 
-def mpi_info(cmd):
-    config = mpi4py.get_config()
-    if "CRAY_MPICH_VER" in os.environ:
-        show_flag = "--cray-print-opts=all"
-    else:
-        show_flag = "-show"
-    cmd_compile = " ".join([config["mpicc"], show_flag])
-    out_stream = os.popen(cmd_compile)
-    flags = out_stream.read().strip()
-    flags = flags.replace(",", " ").split()
-
-    if cmd == "compile":
-        startwith = "-I"
-    elif cmd == "libdirs":
-        startwith = "-L"
-    elif cmd == "libs":
-        startwith = "-l"
-
-    out = []
-    for flag in flags:
-        if flag.startswith(startwith):
-            out.append(flag[2:])
-
-    return out
+class custom_build_ext(build_ext):
+    def build_extensions(self):
+        config = mpi4py.get_config()
+        mpi_compiler = config["mpicc"]
+        self.compiler.set_executables(
+            compiler=[mpi_compiler, *self.compiler.compiler[1:]],
+            compiler_so=[mpi_compiler, *self.compiler.compiler_so[1:]],
+            compiler_cxx=[mpi_compiler, *self.compiler.compiler_cxx[1:]],
+            linker_so=[mpi_compiler, *self.compiler.linker_so[1:]],
+        )
+        build_ext.build_extensions(self)
 
 
 ################
@@ -126,27 +114,26 @@ def get_cuda_path():
     return _cuda_path
 
 
-def cuda_info(cmd):
+def get_cuda_info():
+    cuda_info = {"compile": [], "libdirs": [], "libs": []}
     cuda_path = get_cuda_path()
     if not cuda_path:
-        return []
+        return cuda_info
 
-    if cmd == "compile":
-        incdir = os.path.join(cuda_path, "include")
-        if os.path.isdir(incdir):
-            return [incdir]
+    incdir = os.path.join(cuda_path, "include")
+    if os.path.isdir(incdir):
+        cuda_info["compile"] = [incdir]
 
-    if cmd == "libdirs":
-        for libdir in ("lib64", "lib"):
-            full_dir = os.path.join(cuda_path, libdir)
-            if os.path.isdir(full_dir):
-                return [full_dir]
+    for libdir in ("lib64", "lib"):
+        full_dir = os.path.join(cuda_path, libdir)
+        if os.path.isdir(full_dir):
+            cuda_info["libdir"] = [full_dir]
 
-    if cmd == "libs":
-        return ["cudart"]
+    cuda_info["libs"] = ["cudart"]
+    return cuda_info
 
-    return []
 
+cuda_info = get_cuda_info()
 
 # /end Cuda detection
 #####################
@@ -170,21 +157,18 @@ def get_extensions():
         Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
             sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
-            include_dirs=mpi_info("compile"),
-            library_dirs=mpi_info("libdirs"),
-            libraries=mpi_info("libs"),
         )
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
     ]
 
-    if cuda_info("compile"):
+    if cuda_info["compile"]:
         extensions.append(
             Extension(
                 name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
                 sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu.pyx"],
-                include_dirs=mpi_info("compile") + cuda_info("compile"),
-                library_dirs=mpi_info("libdirs") + cuda_info("libdirs"),
-                libraries=mpi_info("libs") + cuda_info("libs"),
+                include_dirs=cuda_info["compile"],
+                library_dirs=cuda_info["libdirs"],
+                libraries=cuda_info["libs"],
             )
         )
     else:
@@ -205,6 +189,9 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
     long_description = f.read()
 
+cmdclass = versioneer.get_cmdclass()
+cmdclass.update(build_ext=custom_build_ext)
+
 setup(
     name="mpi4jax",
     author="Filippo Vicentini",
@@ -217,7 +204,7 @@ setup(
     url="https://github.com/mpi4jax/mpi4jax",
     license="MIT",
     version=versioneer.get_version(),
-    cmdclass=versioneer.get_cmdclass(),
+    cmdclass=cmdclass,
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Cython",
