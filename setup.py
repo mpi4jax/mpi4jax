@@ -70,12 +70,11 @@ class custom_build_ext(build_ext):
     def build_extensions(self):
         config = mpi4py.get_config()
         mpi_compiler = config["mpicc"]
-        self.compiler.set_executables(
-            compiler=[mpi_compiler, *self.compiler.compiler[1:]],
-            compiler_so=[mpi_compiler, *self.compiler.compiler_so[1:]],
-            compiler_cxx=[mpi_compiler, *self.compiler.compiler_cxx[1:]],
-            linker_so=[mpi_compiler, *self.compiler.linker_so[1:]],
-        )
+
+        for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
+            current_flags = getattr(self.compiler, exe)[1:]
+            self.compiler.set_executable(exe, [mpi_compiler, *current_flags])
+
         build_ext.build_extensions(self)
 
 
@@ -122,14 +121,14 @@ def get_cuda_info():
 
     incdir = os.path.join(cuda_path, "include")
     if os.path.isdir(incdir):
-        cuda_info["compile"] = [incdir]
+        cuda_info["compile"].append(incdir)
 
     for libdir in ("lib64", "lib"):
         full_dir = os.path.join(cuda_path, libdir)
         if os.path.isdir(full_dir):
-            cuda_info["libdir"] = [full_dir]
+            cuda_info["libdirs"].append(full_dir)
 
-    cuda_info["libs"] = ["cudart"]
+    cuda_info["libs"].append("cudart")
     return cuda_info
 
 
@@ -161,7 +160,7 @@ def get_extensions():
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
     ]
 
-    if cuda_info["compile"]:
+    if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(
             Extension(
                 name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
