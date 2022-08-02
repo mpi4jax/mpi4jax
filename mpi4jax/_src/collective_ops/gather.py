@@ -20,7 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_gather_p = Primitive("gather_mpi")  # Create the primitive
@@ -210,7 +210,7 @@ def mpi_gather_abstract_eval(x, token, root, comm):
 
 mpi_gather_p.multiple_results = True
 mpi_gather_p.def_impl(mpi_gather_impl)
-mpi_gather_p.def_abstract_eval(mpi_gather_abstract_eval)
+register_abstract_eval(mpi_gather_p, mpi_gather_abstract_eval)
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_gather_p] = mpi_gather_xla_encode_cpu

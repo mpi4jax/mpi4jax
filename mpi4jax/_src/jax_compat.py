@@ -16,17 +16,6 @@ def versiontuple(verstr):
     return tuple(int(v) for v in verstr.split("."))[:3]
 
 
-def check_jax_version():
-    # check version of jaxlib
-    import jaxlib
-
-    if versiontuple(jaxlib.__version__) < versiontuple(JAXLIB_MINIMUM_VERSION):
-        raise RuntimeError(
-            f"mpi4jax requires jaxlib>={JAXLIB_MINIMUM_VERSION}, but you have "
-            f"{jaxlib.__version__}. Please install a supported version of JAX and jaxlib."
-        )
-
-
 jax_version = versiontuple(jax.__version__)
 
 if jax_version >= versiontuple("0.2.26"):
@@ -36,7 +25,42 @@ else:
     from jax.interpreters.xla import Token
 
 
+if jax_version >= versiontuple("0.3.15"):
+    # abstract eval needs to return effects
+    # see https://github.com/google/jax/issues/11620
+    from functools import wraps
+    from jax.interpreters import mlir
+    from jax._src.lax import control_flow as lcf
+
+    effect = object()
+    mlir.lowerable_effects.add(effect)
+    lcf.allowed_effects.add(effect)
+
+    def register_abstract_eval(primitive, func):
+        @wraps(func)
+        def effects_wrapper(*args, **kwargs):
+            return func(*args, **kwargs), {effect}
+
+        primitive.def_effectful_abstract_eval(effects_wrapper)
+
+else:
+
+    def register_abstract_eval(primitive, func):
+        primitive.def_abstract_eval(func)
+
+
 __all__ = [
     "Tracer",
     "Token",
 ]
+
+
+def check_jax_version():
+    # check version of jaxlib
+    import jaxlib
+
+    if versiontuple(jaxlib.__version__) < versiontuple(JAXLIB_MINIMUM_VERSION):
+        raise RuntimeError(
+            f"mpi4jax requires jaxlib>={JAXLIB_MINIMUM_VERSION}, but you have "
+            f"{jaxlib.__version__}. Please install a supported version of JAX and jaxlib."
+        )

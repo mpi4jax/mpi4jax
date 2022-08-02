@@ -20,7 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -196,7 +196,7 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
 
 mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
-mpi_allreduce_p.def_abstract_eval(mpi_allreduce_abstract_eval)
+register_abstract_eval(mpi_allreduce_p, mpi_allreduce_abstract_eval)
 
 batching.primitive_batchers[mpi_allreduce_p] = mpi_allreduce_batch_eval
 

@@ -21,7 +21,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -387,7 +387,7 @@ def mpi_sendrecv_transpose_rule(
 
 mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
-mpi_sendrecv_p.def_abstract_eval(mpi_sendrecv_abstract_eval)
+register_abstract_eval(mpi_sendrecv_p, mpi_sendrecv_abstract_eval)
 
 batching.primitive_batchers[mpi_sendrecv_p] = mpi_sendrecv_batch_eval
 
