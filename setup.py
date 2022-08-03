@@ -66,10 +66,13 @@ def print_warning(*lines):
 
 
 def mpi_info(cmd):
-    config = mpi4py.get_config()
-    cmd_compile = " ".join([config["mpicc"], "-show"])
-    out_stream = os.popen(cmd_compile)
-    flags = out_stream.read().strip()
+    if "MPICXX_FLAGS" in os.environ:
+        flags = os.environ["MPICXX_FLAGS"]
+    else:
+        config = mpi4py.get_config()
+        cmd_compile = " ".join([config["mpicc"], "-show"])
+        out_stream = os.popen(cmd_compile)
+        flags = out_stream.read().strip()
     flags = flags.replace(",", " ").split()
 
     if cmd == "compile":
