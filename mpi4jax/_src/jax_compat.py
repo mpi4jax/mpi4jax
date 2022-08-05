@@ -32,11 +32,20 @@ if jax_version >= versiontuple("0.3.15"):
     from jax.interpreters import mlir
     from jax._src.lax import control_flow as lcf
 
-    effect = object()
+    class MPIEffect:
+        def __hash__(self):
+            # enforce a constant (known) hash
+            return hash("I love mpi4jax")
+
+    effect = MPIEffect()
     mlir.lowerable_effects.add(effect)
     lcf.allowed_effects.add(effect)
 
     def register_abstract_eval(primitive, func):
+        """Injects an effect object into func and registers it via `primitive.def_effectful_abstract_eval`.
+        
+        (as required by JAX>=0.3.15 to ensure primitives are staged out)
+        """
         @wraps(func)
         def effects_wrapper(*args, **kwargs):
             return func(*args, **kwargs), {effect}
@@ -44,6 +53,7 @@ if jax_version >= versiontuple("0.3.15"):
         primitive.def_effectful_abstract_eval(effects_wrapper)
 
 else:
+    # TODO: drop this path when we require jax>=0.3.15
 
     def register_abstract_eval(primitive, func):
         primitive.def_abstract_eval(func)
