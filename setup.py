@@ -1,5 +1,6 @@
 import os
 import sys
+import shlex
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
@@ -69,11 +70,13 @@ def print_warning(*lines):
 class custom_build_ext(build_ext):
     def build_extensions(self):
         config = mpi4py.get_config()
-        mpi_compiler = config["mpicc"]
+
+        # on some platforms, mpi4py's compiler config includes flags
+        mpi_compiler = shlex.split(config["mpicc"])
 
         for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
             current_flags = getattr(self.compiler, exe)[1:]
-            self.compiler.set_executable(exe, [mpi_compiler, *current_flags])
+            self.compiler.set_executable(exe, [*mpi_compiler, *current_flags])
 
         build_ext.build_extensions(self)
 
