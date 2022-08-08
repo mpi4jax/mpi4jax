@@ -1,4 +1,0 @@
-# this is only used to monitor JAX updates via dependabot
-# can safely be ignored
-jax==0.3.15
-jaxlib==0.3.14

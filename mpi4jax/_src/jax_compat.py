@@ -1,3 +1,7 @@
+import os
+import re
+import warnings
+
 import jax
 
 JAXLIB_MINIMUM_VERSION = "0.1.62"
@@ -43,9 +47,10 @@ if jax_version >= versiontuple("0.3.15"):
 
     def register_abstract_eval(primitive, func):
         """Injects an effect object into func and registers it via `primitive.def_effectful_abstract_eval`.
-        
+
         (as required by JAX>=0.3.15 to ensure primitives are staged out)
         """
+
         @wraps(func)
         def effects_wrapper(*args, **kwargs):
             return func(*args, **kwargs), {effect}
@@ -66,6 +71,30 @@ __all__ = [
 
 
 def check_jax_version():
+    here = os.path.dirname(__file__)
+    with open(os.path.join(here, "_latest_jax_version.txt")) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("#"):
+                continue
+            pkg, jax_maxversion = re.match(r"(\w+)\b==(.*)", line).groups()
+            assert pkg == "jax"
+            break
+
+    warn_envvar = "MPI4JAX_NO_WARN_JAX_VERSION"
+    nowarn = os.environ.get(warn_envvar, "").lower() in ("1", "true", "on")
+
+    if not nowarn and versiontuple(jax.__version__) > versiontuple(jax_maxversion):
+        warnings.warn(
+            f"\nThe latest supported JAX version with this release of mpi4jax is {jax_maxversion}, "
+            f"but you have {jax.__version__}. If you encounter problems consider downgrading JAX, "
+            f"for example via:\n\n"
+            f"    $ pip install jax[cpu]=={jax_maxversion}\n\n"
+            f"Or try upgrading mpi4jax via\n\n"
+            f"    $ pip install -U mpi4jax\n\n"
+            f"You can set the environment variable `{warn_envvar}=1` to silence this warning."
+        )
+
     # check version of jaxlib
     import jaxlib
 

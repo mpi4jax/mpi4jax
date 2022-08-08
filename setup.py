@@ -24,10 +24,16 @@ except ImportError:
 else:
     HAS_MPI4PY = True
 
+
+here = os.path.abspath(os.path.dirname(__file__))
+
 ##############
 # Requirements
 
-BASE_DEPENDENCIES = ["jax>=0.2.9", "mpi4py>=3.0.1", "numpy"]
+JAX_MINIMUM_VERSION = "0.2.9"
+
+BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
+
 DEV_DEPENDENCIES = [
     "pytest>=6",
     "pytest-cov>=2.10.1",
@@ -36,7 +42,6 @@ DEV_DEPENDENCIES = [
     "black==21.6b0",
     "flake8==3.9.2",
 ]
-
 
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
 CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
@@ -185,11 +190,10 @@ def get_extensions():
     return extensions
 
 
-here = os.path.abspath(os.path.dirname(__file__))
-
 # get the long description from the README file
 with open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
     long_description = f.read()
+
 
 cmdclass = versioneer.get_cmdclass()
 cmdclass.update(build_ext=custom_build_ext)

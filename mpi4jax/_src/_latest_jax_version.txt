@@ -1,0 +1,3 @@
+# latest tested JAX version
+# bumped automatically by dependabot
+jax==0.3.14
