@@ -59,7 +59,7 @@ jobs:
 
           python -m pip install --upgrade pip
           if [ ${{ matrix.jax-version }} == 'latest' ]; then
-            pip install -r ./latest_jax_version.txt
+            pip install -r ./mpi4jax/_src/_latest_jax_version.txt jaxlib
           else
             pip install jax[cpu]==${{ matrix.jax-version }}
           fi

@@ -230,4 +230,5 @@ setup(
     extras_require={
         "dev": DEV_DEPENDENCIES,
     },
+    package_data={"mpi4jax": ["_src/_latest_jax_version.txt"]},
 )
