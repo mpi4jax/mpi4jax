@@ -2,7 +2,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
-from jax.core import Primitive
+from jax.core import Primitive, Tracer, Token
 from jax.interpreters import xla
 from jax.lib import xla_client
 from jax.lax import create_token
@@ -20,7 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token, register_abstract_eval
+from ..jax_compat import register_abstract_eval
 
 # The Jax primitive
 mpi_reduce_p = Primitive("reduce_mpi")  # Create the primitive
