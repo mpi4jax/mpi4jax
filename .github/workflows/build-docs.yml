@@ -11,9 +11,9 @@ jobs:
   build-docs:
     runs-on: ubuntu-18.04
 
-    defaults:
-      run:
-        shell: bash -l {0}
+    # defaults:
+    #   run:
+    #     shell: bash -l {0}
 
     steps:
       - uses: actions/checkout@v2
