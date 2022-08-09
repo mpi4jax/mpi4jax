@@ -12,7 +12,7 @@ jobs:
   # - use ubuntu 18.04
   # - do not activate conda env, instead put bin/ on PATH
   # - use `setup.py install`
-  
+
   build-docs:
     runs-on: ubuntu-18.04
 
@@ -28,11 +28,14 @@ jobs:
           activate-environment: mpi4jax-docs
           environment-file: docs/environment.yml
           auto-activate-base: false
+
+      - name: Add conda env to PATH
         run: |
           echo "/usr/share/miniconda/envs/mpi4jax-docs/bin" >> $GITHUB_PATH
 
       - name: Install mpi4jax
-        run: python setup.py install
+        run: |
+          python setup.py install
 
       - name: Build docs
         run: |
