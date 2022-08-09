@@ -30,7 +30,9 @@ jobs:
 
       - name: Install mpi4jax
         # use setup.py install to emulate the readthedocs build system
-        run: /usr/share/miniconda/envs/test/bin/python setup.py install
+        run: |
+          export PATH=/usr/share/miniconda/envs/test/bin:$PATH
+          python setup.py install
 
       - name: Build docs
         run: |
