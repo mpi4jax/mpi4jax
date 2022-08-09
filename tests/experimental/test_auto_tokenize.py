@@ -1,4 +1,3 @@
-import importlib
 import pytest
 
 from mpi4py import MPI
@@ -375,16 +374,3 @@ def test_cond_consistency():
         expected = 11
 
     np.testing.assert_allclose(res, jnp.ones((2, 2)) * expected)
-
-
-def test_error_on_old_jax(monkeypatch):
-    with monkeypatch.context() as m:
-        fake_version = "0.0.0"
-        m.setattr(jax, "__version__", fake_version)
-
-        with pytest.raises(RuntimeError) as excinfo:
-            import mpi4jax.experimental.tokenizer
-
-            importlib.reload(mpi4jax.experimental.tokenizer)
-
-        assert fake_version in str(excinfo.value)
