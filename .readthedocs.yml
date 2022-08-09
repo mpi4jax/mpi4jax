@@ -8,6 +8,9 @@ sphinx:
 conda:
   environment: docs/environment.yml
 
+build:
+  os: ubuntu-20.04
+
 python:
   install:
     - method: setuptools
