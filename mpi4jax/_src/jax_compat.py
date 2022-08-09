@@ -4,8 +4,6 @@ import warnings
 
 import jax
 
-JAXLIB_MINIMUM_VERSION = "0.1.62"
-
 
 def versiontuple(verstr):
     # drop everything after the numeric part of the version
@@ -21,12 +19,6 @@ def versiontuple(verstr):
 
 
 jax_version = versiontuple(jax.__version__)
-
-if jax_version >= versiontuple("0.2.26"):
-    from jax.core import Tracer, Token
-else:
-    from jax.core import Tracer
-    from jax.interpreters.xla import Token
 
 
 if jax_version >= versiontuple("0.3.15"):
@@ -64,12 +56,6 @@ else:
         primitive.def_abstract_eval(func)
 
 
-__all__ = [
-    "Tracer",
-    "Token",
-]
-
-
 def check_jax_version():
     here = os.path.dirname(__file__)
     with open(os.path.join(here, "_latest_jax_version.txt")) as f:
@@ -93,13 +79,4 @@ def check_jax_version():
             f"Or try upgrading mpi4jax via\n\n"
             f"    $ pip install -U mpi4jax\n\n"
             f"You can set the environment variable `{warn_envvar}=1` to silence this warning."
-        )
-
-    # check version of jaxlib
-    import jaxlib
-
-    if versiontuple(jaxlib.__version__) < versiontuple(JAXLIB_MINIMUM_VERSION):
-        raise RuntimeError(
-            f"mpi4jax requires jaxlib>={JAXLIB_MINIMUM_VERSION}, but you have "
-            f"{jaxlib.__version__}. Please install a supported version of JAX and jaxlib."
         )

@@ -30,7 +30,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.2.9"
+JAX_MINIMUM_VERSION = "0.3.0"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 

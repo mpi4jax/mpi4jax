@@ -2,16 +2,6 @@ import jax
 from jax import linear_util as lu
 from jax.interpreters import xla
 
-from .._src.jax_compat import versiontuple
-
-MINIMUM_JAX_VERSION = "0.2.27"
-
-if versiontuple(jax.__version__) < versiontuple(MINIMUM_JAX_VERSION):
-    raise RuntimeError(
-        f"auto_tokenize requires jax>={MINIMUM_JAX_VERSION}, but you have {jax.__version__}. "
-        "Consider upgrading JAX via `pip install -U jax`."
-    )
-
 # registry for wrapped mpi4jax ops
 from .register_overrides import token_override_registry  # noqa: E402
 
