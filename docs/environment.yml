@@ -5,7 +5,7 @@ channels:
   - nodefaults
 
 dependencies:
-  - python=3.7
+  - python=3.9
   - openmpi-mpicc
   - mpi4py
   - numpy
