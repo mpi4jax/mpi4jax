@@ -28,9 +28,9 @@ jobs:
             jax-version: "latest"
           # test older JAX and Python versions
           - os: ubuntu-latest
-            python-version: "3.6"
+            python-version: "3.7"
             mpi: openmpi
-            jax-version: "0.2.17"  # last version with Python 3.6 support
+            jax-version: "0.3.0"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
@@ -58,12 +58,14 @@ jobs:
           fi
 
           python -m pip install --upgrade pip
+          pip install .[dev]
+
+          # ensure we have the right JAX version
           if [ ${{ matrix.jax-version }} == 'latest' ]; then
             pip install jax[cpu] -c mpi4jax/_src/_latest_jax_version.txt
           else
             pip install jax[cpu]==${{ matrix.jax-version }}
           fi
-          pip install .[dev]
 
       - name: Single-execution test with pytest
         timeout-minutes: 5
