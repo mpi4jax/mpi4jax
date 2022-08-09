@@ -1,5 +1,6 @@
 include versioneer.py
 include mpi4jax/_version.py
+include mpi4jax/_src/_latest_jax_version.txt
 
 recursive-include mpi4jax *.pyx *.pxd
 recursive-exclude mpi4jax *.c

@@ -83,8 +83,8 @@ def test_abort_on_error(tmp_path):
     )
 
     proc = run_in_subprocess(test_script, tmp_path / "abort.py")
-    assert proc.returncode != 0
     print(proc.stderr)
+    assert proc.returncode != 0
     assert "r0 | MPI_Send returned error code" in proc.stderr
 
 

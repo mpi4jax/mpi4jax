@@ -20,7 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -176,7 +176,7 @@ def mpi_allgather_abstract_eval(x, token, comm):
 
 mpi_allgather_p.multiple_results = True
 mpi_allgather_p.def_impl(mpi_allgather_impl)
-mpi_allgather_p.def_abstract_eval(mpi_allgather_abstract_eval)
+register_abstract_eval(mpi_allgather_p, mpi_allgather_abstract_eval)
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_allgather_p] = mpi_allgather_xla_encode_cpu

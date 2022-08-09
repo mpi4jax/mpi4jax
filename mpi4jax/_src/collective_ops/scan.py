@@ -20,7 +20,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_scan_p = Primitive("scan_mpi")  # Create the primitive
@@ -146,7 +146,7 @@ def mpi_scan_abstract_eval(xs, token, op, comm):
 
 mpi_scan_p.multiple_results = True
 mpi_scan_p.def_impl(mpi_scan_impl)
-mpi_scan_p.def_abstract_eval(mpi_scan_abstract_eval)
+register_abstract_eval(mpi_scan_p, mpi_scan_abstract_eval)
 
 # assign to the primitive the correct encoder
 xla.backend_specific_translations["cpu"][mpi_scan_p] = mpi_scan_xla_encode_cpu

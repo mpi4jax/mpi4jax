@@ -17,7 +17,7 @@ from ..utils import (
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import Tracer, Token
+from ..jax_compat import Tracer, Token, register_abstract_eval
 
 # The Jax primitive
 mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
@@ -114,7 +114,7 @@ def mpi_barrier_batch_eval(in_args, batch_axes, comm):
 
 
 mpi_barrier_p.def_impl(mpi_barrier_impl)
-mpi_barrier_p.def_abstract_eval(mpi_barrier_abstract_eval)
+register_abstract_eval(mpi_barrier_p, mpi_barrier_abstract_eval)
 
 batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 

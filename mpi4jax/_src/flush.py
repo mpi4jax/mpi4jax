@@ -3,6 +3,7 @@ import jax
 
 def flush(platform):
     """Wait for all pending XLA operations"""
+    # TODO: replace with jax.effects_barrier() once we drop JAX<0.3.15
     devices = jax.devices(platform)
 
     for device in devices:

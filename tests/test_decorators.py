@@ -14,19 +14,6 @@ def test_envvar_parsing():
     assert not _is_falsy("foo")
 
 
-def test_missing_omnistaging(monkeypatch):
-    import jax
-    from mpi4jax._src.decorators import ensure_omnistaging
-
-    with monkeypatch.context() as m:
-        m.setattr(jax.config, "omnistaging_enabled", False)
-
-        with pytest.raises(RuntimeError) as excinfo:
-            ensure_omnistaging()
-
-        assert "omnistaging" in str(excinfo.value)
-
-
 def test_ensure_gpu_ext(monkeypatch):
     from mpi4jax._src import xla_bridge
     from mpi4jax._src.decorators import ensure_gpu_ext
