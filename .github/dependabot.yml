@@ -7,3 +7,10 @@ updates:
     interval: daily
     timezone: CET
   open-pull-requests-limit: 10
+
+- package-ecosystem: pip
+  directory: "/mpi4jax/_src/"
+  schedule:
+    interval: daily
+    timezone: CET
+  open-pull-requests-limit: 10
