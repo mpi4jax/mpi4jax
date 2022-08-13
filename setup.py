@@ -6,8 +6,10 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext
 
+here = os.path.abspath(os.path.dirname(__file__))
+
 # ensure vendored versioneer is on path
-sys.path.append(os.path.dirname(__file__))
+sys.path.insert(0, here)
 import versioneer  # noqa: E402
 
 try:
@@ -24,8 +26,6 @@ except ImportError:
 else:
     HAS_MPI4PY = True
 
-
-here = os.path.abspath(os.path.dirname(__file__))
 
 ##############
 # Requirements
@@ -75,13 +75,13 @@ def print_warning(*lines):
 class custom_build_ext(build_ext):
     def build_extensions(self):
         config = mpi4py.get_config()
-
-        # on some platforms, mpi4py's compiler config includes flags
-        mpi_compiler = shlex.split(config["mpicc"])
+        mpi_compiler = os.environ.get("MPI4JAX_BUILD_MPICC", config["mpicc"])
+        mpi_cmd = shlex.split(mpi_compiler)
 
         for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
+            # peel off compiler executable but keep flags
             current_flags = getattr(self.compiler, exe)[1:]
-            self.compiler.set_executable(exe, [*mpi_compiler, *current_flags])
+            self.compiler.set_executable(exe, [*mpi_cmd, *current_flags])
 
         build_ext.build_extensions(self)
 
@@ -231,4 +231,5 @@ setup(
         "dev": DEV_DEPENDENCIES,
     },
     package_data={"mpi4jax": ["_src/_latest_jax_version.txt"]},
+    zip_safe=False,
 )
