@@ -67,11 +67,13 @@ def alltoall(
 
     comm = wrap_as_hashable(comm)
 
-    return tuple(mpi_alltoall_p.bind(
+    return tuple(
+        mpi_alltoall_p.bind(
             x,
             token,
             comm=comm,
-        ))
+        )
+    )
 
 
 # This function compiles the operation
