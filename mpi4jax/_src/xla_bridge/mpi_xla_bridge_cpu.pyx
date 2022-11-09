@@ -17,6 +17,16 @@ from . cimport mpi_xla_bridge
 #
 # CPU XLA targets
 #
+
+# Layout enforcement op
+
+cdef void ascontiguousarray_cpu(void** out_ptr, void** data_ptr) nogil:
+    """ This op does not actually need to do anything, the input and output
+    arrays are shared, no copy is necessary, XLA will take care of doing the
+    memory rearangement for us
+    """
+    pass
+
 cdef void mpi_barrier_cpu(void** out_ptr, void** data_ptr) nogil:
     cdef MPI_Comm comm = <MPI_Comm>((<uintptr_t*>(data_ptr[0]))[0])
     mpi_xla_bridge.mpi_barrier(comm)
@@ -195,6 +205,7 @@ cdef register_custom_call_target(fn_name, void* fn):
     cdef const char* name = "xla._CUSTOM_CALL_TARGET"
     cpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
 
+register_custom_call_target(b"ascontiguousarray", <void*>(ascontiguousarray_cpu))
 register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_cpu))
 register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_cpu))
 register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_cpu))

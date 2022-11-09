@@ -110,6 +110,16 @@ cdef inline cudaError_t checked_cuda_stream_synchronize(
 # GPU XLA targets
 #
 
+# Layout enforcement op
+
+cdef void ascontiguousarray_gpu(cudaStream_t stream, void** buffers,
+                            const char* opaque, size_t opaque_len) nogil:
+    """ This op does not actually need to do anything, the input and output
+    arrays are shared, no copy is necessary, XLA will take care of doing the
+    memory rearangement for us
+    """
+    pass
+
 # Allgather
 
 cdef struct AllgatherDescriptor:
@@ -932,6 +942,7 @@ cdef register_custom_call_target(fn_name, void* fn):
     gpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
 
 
+register_custom_call_target(b"ascontiguousarray", <void*>(ascontiguousarray_gpu))
 register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
 register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
 register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
