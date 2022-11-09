@@ -9,10 +9,27 @@ from .jax_compat import register_abstract_eval
 import jaxlib.mlir.ir as ir
 from jax.interpreters import mlir
 from jaxlib.mhlo_helpers import custom_call
+import functools
 
 # The Jax primitive
 ascontiguousarray_p = Primitive("ascontiguousarray")  # Create the primitive
 ascontiguousarray_impl = default_primitive_impl(ascontiguousarray_p)
+
+def enforce_layout(function):
+    """ Decorator that enforces that both input and output
+    of the collective operations are in C contiguous order
+    """
+    @functools.wraps(function)
+    def wrapped(x, *args, **kwargs):
+        x = ascontiguousarray(x)
+        out = function(x, *args, **kwargs)
+        if function.__name__ == 'send':
+            return out
+        else:
+            x, token = out
+            x = ascontiguousarray(x)
+            return x, token
+    return wrapped
 
 def ascontiguousarray(
     x,

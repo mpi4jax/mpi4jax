@@ -21,6 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import register_abstract_eval
+from ..layout_helper import enforce_layout
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -28,6 +29,7 @@ mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
 
 
 # This function applies the primitive to an AST
+@enforce_layout
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     token=(type(None), Token, Tracer),
