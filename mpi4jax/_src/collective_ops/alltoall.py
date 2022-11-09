@@ -21,6 +21,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import register_abstract_eval
+from ..layout_helper import ascontiguousarray
 
 # The Jax primitive
 mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
@@ -63,15 +64,17 @@ def alltoall(
     if x.shape[0] != size:
         raise ValueError("Alltoall input must have shape (nproc, ...)")
 
+    x = ascontiguousarray(x)
+
     comm = wrap_as_hashable(comm)
 
-    return tuple(
-        mpi_alltoall_p.bind(
+    res, token = mpi_alltoall_p.bind(
             x,
             token,
             comm=comm,
         )
-    )
+
+    return ascontiguousarray(res), token
 
 
 # This function compiles the operation
