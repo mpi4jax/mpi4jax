@@ -7,7 +7,7 @@ from .decorators import translation_rule_cpu, translation_rule_gpu
 from .jax_compat import register_abstract_eval
 
 import jaxlib.mlir.ir as ir
-from jax.interpreters import mlir
+from jax.interpreters import mlir, ad, batching
 from jaxlib.mhlo_helpers import custom_call
 import functools
 
@@ -93,8 +93,20 @@ def ascontiguousarray_abstract_eval(xs):
     return abstract_arrays.ShapedArray(xs.shape, xs.dtype)
 
 
+def ascontiguousarray_batch_eval(in_args, batch_axes):
+    return ascontiguousarray(*in_args), batch_axes
+
+
+def ascontiguousarray_value_and_jvp(arg_values, arg_tangents):
+    (x,) = arg_values
+    (xt,) = arg_tangents
+    return (x, xt)
+
+
 ascontiguousarray_p.def_impl(ascontiguousarray_impl)
 register_abstract_eval(ascontiguousarray_p, ascontiguousarray_abstract_eval)
+batching.primitive_batchers[ascontiguousarray_p] = ascontiguousarray_batch_eval
+ad.primitive_jvps[ascontiguousarray_p] = ascontiguousarray_value_and_jvp
 
 mlir.register_lowering(
     ascontiguousarray_p, ascontiguousarray_xla_encode_gpu, platform="gpu"

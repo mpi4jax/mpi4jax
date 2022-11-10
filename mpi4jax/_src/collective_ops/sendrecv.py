@@ -22,7 +22,7 @@ from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import register_abstract_eval
-from ..layout_helper import enforce_layout
+from ..layout_helper import ascontiguousarray
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -30,7 +30,6 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
 
 
 # This function applies the primitive to an AST
-@enforce_layout
 @enforce_types(
     source=_np.integer,
     dest=_np.integer,
@@ -89,20 +88,23 @@ def sendrecv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    return tuple(
-        mpi_sendrecv_p.bind(
-            sendbuf,
-            recvbuf,
-            token,
-            source=source,
-            dest=dest,
-            sendtag=sendtag,
-            recvtag=recvtag,
-            comm=comm,
-            status=status,
-            _must_transpose=False,
-        )
+    # TODO: remove ascontiguousarray when https://github.com/google/jax/issues/13187 is resolved
+    sendbuf = ascontiguousarray(sendbuf)
+
+    x, token = mpi_sendrecv_p.bind(
+        sendbuf,
+        recvbuf,
+        token,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+        _must_transpose=False,
     )
+
+    return ascontiguousarray(x), token
 
 
 # This function compiles the operation
