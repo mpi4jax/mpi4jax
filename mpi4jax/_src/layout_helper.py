@@ -94,7 +94,7 @@ def ascontiguousarray_abstract_eval(xs):
 
 
 def ascontiguousarray_batch_eval(in_args, batch_axes):
-    return ascontiguousarray(*in_args), batch_axes
+    return ascontiguousarray(*in_args), batch_axes[0]
 
 
 def ascontiguousarray_value_and_jvp(arg_values, arg_tangents):

@@ -88,10 +88,8 @@ def sendrecv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    # TODO: remove ascontiguousarray when https://github.com/google/jax/issues/13187 is resolved
     sendbuf = ascontiguousarray(sendbuf)
-
-    x, token = mpi_sendrecv_p.bind(
+    recvbuf, token = mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
         token,
@@ -103,8 +101,7 @@ def sendrecv(
         status=status,
         _must_transpose=False,
     )
-
-    return ascontiguousarray(x), token
+    return ascontiguousarray(recvbuf), token
 
 
 # This function compiles the operation
