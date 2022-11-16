@@ -37,9 +37,9 @@ def get_default_layouts(operands, order="c"):
     layouts = []
 
     if order == "c":
-        default_layout = lambda t: tuple(range(len(t.shape)))
-    elif order == "f":
         default_layout = lambda t: tuple(range(len(t.shape) - 1, -1, -1))
+    elif order == "f":
+        default_layout = lambda t: tuple(range(len(t.shape)))
     else:
         raise ValueError("Unknown order: {}".format(order))
 
