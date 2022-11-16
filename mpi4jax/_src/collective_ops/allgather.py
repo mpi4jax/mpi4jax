@@ -3,9 +3,11 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive, Tracer, Token
-from jax.interpreters import xla
 from jax.lax import create_token
-from jax.lib import xla_client
+
+from jax.interpreters import mlir
+import jaxlib.mlir.ir as ir
+from jaxlib.mhlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
@@ -14,8 +16,8 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    xla_constant_intc,
-    xla_constant_uintptr,
+    as_mhlo_constant,
+    get_default_layouts,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
@@ -76,69 +78,73 @@ def allgather(
 
 # This function compiles the operation
 @translation_rule_cpu
-def mpi_allgather_xla_encode_cpu(c, sendbuf, token, comm):
+def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
     comm = unpack_hashable(comm)
 
-    # compute total number of elements in array
-    send_shape = c.GetShape(sendbuf)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    sendbuf_aval, *_ = ctx.avals_in
+    send_nptype = sendbuf_aval.dtype
+
+    send_type = ir.RankedTensorType(sendbuf.type)
+    send_dtype = send_type.element_type
+    send_dims = send_type.shape
 
     # compute total number of elements in array
     send_nitems = _np.prod(send_dims, dtype=int)
 
     size = comm.Get_size()
     out_shape = (size, *send_dims)
-    sh = xla_client.Shape.tuple_shape(
-        [
-            xla_client.Shape.array_shape(send_dtype, out_shape),
-            xla_client.Shape.token_shape(),
-        ]
-    )
+
+    out_types = [
+        ir.RankedTensorType.get(out_shape, send_dtype),
+        *mlir.token_type(),
+    ]
 
     operands = (
-        xla_constant_intc(c, send_nitems),
+        as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
-        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
+        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
         # we only support matching input and output arrays
-        xla_constant_intc(c, send_nitems),
-        xla_constant_uintptr(c, to_dtype_handle(send_dtype)),
+        as_mhlo_constant(send_nitems, _np.intc),
+        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
         #
-        xla_constant_uintptr(c, to_mpi_handle(comm)),
+        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
         token,
     )
 
-    return xla_client.ops.CustomCall(
-        c,
+    return custom_call(
         b"mpi_allgather",
+        out_types=out_types,
         operands=operands,
-        shape=sh,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
     )
 
 
 @translation_rule_gpu
-def mpi_allgather_xla_encode_gpu(c, sendbuf, token, comm):
+def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
 
     comm = unpack_hashable(comm)
 
-    send_shape = c.GetShape(sendbuf)
-    send_dtype = send_shape.element_type()
-    send_dims = send_shape.dimensions()
+    sendbuf_aval, *_ = ctx.avals_in
+    send_nptype = sendbuf_aval.dtype
+
+    send_type = ir.RankedTensorType(sendbuf.type)
+    send_dtype = send_type.element_type
+    send_dims = send_type.shape
 
     # compute total number of elements in send array
     send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_dtype)
+    send_dtype_handle = to_dtype_handle(send_nptype)
 
     size = comm.Get_size()
     out_shape = (size, *send_dims)
-    sh = xla_client.Shape.tuple_shape(
-        [
-            xla_client.Shape.array_shape(send_dtype, out_shape),
-            xla_client.Shape.token_shape(),
-        ]
-    )
+
+    out_types = [
+        ir.RankedTensorType.get(out_shape, send_dtype),
+        *mlir.token_type(),
+    ]
 
     descriptor = build_allgather_descriptor(
         send_nitems,
@@ -150,15 +156,15 @@ def mpi_allgather_xla_encode_gpu(c, sendbuf, token, comm):
         to_mpi_handle(comm),
     )
 
-    return xla_client.ops.CustomCall(
-        c,
+    operands = (sendbuf, token)
+
+    return custom_call(
         b"mpi_allgather",
-        operands=(
-            sendbuf,
-            token,
-        ),
-        shape=sh,
-        opaque=descriptor,
+        out_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        backend_config=descriptor,
         has_side_effect=True,
     )
 
@@ -178,6 +184,5 @@ mpi_allgather_p.multiple_results = True
 mpi_allgather_p.def_impl(mpi_allgather_impl)
 register_abstract_eval(mpi_allgather_p, mpi_allgather_abstract_eval)
 
-# assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_allgather_p] = mpi_allgather_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_allgather_p] = mpi_allgather_xla_encode_gpu
+mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="cpu")
+mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_gpu, platform="cuda")
