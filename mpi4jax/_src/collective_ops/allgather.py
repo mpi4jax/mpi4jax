@@ -115,8 +115,8 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         b"mpi_allgather",
         out_types=out_types,
         operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
+        operand_layouts=get_default_layouts(operands, order="f"),
+        result_layouts=get_default_layouts(out_types, order="f"),
         has_side_effect=True,
     )
 
@@ -162,8 +162,8 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
         b"mpi_allgather",
         out_types=out_types,
         operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
+        operand_layouts=get_default_layouts(operands, order="f"),
+        result_layouts=get_default_layouts(out_types, order="f"),
         backend_config=descriptor,
         has_side_effect=True,
     )
