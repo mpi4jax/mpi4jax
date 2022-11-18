@@ -41,6 +41,7 @@ def _is_truthy(str_val):
 def _is_falsy(str_val):
     return str_val.lower() in ("false", "0", "off")
 
+mpi4jax_debug = _is_truthy(os.getenv("MPI4JAX_DEBUG", ""))
 
 def setup_cuda_mpi():
     global _cuda_mpi_setup_done

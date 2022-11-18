@@ -17,7 +17,7 @@ from ..utils import (
     xla_constant_intc,
     xla_constant_uintptr,
 )
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import translation_rule_cpu, translation_rule_gpu, mpi4jax_debug
 from ..validation import enforce_types
 from ..comm import get_default_comm
 from ..jax_compat import register_abstract_eval
@@ -61,6 +61,9 @@ def allreduce(x, op, *, comm=None, token=None):
     if comm is None:
         comm = get_default_comm()
 
+    if mpi4jax_debug:
+        print(f"r{comm.Get_rank()}| Ar->scheduled for {x.shape}:{x.dtype}")
+
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
     return tuple(mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False))
@@ -88,6 +91,9 @@ def mpi_allreduce_xla_encode_cpu(c, x, token, op, comm, transpose):
     sh = xla_client.Shape.tuple_shape(
         [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
     )
+
+    if mpi4jax_debug:
+        print(f"r{comm.Get_rank()}| Ar->encoded_cpu")
 
     return xla_client.ops.CustomCall(
         c,
@@ -134,6 +140,9 @@ def mpi_allreduce_xla_encode_gpu(c, x, token, op, comm, transpose):
         to_dtype_handle(dtype),
     )
 
+    if mpi4jax_debug:
+        print(f"r{comm.Get_rank()}| Ar->encoded_gpu")
+
     return xla_client.ops.CustomCall(
         c,
         b"mpi_allreduce",
@@ -165,6 +174,9 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
     x, token = in_args
     x_tan, token_tan = tan_args
 
+    if mpi4jax_debug:
+        print(f"r{comm.Get_rank()}| Ar->vjp scheduled for {x.shape}:{x.dtype} and {x_tan.shape}:{x_tan.dtype}")
+
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The adjoint of allreduce is only defined for op=MPI.SUM"
@@ -182,6 +194,9 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
     _, token = x_args
     x_tan, token_tan = tan_args
+
+    if mpi4jax_debug:
+        print(f"r{comm.Get_rank()}| Ar->transpose scheduled for {x_tan.shape}:{x_tan.dtype}")
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
