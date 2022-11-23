@@ -31,6 +31,7 @@ def test_version_warning(monkeypatch):
     # raise warning on too recent jax
     with monkeypatch.context() as m:
         m.setattr(jax, "__version__", "99.99.99")
+        m.setenv("MPI4JAX_NO_WARN_JAX_VERSION", "0")
         with pytest.warns(UserWarning) as w:
             importlib.reload(mpi4jax._src)
             assert "but you have 99.99.99" in str(w[0])
@@ -38,6 +39,7 @@ def test_version_warning(monkeypatch):
     # do not raise warning on outdated jax
     with monkeypatch.context() as m:
         m.setattr(jax, "__version__", "00.00.00")
+        m.setenv("MPI4JAX_NO_WARN_JAX_VERSION", "0")
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             importlib.reload(mpi4jax._src)
