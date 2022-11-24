@@ -41,6 +41,7 @@ DEV_DEPENDENCIES = [
     "pre-commit",
     "black==21.6b0",
     "flake8==3.9.2",
+    "tqdm>=4.52"
 ]
 
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
