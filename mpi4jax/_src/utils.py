@@ -4,21 +4,25 @@ from mpi4py import MPI as _MPI
 
 import numpy as _np
 
-from jax.interpreters import xla
-from jax.lib import xla_client
-
-from jax.interpreters import mlir
+from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
+from jax._src.lax import control_flow as lcf
+
+
+class MPIEffect:
+    def __hash__(self):
+        # enforce a constant (known) hash
+        return hash("I love mpi4jax")
+
+
+effect = MPIEffect()
+mlir.lowerable_effects.add(effect)
+lcf.allowed_effects.add(effect)
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
-
-
-# TODO: remove
-def xla_constant_intc(c, val):
-    return xla_client.ops.Constant(c, _np.intc(val))
 
 
 def as_mhlo_constant(val, dtype):
@@ -61,11 +65,6 @@ def get_default_layouts(operands, order="c"):
             raise ValueError("Unknown operand type: {}".format(type(op)))
 
     return layouts
-
-
-# TODO: remove
-def xla_constant_uintptr(c, val):
-    return xla_client.ops.Constant(c, _np.uintp(val))
 
 
 def to_mpi_handle(mpi_obj):

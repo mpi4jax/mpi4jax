@@ -18,11 +18,12 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
+    effect,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import register_abstract_eval
+
 
 # The Jax primitive
 mpi_scatter_p = Primitive("scatter_mpi")  # Create the primitive
@@ -207,12 +208,12 @@ def mpi_scatter_abstract_eval(x, token, root, comm):
     return (
         abstract_arrays.ShapedArray(out_shape, x.dtype),
         core.abstract_token,
-    )
+    ), {effect}
 
 
 mpi_scatter_p.multiple_results = True
 mpi_scatter_p.def_impl(mpi_scatter_impl)
-register_abstract_eval(mpi_scatter_p, mpi_scatter_abstract_eval)
+mpi_scatter_p.def_effectful_abstract_eval(mpi_scatter_abstract_eval)
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_cpu, platform="cpu")

@@ -18,11 +18,12 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
+    effect,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import register_abstract_eval
+
 
 # The Jax primitive
 mpi_send_p = Primitive("send_mpi")  # Create the primitive
@@ -149,11 +150,11 @@ def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, token, dest, tag, comm):
-    return core.abstract_token
+    return core.abstract_token, {effect}
 
 
 mpi_send_p.def_impl(mpi_send_impl)
-register_abstract_eval(mpi_send_p, mpi_send_abstract_eval)
+mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")

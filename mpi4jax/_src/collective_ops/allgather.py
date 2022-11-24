@@ -18,11 +18,11 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
+    effect,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import register_abstract_eval
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -179,12 +179,12 @@ def mpi_allgather_abstract_eval(x, token, comm):
     return (
         abstract_arrays.ShapedArray(out_shape, x.dtype),
         core.abstract_token,
-    )
+    ), {effect}
 
 
 mpi_allgather_p.multiple_results = True
 mpi_allgather_p.def_impl(mpi_allgather_impl)
-register_abstract_eval(mpi_allgather_p, mpi_allgather_abstract_eval)
+mpi_allgather_p.def_effectful_abstract_eval(mpi_allgather_abstract_eval)
 
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_gpu, platform="cuda")

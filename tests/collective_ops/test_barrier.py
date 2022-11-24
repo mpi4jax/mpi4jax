@@ -36,7 +36,7 @@ def test_barrier(capsys):
     # without a barrier here, some ranks would start writing
     # "done" before everyone has writen "start"
     token = barrier()  # noqa: F841
-    flush("cpu")
+    flush()
 
     print(f"r{rank} | done")
 

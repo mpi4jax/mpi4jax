@@ -10,6 +10,12 @@ jax_compat.check_jax_version()  # noqa: F401
 # this registers our custom XLA functions
 from . import xla_bridge  # noqa: E402
 
+# register atexit handler to flush JAX buffers
+import atexit  # noqa: E402
+from . import flush  # noqa: E402
+
+atexit.register(flush.flush)
+
 # import public API
 from .collective_ops.allgather import allgather  # noqa: F401, E402
 from .collective_ops.allreduce import allreduce  # noqa: F401, E402
@@ -27,4 +33,4 @@ from .collective_ops.sendrecv import sendrecv  # noqa: F401, E402
 from .utils import has_cuda_support  # noqa: F401, E402
 
 # sanitize namespace
-del jax_compat, xla_bridge, MPI
+del jax_compat, xla_bridge, MPI, atexit, flush
