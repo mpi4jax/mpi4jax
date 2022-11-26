@@ -148,6 +148,8 @@ def mpi_gather_xla_encode_cpu(ctx, x, token, root, comm):
 def mpi_gather_xla_encode_gpu(ctx, x, token, root, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_gather_descriptor
 
+    comm = unpack_hashable(comm)
+
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
 

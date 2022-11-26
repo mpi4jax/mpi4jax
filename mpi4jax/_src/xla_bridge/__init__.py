@@ -28,4 +28,4 @@ for name, fn in mpi_xla_bridge_cpu.cpu_custom_call_targets.items():
 
 if HAS_GPU_EXT:
     for name, fn in mpi_xla_bridge_gpu.gpu_custom_call_targets.items():
-        xla_client.register_custom_call_target(name, fn, platform="cuda")
+        xla_client.register_custom_call_target(name, fn, platform="CUDA")
