@@ -1,27 +1,9 @@
 import os
-import atexit
 import warnings
 import functools
 
 # global variables to keep track of state
-_platforms_to_flush = set()
 _cuda_mpi_setup_done = False
-
-
-def ensure_platform_flush(platform):
-    # at exit, we wait for all pending operations to finish
-    # this prevents deadlocks (see mpi4jax#22)
-    global _platforms_to_flush
-
-    if platform in _platforms_to_flush:
-        return
-
-    _platforms_to_flush.add(platform)
-
-    from .flush import flush
-
-    flush_platform = functools.partial(flush, platform=platform)
-    atexit.register(flush_platform)
 
 
 def ensure_gpu_ext():
@@ -76,8 +58,10 @@ def translation_rule_cpu(func):
 
     This runs generic setup and boilerplate functions.
     """
+    # NOTE: currently does nothing, but we keep it for consistency
+
     # functions to call before running the translation rule
-    setup_funcs = (functools.partial(ensure_platform_flush, "cpu"),)
+    setup_funcs = ()
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
@@ -96,7 +80,6 @@ def translation_rule_gpu(func):
     # functions to call before running the translation rule
     setup_funcs = (
         ensure_gpu_ext,
-        functools.partial(ensure_platform_flush, "gpu"),
         setup_cuda_mpi,
     )
 

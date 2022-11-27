@@ -1,10 +1,13 @@
+import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import core
 from jax.core import Primitive, Tracer, Token
-from jax.interpreters import xla, batching
+from jax.interpreters import batching
 from jax.lax import create_token
-from jax.lib import xla_client
+
+from jax.interpreters import mlir
+from jaxlib.mhlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
@@ -12,12 +15,14 @@ from ..utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    xla_constant_uintptr,
+    as_mhlo_constant,
+    get_default_layouts,
+    effect,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import register_abstract_eval
+
 
 # The Jax primitive
 mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
@@ -57,54 +62,58 @@ def barrier(*, comm=None, token=None):
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 @translation_rule_cpu
-def mpi_barrier_xla_encode_cpu(c, token, comm):
+def mpi_barrier_xla_encode_cpu(ctx, token, comm):
     comm = unpack_hashable(comm)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    out_types = mlir.token_type()
 
-    out = xla_client.ops.CustomCall(
-        c,
-        b"mpi_barrier",
-        operands=(
-            xla_constant_uintptr(c, to_mpi_handle(comm)),
-            token,
-        ),
-        shape=sh,
-        has_side_effect=True,
+    operands = (
+        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
+        token,
     )
 
-    return xla_client.ops.GetTupleElement(out, 0)
+    # JAX insists on outputs being iterable
+    return [
+        custom_call(
+            b"mpi_barrier",
+            out_types=out_types,
+            operands=operands,
+            operand_layouts=get_default_layouts(operands),
+            result_layouts=get_default_layouts(out_types),
+            has_side_effect=True,
+        )
+    ]
 
 
 @translation_rule_gpu
-def mpi_barrier_xla_encode_gpu(c, token, comm):
+def mpi_barrier_xla_encode_gpu(ctx, token, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
 
     comm = unpack_hashable(comm)
 
-    # ensure void** out type
-    sh = xla_client.Shape.tuple_shape([xla_client.Shape.token_shape()])
+    out_types = mlir.token_type()
 
-    descriptor = build_barrier_descriptor(
-        to_mpi_handle(comm),
-    )
+    operands = (token,)
 
-    out = xla_client.ops.CustomCall(
-        c,
-        b"mpi_barrier",
-        operands=(token,),
-        shape=sh,
-        opaque=descriptor,
-        has_side_effect=True,
-    )
+    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
 
-    return xla_client.ops.GetTupleElement(out, 0)
+    # JAX insists on outputs being iterable
+    return [
+        custom_call(
+            b"mpi_barrier",
+            out_types=out_types,
+            operands=operands,
+            operand_layouts=get_default_layouts(operands),
+            result_layouts=get_default_layouts(out_types),
+            has_side_effect=True,
+            backend_config=descriptor,
+        )
+    ]
 
 
 # This function evaluates only the shapes during AST construction
 def mpi_barrier_abstract_eval(token, comm):
-    return core.abstract_token
+    return core.abstract_token, {effect}
 
 
 def mpi_barrier_batch_eval(in_args, batch_axes, comm):
@@ -114,10 +123,10 @@ def mpi_barrier_batch_eval(in_args, batch_axes, comm):
 
 
 mpi_barrier_p.def_impl(mpi_barrier_impl)
-register_abstract_eval(mpi_barrier_p, mpi_barrier_abstract_eval)
+mpi_barrier_p.def_effectful_abstract_eval(mpi_barrier_abstract_eval)
 
 batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_barrier_p] = mpi_barrier_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_barrier_p] = mpi_barrier_xla_encode_gpu
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu, platform="cuda")

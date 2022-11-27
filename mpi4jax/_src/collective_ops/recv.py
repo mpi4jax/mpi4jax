@@ -3,9 +3,11 @@ from mpi4py import MPI as _MPI
 
 from jax import abstract_arrays, core
 from jax.core import Primitive, Tracer, Token
-from jax.interpreters import xla
 from jax.lax import create_token
-from jax.lib import xla_client
+
+from jax.interpreters import mlir
+import jaxlib.mlir.ir as ir
+from jaxlib.mhlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
@@ -15,13 +17,14 @@ from ..utils import (
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
-    xla_constant_intc,
-    xla_constant_uintptr,
+    as_mhlo_constant,
+    get_default_layouts,
+    effect,
 )
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
-from ..jax_compat import register_abstract_eval
+
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -86,23 +89,27 @@ def recv(
 
 # This function compiles the operation
 @translation_rule_cpu
-def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
+def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    x_shape = c.GetShape(x)
-    dtype = x_shape.element_type()
-    dims = x_shape.dimensions()
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(dtype)
+    dtype_handle = to_dtype_handle(x_nptype)
 
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *mlir.token_type(),
+    ]
 
     if status is None:
         status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
@@ -110,50 +117,55 @@ def mpi_recv_xla_encode_cpu(c, x, token, source, tag, comm, status):
         status_ptr = to_mpi_ptr(status)
 
     operands = (
-        xla_constant_intc(c, nitems),
-        xla_constant_intc(c, source),
-        xla_constant_intc(c, tag),
-        xla_constant_uintptr(c, to_mpi_handle(comm)),
-        xla_constant_uintptr(c, dtype_handle),
-        xla_constant_uintptr(c, status_ptr),
+        as_mhlo_constant(nitems, _np.intc),
+        as_mhlo_constant(source, _np.intc),
+        as_mhlo_constant(tag, _np.intc),
+        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
+        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(status_ptr, _np.uintp),
         token,
     )
 
-    out = xla_client.ops.CustomCall(
-        c,
+    return custom_call(
         b"mpi_recv",
+        out_types=out_types,
         operands=operands,
-        shape=sh,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
     )
 
-    return out
-
 
 @translation_rule_gpu
-def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
+def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
     from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
 
-    x_shape = c.GetShape(x)
-    dtype = x_shape.element_type()
-    dims = x_shape.dimensions()
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(dtype)
+    dtype_handle = to_dtype_handle(x_nptype)
 
-    sh = xla_client.Shape.tuple_shape(
-        [xla_client.Shape.array_shape(dtype, dims), xla_client.Shape.token_shape()]
-    )
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *mlir.token_type(),
+    ]
 
     if status is None:
         status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
     else:
         status_ptr = to_mpi_ptr(status)
+
+    operands = (token,)
 
     descriptor = build_recv_descriptor(
         nitems,
@@ -164,16 +176,15 @@ def mpi_recv_xla_encode_gpu(c, x, token, source, tag, comm, status):
         status_ptr,
     )
 
-    out = xla_client.ops.CustomCall(
-        c,
+    return custom_call(
         b"mpi_recv",
-        operands=(token,),
-        shape=sh,
-        opaque=descriptor,
+        out_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
+        backend_config=descriptor,
     )
-
-    return out
 
 
 # This function evaluates only the shapes during AST construction
@@ -181,13 +192,13 @@ def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
         abstract_arrays.ShapedArray(xs.shape, xs.dtype),
         core.abstract_token,
-    )
+    ), {effect}
 
 
 mpi_recv_p.multiple_results = True
 mpi_recv_p.def_impl(mpi_recv_impl)
-register_abstract_eval(mpi_recv_p, mpi_recv_abstract_eval)
+mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 
 # assign to the primitive the correct encoder
-xla.backend_specific_translations["cpu"][mpi_recv_p] = mpi_recv_xla_encode_cpu
-xla.backend_specific_translations["gpu"][mpi_recv_p] = mpi_recv_xla_encode_gpu
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_gpu, platform="cuda")

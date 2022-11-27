@@ -30,7 +30,7 @@ else:
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.3.0"
+JAX_MINIMUM_VERSION = "0.3.25"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
@@ -41,6 +41,7 @@ DEV_DEPENDENCIES = [
     "pre-commit",
     "black==21.6b0",
     "flake8==3.9.2",
+    "tqdm>=4.52",
 ]
 
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"

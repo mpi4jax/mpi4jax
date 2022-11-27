@@ -4,20 +4,67 @@ from mpi4py import MPI as _MPI
 
 import numpy as _np
 
-from jax.interpreters import xla
-from jax.lib import xla_client
+from jax.interpreters import xla, mlir
+import jaxlib.mlir.ir as ir
+from jaxlib.mlir.dialects import mhlo
+from jax._src.lax import control_flow as lcf
+
+
+class MPIEffect:
+    def __hash__(self):
+        # enforce a constant (known) hash
+        return hash("I love mpi4jax")
+
+
+effect = MPIEffect()
+mlir.lowerable_effects.add(effect)
+lcf.allowed_effects.add(effect)
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
 
 
-def xla_constant_intc(c, val):
-    return xla_client.ops.Constant(c, _np.intc(val))
+def as_mhlo_constant(val, dtype):
+    if isinstance(val, mhlo.ConstantOp):
+        return val
+
+    return mhlo.ConstantOp(
+        ir.DenseElementsAttr.get(
+            _np.array([val], dtype=dtype), type=mlir.dtype_to_ir_type(_np.dtype(dtype))
+        )
+    ).result
 
 
-def xla_constant_uintptr(c, val):
-    return xla_client.ops.Constant(c, _np.uintp(val))
+def get_default_layouts(operands, order="c"):
+    (token_type,) = mlir.token_type()
+    layouts = []
+
+    if order == "c":
+        default_layout = lambda t: tuple(range(len(t.shape) - 1, -1, -1))
+    elif order == "f":
+        default_layout = lambda t: tuple(range(len(t.shape)))
+    else:
+        raise ValueError("Unknown order: {}".format(order))
+
+    for op in operands:
+        if isinstance(op, (ir.Value)):
+            if op.type == token_type:
+                layouts.append(())
+            else:
+                tensor_type = ir.RankedTensorType(op.type)
+                layouts.append(default_layout(tensor_type))
+
+        elif isinstance(op, ir.RankedTensorType):
+            layouts.append(default_layout(op))
+
+        elif op == token_type:
+            layouts.append(())
+
+        else:
+            raise ValueError("Unknown operand type: {}".format(type(op)))
+
+    return layouts
 
 
 def to_mpi_handle(mpi_obj):
@@ -63,7 +110,6 @@ def to_dtype_handle(dtype):
     Returns the pointer to the MPI dtype of the input numpy dtype
     """
     dtype_name = _np.dtype(dtype).name
-
     if dtype_name not in MPI_TYPE_MAP:
         raise RuntimeError("Unknown MPI type for dtype {}".format(dtype_name))
 
