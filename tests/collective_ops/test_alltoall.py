@@ -38,3 +38,28 @@ def test_alltoall_wrong_size():
         alltoall(arr)
 
     assert "must have shape (nproc, ...)" in str(excinfo.value)
+
+
+def test_alltoall_transpose():
+    # test whether consecutive transposes are behaving correctly under JIT
+    # (some backends can optimize them out which leads to non-c-contiguous arrays)
+    # see mpi4jax#176
+    from mpi4jax import alltoall
+
+    shape = (256, 256)
+
+    def transpose(arr):
+        arr = arr.reshape([shape[0] // size, size, shape[1] // size])
+        arr = arr.transpose([1, 0, 2])
+        arr, token = alltoall(arr, comm=comm)
+        arr = arr.reshape([shape[0], shape[1] // size])
+        arr = arr.transpose([1, 0])
+        return arr, token
+
+    transpose_jit = jax.jit(transpose)
+
+    master_key = jax.random.PRNGKey(42)
+    key = jax.random.split(master_key, size)[rank]
+    arr = jax.random.normal(key, [shape[0] // size, shape[1]])
+
+    assert jnp.array_equal(transpose(arr)[0], transpose_jit(arr)[0])
