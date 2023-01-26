@@ -9,6 +9,7 @@ import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 from jax._src.lax import control_flow as lcf
 
+
 class MPIEffect:
     def __hash__(self):
         # enforce a constant (known) hash

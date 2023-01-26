@@ -44,7 +44,6 @@ def check_jax_version():
         )
 
 
-
 ### TODO: remove this code once we only support jax/lib > 0.4.2
 import jaxlib
 
