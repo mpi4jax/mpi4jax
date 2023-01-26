@@ -7,7 +7,7 @@ from jax.lax import create_token
 
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
-from jaxlib.mhlo_helpers import custom_call
+from jaxlib.hlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,

@@ -7,7 +7,7 @@ from jax.interpreters import batching
 from jax.lax import create_token
 
 from jax.interpreters import mlir
-from jaxlib.mhlo_helpers import custom_call
+from jaxlib.hlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
