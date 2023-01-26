@@ -9,6 +9,15 @@ import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 from jax._src.lax import control_flow as lcf
 
+### TODO: remove this code once we only support jax/lib > 0.4.2
+from .jax_compat import versiontuple
+import jaxlib
+
+if versiontuple(jaxlib.__version__) >= (0,4,2):
+    from jaxlib.hlo_helpers import custom_call as hlo_custom_call
+else:
+    from jaxlib.mhlo_helpers import custom_call as hlo_custom_call
+###
 
 class MPIEffect:
     def __hash__(self):
