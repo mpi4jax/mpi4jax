@@ -3,6 +3,7 @@ import re
 import warnings
 
 import jax
+import jaxlib
 
 
 def versiontuple(verstr):
@@ -44,11 +45,8 @@ def check_jax_version():
         )
 
 
-### TODO: remove this code once we only support jax/lib > 0.4.2
-import jaxlib
-
+# TODO: remove this code once we only support jax/lib > 0.4.2
 if versiontuple(jaxlib.__version__) >= (0, 4, 2):
-    from jaxlib.hlo_helpers import custom_call as hlo_custom_call
+    from jaxlib.hlo_helpers import custom_call as hlo_custom_call  # noqa: F401
 else:
-    from jaxlib.mhlo_helpers import custom_call as hlo_custom_call
-###
+    from jaxlib.mhlo_helpers import custom_call as hlo_custom_call  # noqa: F401
