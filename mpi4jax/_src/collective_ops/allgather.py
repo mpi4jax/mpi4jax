@@ -7,7 +7,6 @@ from jax.lax import create_token
 
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
-from jaxlib.mhlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
@@ -20,6 +19,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
+from ..jax_compat import hlo_custom_call
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -111,7 +111,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         token,
     )
 
-    return custom_call(
+    return hlo_custom_call(
         b"mpi_allgather",
         out_types=out_types,
         operands=operands,
@@ -159,7 +159,7 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
 
     operands = (sendbuf, token)
 
-    return custom_call(
+    return hlo_custom_call(
         b"mpi_allgather",
         out_types=out_types,
         operands=operands,

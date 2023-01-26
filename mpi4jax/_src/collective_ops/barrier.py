@@ -7,7 +7,6 @@ from jax.interpreters import batching
 from jax.lax import create_token
 
 from jax.interpreters import mlir
-from jaxlib.mhlo_helpers import custom_call
 
 from ..utils import (
     HashableMPIType,
@@ -19,6 +18,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
+from ..jax_compat import hlo_custom_call
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -74,7 +74,7 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
 
     # JAX insists on outputs being iterable
     return [
-        custom_call(
+        hlo_custom_call(
             b"mpi_barrier",
             out_types=out_types,
             operands=operands,
@@ -99,7 +99,7 @@ def mpi_barrier_xla_encode_gpu(ctx, token, comm):
 
     # JAX insists on outputs being iterable
     return [
-        custom_call(
+        hlo_custom_call(
             b"mpi_barrier",
             out_types=out_types,
             operands=operands,
