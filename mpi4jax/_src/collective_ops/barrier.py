@@ -17,9 +17,8 @@ from ..utils import (
     as_mhlo_constant,
     get_default_layouts,
     effect,
-    token_type,
 )
-from ..jax_compat import hlo_custom_call
+from ..jax_compat import hlo_custom_call, token_type
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm

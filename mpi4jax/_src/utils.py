@@ -9,8 +9,7 @@ import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 from jax._src.lax import control_flow as lcf
 
-# expose this here so other modules don't have to import jax internals
-from jax._src.interpreters.mlir import token_type
+from .jax_compat import token_type
 
 
 class MPIEffect:
