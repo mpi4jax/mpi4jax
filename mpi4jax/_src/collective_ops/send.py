@@ -18,6 +18,7 @@ from ..utils import (
     as_mhlo_constant,
     get_default_layouts,
     effect,
+    token_type,
 )
 from ..jax_compat import hlo_custom_call
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -78,7 +79,7 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
     nitems = _np.prod(dims, dtype=int)
     dtype_handle = to_dtype_handle(x_nptype)
 
-    out_types = mlir.token_type()
+    out_types = token_type()
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -119,7 +120,7 @@ def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
     nitems = _np.prod(dims, dtype=int)
     dtype_handle = to_dtype_handle(x_nptype)
 
-    out_types = mlir.token_type()
+    out_types = token_type()
 
     operands = (
         x,

@@ -19,6 +19,7 @@ from ..utils import (
     as_mhlo_constant,
     get_default_layouts,
     effect,
+    token_type,
 )
 from ..jax_compat import hlo_custom_call
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -94,7 +95,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *mlir.token_type(),
+        *token_type(),
     ]
 
     operands = (
@@ -139,7 +140,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *mlir.token_type(),
+        *token_type(),
     ]
 
     operands = (

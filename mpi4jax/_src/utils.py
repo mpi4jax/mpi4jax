@@ -9,6 +9,9 @@ import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 from jax._src.lax import control_flow as lcf
 
+# expose this here so other modules don't have to import jax internals
+from jax._src.interpreters.mlir import token_type
+
 
 class MPIEffect:
     def __hash__(self):
@@ -37,7 +40,7 @@ def as_mhlo_constant(val, dtype):
 
 
 def get_default_layouts(operands, order="c"):
-    (token_type,) = mlir.token_type()
+    (token,) = token_type()
     layouts = []
 
     if order == "c":
@@ -49,7 +52,7 @@ def get_default_layouts(operands, order="c"):
 
     for op in operands:
         if isinstance(op, (ir.Value)):
-            if op.type == token_type:
+            if op.type == token:
                 layouts.append(())
             else:
                 tensor_type = ir.RankedTensorType(op.type)
@@ -58,7 +61,7 @@ def get_default_layouts(operands, order="c"):
         elif isinstance(op, ir.RankedTensorType):
             layouts.append(default_layout(op))
 
-        elif op == token_type:
+        elif op == token:
             layouts.append(())
 
         else:
