@@ -19,49 +19,6 @@ def versiontuple(verstr):
     return tuple(int(v) for v in verstr.split("."))[:3]
 
 
-jax_version = versiontuple(jax.__version__)
-
-
-if jax_version >= versiontuple("0.4.4"):
-    # abstract eval needs to return effects
-    # see https://github.com/google/jax/issues/11620
-    from functools import wraps
-    from jax.interpreters import mlir
-    import jax._src.lax.control_flow as lcf
-    import jax._src.custom_derivatives as custom_derivatives
-
-    class MPIEffect:
-        def __hash__(self):
-            # enforce a constant (known) hash
-            return hash("I love mpi4jax")
-
-    effect = MPIEffect()
-    mlir.lowerable_effects.add(effect)
-    lcf.allowed_effects.add(effect)
-
-    # Effects must be added to the allow_effects list in order to work within
-    # custom_vjp. See google/jax#11916
-    custom_derivatives.allowed_effects.add(effect)
-
-    def register_abstract_eval(primitive, func):
-        """Injects an effect object into func and registers it via `primitive.def_effectful_abstract_eval`.
-
-        (as required by JAX>=0.3.15 to ensure primitives are staged out)
-        """
-
-        @wraps(func)
-        def effects_wrapper(*args, **kwargs):
-            return func(*args, **kwargs), {effect}
-
-        primitive.def_effectful_abstract_eval(effects_wrapper)
-
-else:
-    # TODO: drop this path when we require jax>=0.3.15
-
-    def register_abstract_eval(primitive, func):
-        primitive.def_abstract_eval(func)
-
-
 def check_jax_version():
     here = os.path.dirname(__file__)
     with open(os.path.join(here, "_latest_jax_version.txt")) as f:
