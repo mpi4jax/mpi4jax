@@ -3,6 +3,8 @@ from mpi4py import MPI
 import jax
 import jax.numpy as jnp
 
+import numpy as np
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
@@ -218,4 +220,103 @@ def test_allreduce_chained_jit():
     res_t = jax.jit(jax.grad(foo))(0.0)
 
     expected = 2.0
-    assert jnp.array_equal(expected, res_t)
+    np.testing.assert_allclose(expected, res_t)
+
+
+def test_custom_vjp():
+    from mpi4jax import allreduce
+
+    # define an arbitrary function with custom_vjp
+    @jax.custom_vjp
+    def f(x, y):
+        r = jnp.sin(x) * y
+        r = r.sum()
+        return allreduce(r, op=MPI.SUM)[0]
+
+    def f_fwd(x, y):
+        # Returns primal output and residuals to be used in backward pass by f_bwd.
+        return f(x, y), (jnp.cos(x), jnp.sin(x), y)
+
+    def f_bwd(res, g):
+        g = allreduce(g, op=MPI.SUM)[0]
+        cos_x, sin_x, y = res  # Gets residuals computed in f_fwd
+        return (cos_x * g * y, sin_x * g)
+
+    f.defvjp(f_fwd, f_bwd)
+
+    # check that it does not crash
+    _ = jax.jit(f)(jnp.ones(3), jnp.ones(3) * 2)
+    _ = jax.jit(jax.grad(f))(jnp.ones(3), jnp.ones(3) * 2)
+
+
+def test_advanced_jvp():
+    """
+    This is an integration test checking that the effects introduced by mpi4jax
+    are correctly handled by jax in a complex `custom_vjp` rule computing a
+    `jax.grad` inside of the rule itself.
+
+    This code essentially computes the mathematically correct gradient of an
+    expectation value of a function over a probability distribution.
+    It is taken from netket.jax.expect
+    https://github.com/netket/netket/blob/master/netket/jax/_expect.py
+    """
+    from mpi4jax import allreduce
+    from functools import partial
+
+    def expect(
+        log_pdf,
+        expected_fun,
+        pars,
+        x,
+        *expected_fun_args,
+        n_chains,
+    ):
+        return _expect(n_chains, log_pdf, expected_fun, pars, x, *expected_fun_args)
+
+    @partial(jax.custom_vjp, nondiff_argnums=(0, 1, 2))
+    def _expect(n_chains, log_pdf, expected_fun, pars, x, *expected_fun_args):
+        L_x = expected_fun(pars, x, *expected_fun_args).reshape((n_chains, -1))
+        return allreduce(L_x.mean(), op=MPI.SUM)[0] / MPI.COMM_WORLD.Get_size()
+
+    def _expect_fwd(n_chains, log_pdf, expected_fun, pars, x, *expected_fun_args):
+        L_x = expected_fun(pars, x, *expected_fun_args)
+        L_x_r = L_x.reshape((n_chains, -1))
+        dL_x = allreduce(L_x_r.mean(), op=MPI.SUM)[0] / MPI.COMM_WORLD.Get_size()
+        ΔL_x = L_x - dL_x
+        return dL_x, (pars, x, expected_fun_args, ΔL_x)
+
+    def _expect_bwd(n_chains, log_pdf, expected_fun, residuals, dout):
+        pars, x, cost_args, ΔL_x = residuals
+        dL = dout
+
+        def f(pars, x, *cost_args):
+            log_p = log_pdf(pars, x)
+            term1 = jax.vmap(jnp.multiply)(ΔL_x, log_p)
+            term2 = expected_fun(pars, x, *cost_args)
+            out = (
+                allreduce(jnp.mean(term1 + term2, axis=0), op=MPI.SUM)[0]
+                / MPI.COMM_WORLD.Get_size()
+            )
+            out = out.sum()
+            return out
+
+        aa, pb = jax.vjp(f, pars, x, *cost_args)
+        grad_f = pb(dL)
+        return grad_f
+
+    _expect.defvjp(_expect_fwd, _expect_bwd)
+
+    def log_pdf(w, x):
+        return jnp.sum(x.dot(w), axis=-1)
+
+    def expected_fun(w, x, *args):
+        return jnp.exp(jnp.sum(x.dot(w), axis=-1)) - 2
+
+    w = jax.random.normal(jax.random.PRNGKey(3), (4, 8))
+    x = jax.random.normal(jax.random.PRNGKey(3), (16, 4))
+
+    expect(log_pdf, expected_fun, w, x, None, n_chains=16)
+    O, vjpfun = jax.vjp(
+        lambda w: expect(log_pdf, expected_fun, w, x, None, n_chains=16), w
+    )
+    vjpfun(jnp.ones_like(O))
