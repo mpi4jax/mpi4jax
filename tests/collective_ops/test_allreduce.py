@@ -269,14 +269,13 @@ def test_advanced_jvp():
     def _expect_fwd(n_chains, log_pdf, expected_fun, pars, σ, *expected_fun_args):
         L_σ = expected_fun(pars, σ, *expected_fun_args)
         L_σ_r = L_σ.reshape((n_chains, -1))
-        L̄_σ = allreduce(L_σ_r.mean(), op=MPI.SUM)[0] / MPI.COMM_WORLD.Get_size()
-        ΔL_σ = L_σ - L̄_σ
-        print(f"{L̄_σ = } with {L̄_σ.shape=}")
-        return L̄_σ, (pars, σ, expected_fun_args, ΔL_σ)
+        dL_σ = allreduce(L_σ_r.mean(), op=MPI.SUM)[0] / MPI.COMM_WORLD.Get_size()
+        ΔL_σ = L_σ - dL_σ
+        return dL_σ, (pars, σ, expected_fun_args, ΔL_σ)
 
     def _expect_bwd(n_chains, log_pdf, expected_fun, residuals, dout):
         pars, σ, cost_args, ΔL_σ = residuals
-        dL̄ = dout
+        dL = dout
 
         def f(pars, σ, *cost_args):
             log_p = log_pdf(pars, σ)
@@ -286,16 +285,11 @@ def test_advanced_jvp():
                 allreduce(jnp.mean(term1 + term2, axis=0), op=MPI.SUM)[0]
                 / MPI.COMM_WORLD.Get_size()
             )
-            print(f"out is {out} with {out.shape=}")
             out = out.sum()
-            print(f"out is {out} with {out.shape=}")
             return out
 
         aa, pb = jax.vjp(f, pars, σ, *cost_args)
-        print(f"aa is {aa} with {aa.shape=} ")
-        print(f"dL̄ is {dL̄} with {dL̄.shape=}")
-        grad_f = pb(dL̄)
-        print(grad_f)
+        grad_f = pb(dL)
         return grad_f
 
     _expect.defvjp(_expect_fwd, _expect_bwd)
