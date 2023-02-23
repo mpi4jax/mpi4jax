@@ -224,10 +224,8 @@ def test_allreduce_chained_jit():
 def test_custom_vjp():
     from mpi4jax import allreduce
 
-    from jax import custom_vjp
-
     # define an arbitrary functin with custom_vjp
-    @custom_vjp
+    @jax.custom_vjp
     def f(x, y):
         r = jnp.sin(x) * y
         r = r.sum()
@@ -245,14 +243,13 @@ def test_custom_vjp():
     f.defvjp(f_fwd, f_bwd)
 
     # check that it does not crash
-    res_t = jax.jit(f)(jnp.ones(3), jnp.ones(3) * 2)
-    res_t = jax.jit(jax.grad(f))(jnp.ones(3), jnp.ones(3) * 2)
+    _ = jax.jit(f)(jnp.ones(3), jnp.ones(3) * 2)
+    _ = jax.jit(jax.grad(f))(jnp.ones(3), jnp.ones(3) * 2)
 
 
 def test_advanced_jvp():
     from mpi4jax import allreduce
     from functools import partial
-    from jax import custom_vjp
 
     def expect(
         log_pdf,
