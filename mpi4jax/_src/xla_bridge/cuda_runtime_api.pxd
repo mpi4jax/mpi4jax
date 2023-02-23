@@ -15,5 +15,5 @@ cdef extern from "cuda_runtime_api.h":
     cudaError_t cudaStreamSynchronize(cudaStream_t stream) nogil
     cudaError_t cudaMemcpy(void *dst, const void *src, size_t count, cudaMemcpyKind kind) nogil
 
-    char* cudaGetErrorName(cudaError_t error) nogil
-    char* cudaGetErrorString(cudaError_t error) nogil
+    const char* cudaGetErrorName(cudaError_t error) nogil
+    const char* cudaGetErrorString(cudaError_t error) nogil
