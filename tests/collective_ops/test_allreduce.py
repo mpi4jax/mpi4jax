@@ -307,5 +307,4 @@ def test_advanced_jvp():
     O, vjpfun = jax.vjp(
         lambda w: expect(log_pdf, expected_fun, w, x, None, n_chains=16), w
     )
-    print(f"O is {O} with {O.shape=}")
     vjpfun(jnp.ones_like(O))
