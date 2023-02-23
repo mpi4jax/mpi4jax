@@ -50,3 +50,10 @@ if versiontuple(jaxlib.__version__) >= (0, 4, 2):
     from jaxlib.hlo_helpers import custom_call as hlo_custom_call  # noqa: F401
 else:
     from jaxlib.mhlo_helpers import custom_call as hlo_custom_call  # noqa: F401
+
+
+# TODO: remove this code once we only support jax > 0.4.4
+if versiontuple(jax.__version__) >= (0, 4, 4):
+    from jax._src.interpreters.mlir import token_type  # noqa: F401
+else:
+    from jax.interpreters.mlir import token_type  # noqa: F401

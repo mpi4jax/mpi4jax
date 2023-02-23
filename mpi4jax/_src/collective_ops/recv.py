@@ -20,7 +20,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
-from ..jax_compat import hlo_custom_call
+from ..jax_compat import hlo_custom_call, token_type
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -108,7 +108,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *mlir.token_type(),
+        *token_type(),
     ]
 
     if status is None:
@@ -157,7 +157,7 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *mlir.token_type(),
+        *token_type(),
     ]
 
     if status is None:

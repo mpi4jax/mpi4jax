@@ -80,4 +80,10 @@ Experimental
 auto_tokenize
 +++++++++++++
 
+.. warning::
+
+    ``auto_tokenize`` is currently broken for JAX 0.4.4 and later.
+    To use it, downgrade to ``jax<=0.4.3``.
+    See `issue #192 <https://github.com/mpi4jax/mpi4jax/issues/192>` for more details.
+
 .. autofunction:: mpi4jax.experimental.auto_tokenize

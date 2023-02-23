@@ -18,7 +18,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
-from ..jax_compat import hlo_custom_call
+from ..jax_compat import hlo_custom_call, token_type
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -65,7 +65,7 @@ def barrier(*, comm=None, token=None):
 def mpi_barrier_xla_encode_cpu(ctx, token, comm):
     comm = unpack_hashable(comm)
 
-    out_types = mlir.token_type()
+    out_types = token_type()
 
     operands = (
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
@@ -91,7 +91,7 @@ def mpi_barrier_xla_encode_gpu(ctx, token, comm):
 
     comm = unpack_hashable(comm)
 
-    out_types = mlir.token_type()
+    out_types = token_type()
 
     operands = (token,)
 

@@ -10,6 +10,14 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+from mpi4jax._src.jax_compat import versiontuple  # noqa: E402
+
+pytestmark = pytest.mark.xfail(
+    versiontuple(jax.__version__) >= versiontuple("0.4.4"),
+    reason="does not work with jax>=0.4.4 yet",
+    raises=ImportError,
+)
+
 
 def test_allreduce():
     from mpi4jax import allreduce
