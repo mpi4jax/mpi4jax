@@ -22,12 +22,13 @@ def versiontuple(verstr):
 jax_version = versiontuple(jax.__version__)
 
 
-if jax_version >= versiontuple("0.3.15"):
+if jax_version >= versiontuple("0.4.4"):
     # abstract eval needs to return effects
     # see https://github.com/google/jax/issues/11620
     from functools import wraps
     from jax.interpreters import mlir
-    from jax._src.lax import control_flow as lcf
+    import jax._src.lax.control_flow as lcf
+    import jax._src.custom_derivatives as custom_derivatives
 
     class MPIEffect:
         def __hash__(self):
@@ -40,21 +41,7 @@ if jax_version >= versiontuple("0.3.15"):
 
     # Effects must be added to the allow_effects list in order to work within
     # custom_vjp. See google/jax#11916
-    if jax_version >= versiontuple("0.3.17"):
-        # since this is very internal, try not to break mpi4jax if they move the list.
-        has_allowed_effects_list = hasattr(jax._src, "custom_derivatives") and hasattr(
-            jax._src.custom_derivatives, "allowed_effects"
-        )
-        if has_allowed_effects_list:
-            jax._src.custom_derivatives.allowed_effects.add(effect)
-        else:
-            warnings.warn(
-                "\n`jax._src.custom_derivatives.allowed_effects` does not exist in this jax version, "
-                "so MPI operations might not work from within functions with custom vjp/jvp rules.\n\n"
-                "Try upgrading mpi4jax via\n\n"
-                "      $ pip install -U mpi4jax\n\n"
-                "and open an issue on the mpi4jax repository if the issue persists."
-            )
+    custom_derivatives.allowed_effects.add(effect)
 
     def register_abstract_eval(primitive, func):
         """Injects an effect object into func and registers it via `primitive.def_effectful_abstract_eval`.
