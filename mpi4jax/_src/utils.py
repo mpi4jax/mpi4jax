@@ -7,10 +7,8 @@ import numpy as _np
 from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
-from jax._src.lax import control_flow as lcf
-import jax._src.custom_derivatives as custom_derivatives
 
-from .jax_compat import token_type
+from .jax_compat import token_type, register_effect
 
 
 class MPIEffect:
@@ -19,12 +17,7 @@ class MPIEffect:
         return hash("I love mpi4jax")
 
 
-effect = MPIEffect()
-mlir.lowerable_effects.add(effect)
-lcf.allowed_effects.add(effect)
-# Effects must be added to the allow_effects list in order to work within
-# custom_vjp. See google/jax#11916
-custom_derivatives.allowed_effects.add(effect)
+effect = register_effect(MPIEffect)
 
 
 def default_primitive_impl(primitive):

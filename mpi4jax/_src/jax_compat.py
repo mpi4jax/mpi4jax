@@ -57,3 +57,35 @@ if versiontuple(jax.__version__) >= (0, 4, 4):
     from jax._src.interpreters.mlir import token_type  # noqa: F401
 else:
     from jax.interpreters.mlir import token_type  # noqa: F401
+
+
+# TODO: remove this code once we only support jax > 0.4.5
+if versiontuple(jax.__version__) >= (0, 4, 5):
+
+    def register_effect(EffectType):
+        from jax.interpreters import mlir
+        from jax._src.lax import control_flow as lcf
+        import jax._src.custom_derivatives as custom_derivatives
+
+        effect = EffectType()
+        mlir.lowerable_effects.add_type(EffectType)
+        lcf.allowed_effects.add_type(EffectType)
+        # Effects must be added to the allow_effects list in order to work within
+        # custom_vjp. See google/jax#11916
+        custom_derivatives.allowed_effects.add_type(EffectType)
+        return effect
+
+else:
+
+    def register_effect(EffectType):
+        from jax.interpreters import mlir
+        from jax._src.lax import control_flow as lcf
+        import jax._src.custom_derivatives as custom_derivatives
+
+        effect = EffectType()
+        mlir.lowerable_effects.add(effect)
+        lcf.allowed_effects.add(effect)
+        # Effects must be added to the allow_effects list in order to work within
+        # custom_vjp. See google/jax#11916
+        custom_derivatives.allowed_effects.add(effect)
+        return effect
