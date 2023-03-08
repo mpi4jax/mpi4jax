@@ -18,6 +18,14 @@ except ImportError:
 else:
     HAS_XPU_EXT = True
 
+try:
+    from . import mpi_xla_bridge_gpu_hip
+except ImportError:
+    HAS_GPU_HIP_EXT = False
+else:
+    HAS_GPU_HIP_EXT = True
+
+
 # setup logging
 
 
@@ -39,3 +47,7 @@ if HAS_CUDA_EXT:
 if HAS_XPU_EXT:
     for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="SYCL")
+
+if HAS_GPU_HIP_EXT:
+    for name, fn in mpi_xla_bridge_gpu_hip.gpu_custom_call_targets.items():
+        xla_client.register_custom_call_target(name, fn, platform="ROCM")

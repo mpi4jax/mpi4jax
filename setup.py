@@ -308,6 +308,61 @@ def get_cuda_info():
 # /end Cuda detection
 #####################
 
+################
+# ROCM-HIP detection
+
+
+def get_rocm_path():
+    hipcc_path = search_on_path(("hipcc",))
+    rocm_path_default = None
+    if hipcc_path is not None:
+        rocm_path_default = os.path.normpath(os.path.dirname(hipcc_path))
+
+    rocm_path = os.getenv("ROCM_PATH", "")
+
+    if len(rocm_path) > 0 and rocm_path != rocm_path_default:
+        print_warning(
+            "hipcc path != ROCM_PATH",
+            "hipcc path: %s" % rocm_path_default,
+            "ROCM_PATH: %s" % rocm_path,
+        )
+
+    if os.path.exists(rocm_path):
+        _rocm_path = rocm_path
+    elif rocm_path_default is not None:
+        _rocm_path = rocm_path_default
+    elif os.path.exists("/opt/rocm"):
+        _rocm_path = "/opt/rocm"
+    else:
+        _rocm_path = None
+
+    return _rocm_path
+
+
+def get_hip_info():
+    hip_info = {"compile": [], "libdirs": [], "libs": []}
+    rocm_path = get_rocm_path()
+    if not rocm_path:
+        return hip_info
+
+    incdir = os.path.join(rocm_path, "hip/include")
+    if os.path.isdir(incdir):
+        hip_info["compile"].append(incdir)
+
+    for libdir in ("hip/lib64", "hip/lib"):
+        full_dir = os.path.join(rocm_path, libdir)
+        if os.path.isdir(full_dir):
+            hip_info["libdirs"].append(full_dir)
+
+    # hip_info["libs"].append("rocclr")
+    return hip_info
+
+
+hip_info = get_hip_info()
+
+# /end ROCM/HIP detection
+#####################
+
 
 def get_extensions():
     cmd = sys.argv[1]
@@ -378,6 +433,20 @@ def get_extensions():
     else:
         print_warning("CUDA path not found", "(GPU extensions will not be built)")
 
+    if hip_info["compile"] and hip_info["libdirs"]:
+        extensions.append(
+            Extension(
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu_hip",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu_hip.pyx"],
+                include_dirs=hip_info["compile"],
+                library_dirs=hip_info["libdirs"],
+                define_macros=[("__HIP_PLATFORM_HCC__", "__HIP_PLATFORM_AMD__")],
+                # libraries=hip_info["libs"],
+            )
+        )
+    else:
+        print_warning("HIP path not found", "(GPU extensions will not be built)")
+
     if HAS_CYTHON:
         extensions = cythonize(
             extensions,
@@ -413,6 +482,7 @@ setup(
         "Programming Language :: Cython",
         "Development Status :: 3 - Alpha",
         "Environment :: GPU :: NVIDIA CUDA",
+        "Environment :: GPU :: AMD ROCM-HIP",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Operating System :: MacOS :: MacOS X",
