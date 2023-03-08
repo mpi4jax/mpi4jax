@@ -185,6 +185,57 @@ def mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status):
         status_ptr,
     )
 
+    return hlo_custom_call(
+        b"mpi_recv",
+        out_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    )
+
+
+@translation_rule_gpu
+def mpi_recv_xla_encode_gpu_hip(ctx, x, token, source, tag, comm, status):
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_recv_descriptor
+
+    comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *token_type(),
+    ]
+
+    if status is None:
+        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
+    else:
+        status_ptr = to_mpi_ptr(status)
+
+    operands = (token,)
+
+    descriptor = build_recv_descriptor(
+        nitems,
+        source,
+        tag,
+        to_mpi_handle(comm),
+        dtype_handle,
+        status_ptr,
+    )
+
     return custom_call(
         b"mpi_recv",
         result_types=out_types,
@@ -216,3 +267,4 @@ mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="xpu")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_gpu_hip, platform="rocm")
