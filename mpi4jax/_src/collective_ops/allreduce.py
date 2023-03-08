@@ -117,8 +117,57 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
 
 
 @translation_rule_gpu
-def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
+def mpi_allreduce_xla_encode_gpu_cuda(ctx, x, token, op, comm, transpose):
+    from ..xla_bridge.mpi_xla_bridge_gpu_cuda import build_allreduce_descriptor
+
+    op = unpack_hashable(op)
+    comm = unpack_hashable(comm)
+
+    if transpose:
+        assert op == _MPI.SUM
+        return [x, token]
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *token_type(),
+    ]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_allreduce_descriptor(
+        _np.intc(nitems),
+        to_mpi_handle(op),
+        to_mpi_handle(comm),
+        to_dtype_handle(x_nptype),
+    )
+
+    return hlo_custom_call(
+        b"mpi_allreduce",
+        out_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    )
+
+
+@translation_rule_gpu
+def mpi_allreduce_xla_encode_gpu_hip(ctx, x, token, op, comm, transpose):
+    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -223,4 +272,9 @@ ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(
+    mpi_allreduce_p, mpi_allreduce_xla_encode_gpu_cuda, platform="cuda"
+)
+mlir.register_lowering(
+    mpi_allreduce_p, mpi_allreduce_xla_encode_gpu_hip, platform="rocm"
+)

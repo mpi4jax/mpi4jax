@@ -144,8 +144,61 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
 
 
 @translation_rule_gpu
-def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
+def mpi_scatter_xla_encode_gpu_cuda(ctx, x, token, root, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu_cuda import build_scatter_descriptor
+
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    rank = comm.Get_rank()
+    if rank == root:
+        dims = dims[1:]
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *token_type(),
+    ]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_scatter_descriptor(
+        nitems,
+        dtype_handle,
+        # we only support matching input and output arrays
+        nitems,
+        dtype_handle,
+        #
+        root,
+        to_mpi_handle(comm),
+    )
+
+    return hlo_custom_call(
+        b"mpi_scatter",
+        out_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    )
+
+
+@translation_rule_gpu
+def mpi_scatter_xla_encode_gpu_hip(ctx, x, token, root, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -217,4 +270,5 @@ mpi_scatter_p.def_effectful_abstract_eval(mpi_scatter_abstract_eval)
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_gpu_cuda, platform="cuda")
+mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_gpu_hip, platform="rocm")
