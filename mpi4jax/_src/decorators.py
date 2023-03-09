@@ -10,7 +10,7 @@ _hip_mpi_setup_done = False
 def ensure_gpu_ext():
     from .xla_bridge import HAS_GPU_CUDA_EXT, HAS_GPU_HIP_EXT
 
-    if not HAS_GPU_CUDA_EXT or not HAS_GPU_HIP_EXT:
+    if not HAS_GPU_CUDA_EXT and not HAS_GPU_HIP_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with CUDA or HIP support and try again."
