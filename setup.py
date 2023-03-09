@@ -356,7 +356,7 @@ def get_hip_info():
         if os.path.isdir(full_dir):
             hip_info["libdirs"].append(full_dir)
 
-    # hip_info["libs"].append("rocclr")
+    hip_info["libs"].append("amdhip64")
     return hip_info
 
 
@@ -443,7 +443,7 @@ def get_extensions():
                 include_dirs=hip_info["compile"],
                 library_dirs=hip_info["libdirs"],
                 define_macros=[("__HIP_PLATFORM_HCC__", "__HIP_PLATFORM_AMD__")],
-                # libraries=hip_info["libs"],
+                libraries=hip_info["libs"],
             )
         )
     else:
