@@ -128,9 +128,12 @@ def setup_hip_mpi():
         )
         warnings.warn(warn_msg)
 
-    from .xla_bridge import mpi_xla_bridge_gpu_hip
+    try:
+        from .xla_bridge import mpi_xla_bridge_gpu_hip
 
-    mpi_xla_bridge_gpu_hip.set_copy_to_host(not has_hip_mpi)
+        mpi_xla_bridge_gpu_hip.set_copy_to_host(not has_hip_mpi)
+    except ImportError:
+        warnings.warn("HIP xla_bridge is not compiled")
 
 
 def translation_rule_cpu(func):
