@@ -127,6 +127,7 @@ sudo add-apt-repository "deb ${REPO_URL} /"
 sudo apt-get update
 
 echo "Installing CUDA packages ${CUDA_PACKAGES}"
+sudo apt-cache search cuda
 sudo apt-get -y install ${CUDA_PACKAGES}
 
 if [[ $? -ne 0 ]]; then
