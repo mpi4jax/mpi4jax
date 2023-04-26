@@ -318,9 +318,7 @@ def get_rocm_path():
     if hipcc_path is not None:
         rocm_path_default = os.path.normpath(os.path.dirname(hipcc_path))
 
-    rocm_path = os.getenv(
-        "ROCM_PATH",
-    )
+    rocm_path = os.getenv("ROCM_PATH", "")
 
     if len(rocm_path) > 0 and rocm_path != rocm_path_default:
         print_warning(
