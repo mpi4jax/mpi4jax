@@ -1,6 +1,6 @@
 import jax
 from jax import linear_util as lu
-from jax.interpreters import xla
+from jax.experimental import pjit
 
 # registry for wrapped mpi4jax ops
 from .register_overrides import token_override_registry  # noqa: E402
@@ -12,7 +12,9 @@ recursive_token_forwarding_registry = {}
 def safe_map(f, *args):
     args = [list(arg) for arg in args]
     for arg in args:
-        assert len(arg) == len(args[0]), f"Mismatched lengths: {[len(x) for x in args]}"
+        assert len(arg) == len(
+            args[0]
+        ), f"Mismatched lengths: {[len(x) for x in args]}, {args}"
     return [f(*arg) for arg in zip(*args)]
 
 
@@ -31,7 +33,7 @@ def xla_call_overrride(read, eqn, token):
     return token, ans
 
 
-recursive_token_forwarding_registry[xla.xla_call_p] = xla_call_overrride
+recursive_token_forwarding_registry[pjit.pjit_p] = xla_call_overrride
 
 
 def scan_override(read, eqn, token):
@@ -119,10 +121,6 @@ def _override_tokens(jaxpr, consts, token, *args):
         env[v] = val
 
     env = {}
-
-    # compatibility with jax<0.3.10
-    if hasattr(jax.core, "unitvar"):
-        write(jax.core.unitvar, jax.core.unit)
 
     safe_map(write, jaxpr.constvars, consts)
     safe_map(write, jaxpr.invars, args)

@@ -1,10 +1,9 @@
 import jax
 from mpi4jax._src.jax_compat import versiontuple
 
-if versiontuple(jax.__version__) >= versiontuple("0.4.4"):
+if versiontuple(jax.__version__) <= versiontuple("0.4.10"):
     raise ImportError(
-        "mpi4jax.experimental is not yet compatible with JAX versions >= 0.4.4. "
-        "Please use jax<=0.4.3 for now."
+        "mpi4jax.experimental is not compatible with JAX versions <= 0.4.10 "
     )
 
 from .tokenizer import auto_tokenize

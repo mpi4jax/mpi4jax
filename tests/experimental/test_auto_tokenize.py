@@ -13,8 +13,8 @@ size = comm.Get_size()
 from mpi4jax._src.jax_compat import versiontuple  # noqa: E402
 
 pytestmark = pytest.mark.xfail(
-    versiontuple(jax.__version__) >= versiontuple("0.4.4"),
-    reason="does not work with jax>=0.4.4 yet",
+    versiontuple(jax.__version__) <= versiontuple("0.4.10"),
+    reason="does not work with jax<=0.4.10",
     raises=ImportError,
 )
 
