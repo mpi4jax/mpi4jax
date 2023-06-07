@@ -32,11 +32,11 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 
 
 # This function applies the primitive to an AST
-@enforce_types(
-    op=(_MPI.Op, HashableMPIType),
-    comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), Token, Tracer),
-)
+# @enforce_types(
+#    op=(_MPI.Op, HashableMPIType),
+#    comm=(type(None), _MPI.Intracomm, HashableMPIType),
+#    token=(type(None), type(None), Tracer),
+# )
 def allreduce(x, op, *, comm=None, token=None):
     """Perform an allreduce operation.
 
@@ -198,7 +198,7 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
 
 
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
-    _, token = x_args
+    _, _ = x_args
     x_tan, token_tan = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
@@ -207,9 +207,9 @@ def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
         )
 
     res, token = mpi_allreduce_p.bind(
-        x_tan, token, op=op, comm=comm, transpose=(not transpose)
+        x_tan, token_tan, op=op, comm=comm, transpose=(not transpose)
     )
-    return res, token_tan
+    return res, token
 
 
 mpi_allreduce_p.multiple_results = True
