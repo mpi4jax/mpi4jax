@@ -1,7 +1,7 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import abstract_arrays, core
+from jax import core
 from jax.core import Primitive, Tracer, Token
 from jax.lax import create_token
 
@@ -19,7 +19,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
-from ..jax_compat import hlo_custom_call, token_type
+from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -188,7 +188,7 @@ def mpi_reduce_abstract_eval(xs, token, op, root, comm):
         dims = xs.shape
 
     return (
-        abstract_arrays.ShapedArray(dims, xs.dtype),
+        ShapedArray(dims, xs.dtype),
         core.abstract_token,
     ), {effect}
 

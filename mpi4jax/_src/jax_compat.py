@@ -59,8 +59,34 @@ else:
     from jax.interpreters.mlir import token_type  # noqa: F401
 
 
+# TODO: remove this code once we only support jax > 0.4.4
+if versiontuple(jax.__version__) >= (0, 4, 16):
+    from jax.core import ShapedArray  # noqa: F401
+else:
+    from jax.abstract_arrays import ShapedArray  # noqa: F401
+
+
+# TODO: remove this code once we only support jax > 0.4.14
+if versiontuple(jax.__version__) >= (0, 4, 16):
+
+    def register_effect(EffectType):
+        from jax.interpreters import mlir
+        from jax._src.effects import (
+            control_flow_allowed_effects,
+            custom_derivatives_allowed_effects,
+        )
+
+        effect = EffectType()
+        mlir.lowerable_effects.add_type(EffectType)
+        control_flow_allowed_effects.add_type(EffectType)
+        # Effects must be added to the allow_effects list in order to work within
+        # custom_vjp. See google/jax#11916
+        custom_derivatives_allowed_effects.add_type(EffectType)
+        return effect
+
+
 # TODO: remove this code once we only support jax > 0.4.5
-if versiontuple(jax.__version__) >= (0, 4, 5):
+elif versiontuple(jax.__version__) >= (0, 4, 5):
 
     def register_effect(EffectType):
         from jax.interpreters import mlir
