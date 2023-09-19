@@ -113,13 +113,13 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
 
     return hlo_custom_call(
         b"mpi_allgather",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # layout matters here, because the first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
-    )
+    ).results
 
 
 @translation_rule_gpu
@@ -161,14 +161,14 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
 
     return hlo_custom_call(
         b"mpi_allgather",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # layout matters here, because the first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         backend_config=descriptor,
         has_side_effect=True,
-    )
+    ).results
 
 
 # This function evaluates only the shapes during AST construction

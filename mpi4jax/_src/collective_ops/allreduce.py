@@ -2,7 +2,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import core
-from jax.core import Primitive
+from jax.core import Primitive, Tracer, Token
 from jax.interpreters import ad, batching
 from jax.lax import create_token
 
@@ -10,6 +10,7 @@ from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
 from ..utils import (
+    HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
     to_mpi_handle,
@@ -21,6 +22,7 @@ from ..utils import (
 )
 from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..validation import enforce_types
 from ..comm import get_default_comm
 
 
@@ -106,12 +108,12 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
 
     return hlo_custom_call(
         b"mpi_allreduce",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    )
+    ).results
 
 
 @translation_rule_gpu
