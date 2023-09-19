@@ -39,7 +39,7 @@ DEV_DEPENDENCIES = [
     "pytest-cov>=2.10.1",
     "coverage[toml]>=5",
     "pre-commit",
-    "black==23.9",
+    "black==23.9; python_version >= '3.8.0'",
     "flake8==3.9.2",
     "tqdm>=4.52",
 ]
