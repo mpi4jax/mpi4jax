@@ -45,11 +45,28 @@ def check_jax_version():
         )
 
 
-# TODO: remove this code once we only support jax/lib > 0.4.2
-if versiontuple(jaxlib.__version__) >= (0, 4, 2):
+# TODO: remove the other path once we require jax/lib > 0.4.16
+if versiontuple(jax.__version__) >= (0, 4, 16):
     from jaxlib.hlo_helpers import custom_call as hlo_custom_call  # noqa: F401
 else:
-    from jaxlib.mhlo_helpers import custom_call as hlo_custom_call  # noqa: F401
+    if versiontuple(jaxlib.__version__) >= (0, 4, 2):
+        from jaxlib.hlo_helpers import custom_call as _hlo_custom_call  # noqa: F401
+    else:
+        from jaxlib.mhlo_helpers import custom_call as _hlo_custom_call  # noqa: F401
+
+    # Recent versions return a structure with a field 'results'. We mock it on
+    # older versions
+    from collections import namedtuple
+
+    MockResult = namedtuple("MockResult", ["results"])
+
+    def hlo_custom_call(*args, result_types, **kwargs):
+        results = _hlo_custom_call(*args, out_types=result_types, **kwargs)
+        # TODO: remove this path once we require jax>=0.4.10
+        if versiontuple(jaxlib.__version__) < (0, 4, 10):
+            if not isinstance(results, list):
+                results = [results]
+        return MockResult(results)
 
 
 # TODO: remove this code once we only support jax > 0.4.4
@@ -59,8 +76,8 @@ else:
     from jax.interpreters.mlir import token_type  # noqa: F401
 
 
-# TODO: remove this code once we only support jax > 0.4.4
-if versiontuple(jax.__version__) >= (0, 4, 16):
+# TODO: remove this code once we only support jax > 0.4.14
+if versiontuple(jax.__version__) >= (0, 4, 14):
     from jax.core import ShapedArray  # noqa: F401
 else:
     from jax.abstract_arrays import ShapedArray  # noqa: F401
