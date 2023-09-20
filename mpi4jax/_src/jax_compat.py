@@ -85,16 +85,17 @@ else:
 
 # TODO: remove this code once we only support jax >= 0.4.16
 if versiontuple(jax.__version__) >= (0, 4, 16):
+    EffectType = jax._src.effects.Effect
 
     def register_effect(EffectType):
-        from jax.interpreters import mlir
         from jax._src.effects import (
+            lowerable_effects,
             control_flow_allowed_effects,
             custom_derivatives_allowed_effects,
         )
 
         effect = EffectType()
-        mlir.lowerable_effects.add_type(EffectType)
+        lowerable_effects.add_type(EffectType)
         control_flow_allowed_effects.add_type(EffectType)
         # Effects must be added to the allow_effects list in order to work within
         # custom_vjp. See google/jax#11916
@@ -104,6 +105,7 @@ if versiontuple(jax.__version__) >= (0, 4, 16):
 
 # TODO: remove this code once we only support jax > 0.4.5
 elif versiontuple(jax.__version__) >= (0, 4, 5):
+    EffectType = object
 
     def register_effect(EffectType):
         from jax.interpreters import mlir
@@ -119,6 +121,7 @@ elif versiontuple(jax.__version__) >= (0, 4, 5):
         return effect
 
 else:
+    EffectType = object
 
     def register_effect(EffectType):
         from jax.interpreters import mlir

@@ -8,10 +8,10 @@ from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 
-from .jax_compat import token_type, register_effect
+from .jax_compat import token_type, register_effect, EffectType
 
 
-class MPIEffect:
+class MPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
         return hash("I love mpi4jax")
