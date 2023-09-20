@@ -72,7 +72,6 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
         token,
     )
 
-    # JAX insists on outputs being iterable
     return hlo_custom_call(
         b"mpi_barrier",
         result_types=out_types,
@@ -95,7 +94,6 @@ def mpi_barrier_xla_encode_gpu(ctx, token, comm):
 
     descriptor = build_barrier_descriptor(to_mpi_handle(comm))
 
-    # JAX insists on outputs being iterable
     return hlo_custom_call(
         b"mpi_barrier",
         result_types=out_types,

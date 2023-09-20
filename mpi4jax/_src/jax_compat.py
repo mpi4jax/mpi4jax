@@ -83,7 +83,7 @@ else:
     from jax.abstract_arrays import ShapedArray  # noqa: F401
 
 
-# TODO: remove this code once we only support jax > 0.4.14
+# TODO: remove this code once we only support jax >= 0.4.16
 if versiontuple(jax.__version__) >= (0, 4, 16):
 
     def register_effect(EffectType):

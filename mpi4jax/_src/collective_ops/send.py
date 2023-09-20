@@ -90,7 +90,6 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
         token,
     )
 
-    # JAX insists on outputs being iterable
     return hlo_custom_call(
         b"mpi_send",
         result_types=out_types,
@@ -132,7 +131,6 @@ def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
         dtype_handle,
     )
 
-    # JAX insists on outputs being iterable
     return hlo_custom_call(
         b"mpi_send",
         result_types=out_types,
