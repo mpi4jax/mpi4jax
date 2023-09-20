@@ -39,7 +39,7 @@ DEV_DEPENDENCIES = [
     "pytest-cov>=2.10.1",
     "coverage[toml]>=5",
     "pre-commit",
-    "black==21.6b0",
+    "black==23.9; python_version >= '3.8.0'",
     "flake8==3.9.2",
     "tqdm>=4.52",
 ]
@@ -89,6 +89,7 @@ class custom_build_ext(build_ext):
 
 ################
 # Cuda detection
+
 
 # Taken from CUPY (MIT License)
 def get_cuda_path():
