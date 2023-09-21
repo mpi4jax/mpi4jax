@@ -17,7 +17,7 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
+    ordered_effect,
 )
 from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -99,6 +99,8 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
@@ -111,7 +113,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         token,
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -119,7 +121,13 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
@@ -157,9 +165,11 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
         to_mpi_handle(comm),
     )
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (sendbuf, token)
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -168,7 +178,13 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
         result_layouts=get_default_layouts(out_types, order="c"),
         backend_config=descriptor,
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 # This function evaluates only the shapes during AST construction
@@ -179,7 +195,7 @@ def mpi_allgather_abstract_eval(x, token, comm):
     return (
         ShapedArray(out_shape, x.dtype),
         core.abstract_token,
-    ), {effect}
+    ), {ordered_effect}
 
 
 mpi_allgather_p.multiple_results = True

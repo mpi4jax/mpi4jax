@@ -17,7 +17,7 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
+    ordered_effect,
 )
 from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -120,6 +120,8 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
@@ -133,14 +135,20 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
         token,
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_scatter",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
@@ -169,6 +177,8 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         x,
         token,
@@ -185,7 +195,7 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         to_mpi_handle(comm),
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_scatter",
         result_types=out_types,
         operands=operands,
@@ -193,7 +203,13 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 # This function evaluates only the shapes during AST construction
@@ -208,7 +224,7 @@ def mpi_scatter_abstract_eval(x, token, root, comm):
     return (
         ShapedArray(out_shape, x.dtype),
         core.abstract_token,
-    ), {effect}
+    ), {ordered_effect}
 
 
 mpi_scatter_p.multiple_results = True

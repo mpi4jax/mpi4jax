@@ -18,7 +18,7 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
+    ordered_effect,
 )
 from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -97,6 +97,8 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
@@ -106,14 +108,20 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         token,
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_allreduce",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
@@ -142,6 +150,8 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         x,
         token,
@@ -154,7 +164,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
         to_dtype_handle(x_nptype),
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_allreduce",
         out_types=out_types,
         operands=operands,
@@ -164,13 +174,27 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
         backend_config=descriptor,
     )
 
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
+
 
 # This function evaluates only the shapes during AST construction
 def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):
-    return (
-        ShapedArray(xs.shape, xs.dtype),
-        core.abstract_token,
-    ), {effect}
+    if not transpose:
+        return (
+            ShapedArray(xs.shape, xs.dtype),
+            core.abstract_token,
+        ), {ordered_effect}
+    else:
+        # The transposition of an allreduce is just the identity, so it can be reordered
+        # and does not come with an ordered effect.
+        return (
+            ShapedArray(xs.shape, xs.dtype),
+            core.abstract_token,
+        ), {}
 
 
 def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
