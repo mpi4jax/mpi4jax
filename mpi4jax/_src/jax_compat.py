@@ -87,15 +87,20 @@ else:
 if versiontuple(jax.__version__) >= (0, 4, 16):
     EffectType = jax._src.effects.Effect
 
-    def register_effect(EffectType):
+    def register_effect(EffectType, ordered=False):
         from jax._src.effects import (
             lowerable_effects,
+            ordered_effects,
             control_flow_allowed_effects,
             custom_derivatives_allowed_effects,
         )
 
         effect = EffectType()
         lowerable_effects.add_type(EffectType)
+
+        if ordered:
+            ordered_effects.add_type(EffectType)
+
         control_flow_allowed_effects.add_type(EffectType)
         # Effects must be added to the allow_effects list in order to work within
         # custom_vjp. See google/jax#11916

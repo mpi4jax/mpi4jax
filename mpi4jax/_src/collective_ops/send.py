@@ -17,7 +17,7 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
+    ordered_effect,
 )
 from ..jax_compat import hlo_custom_call, token_type
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -80,6 +80,8 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
 
     out_types = token_type()
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
@@ -90,14 +92,20 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
         token,
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_send",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
@@ -144,7 +152,7 @@ def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
 
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, token, dest, tag, comm):
-    return core.abstract_token, {effect}
+    return core.abstract_token, {ordered_effect}
 
 
 mpi_send_p.def_impl(mpi_send_impl)

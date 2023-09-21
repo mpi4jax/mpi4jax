@@ -18,7 +18,7 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
+    ordered_effect,
 )
 from ..jax_compat import hlo_custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -116,6 +116,8 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
     else:
         status_ptr = to_mpi_ptr(status)
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         as_mhlo_constant(source, _np.intc),
@@ -126,14 +128,20 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         token,
     )
 
-    return hlo_custom_call(
+    custom_call = hlo_custom_call(
         b"mpi_recv",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(custom_call.results)
+    token = results[-1]
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
@@ -192,7 +200,7 @@ def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
         ShapedArray(xs.shape, xs.dtype),
         core.abstract_token,
-    ), {effect}
+    ), {ordered_effect}
 
 
 mpi_recv_p.multiple_results = True

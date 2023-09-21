@@ -17,7 +17,14 @@ class MPIEffect(EffectType):
         return hash("I love mpi4jax")
 
 
+class OrderedMPIEffect(EffectType):
+    def __hash__(self):
+        # enforce a constant (known) hash
+        return hash("I love mpi4jax very much")
+
+
 effect = register_effect(MPIEffect)
+ordered_effect = register_effect(OrderedMPIEffect, ordered=True)
 
 
 def default_primitive_impl(primitive):
