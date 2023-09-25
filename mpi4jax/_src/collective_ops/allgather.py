@@ -114,10 +114,10 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
+        as_mhlo_constant(to_dtype_handle(send_dtype), _np.uintp),
         # we only support matching input and output arrays
         as_mhlo_constant(send_nitems, _np.intc),
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
+        as_mhlo_constant(to_dtype_handle(send_dtype), _np.uintp),
         #
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
         token,

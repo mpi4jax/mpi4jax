@@ -98,19 +98,19 @@ def to_mpi_ptr(mpi_obj):
 
 # store type names as strings since we cannot expect all type objects to be present on all platforms
 MPI_TYPE_MAP = {
-    "float32": "FLOAT",
-    "float64": "DOUBLE",
-    "float128": "LONG_DOUBLE",
-    "complex64": "COMPLEX",
-    "complex128": "DOUBLE_COMPLEX",
-    "int8": "INT8_T",
-    "int16": "INT16_T",
-    "int32": "INT32_T",
-    "int64": "INT64_T",
-    "uint8": "UINT8_T",
-    "uint16": "UINT16_T",
-    "uint32": "UINT32_T",
-    "uint64": "UINT64_T",
+    "f32": "FLOAT",
+    "f64": "DOUBLE",
+    "f128": "LONG_DOUBLE",
+    "complex<f32>": "COMPLEX",
+    "complex<f64>": "DOUBLE_COMPLEX",
+    "i8": "INT8_T",
+    "i16": "INT16_T",
+    "i32": "INT32_T",
+    "i64": "INT64_T",
+    "ui8": "UINT8_T",
+    "ui16": "UINT16_T",
+    "ui32": "UINT32_T",
+    "ui64": "UINT64_T",
     "bool": "BOOL",
 }
 
@@ -119,7 +119,7 @@ def to_dtype_handle(dtype):
     """
     Returns the pointer to the MPI dtype of the input numpy dtype
     """
-    dtype_name = _np.dtype(dtype).name
+    dtype_name = str(dtype)
     if dtype_name not in MPI_TYPE_MAP:
         raise RuntimeError(f"Unknown MPI type for dtype {dtype_name}")
 
