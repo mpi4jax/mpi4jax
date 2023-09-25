@@ -42,3 +42,15 @@ def test_allgather_scalar_jit():
     arr = rank
     res = jax.jit(lambda x: allgather(x)[0])(arr)
     assert jnp.array_equal(res, jnp.arange(size))
+
+
+def test_allgather_scalar_jit():
+    from mpi4jax import allgather
+
+    arr = jax.random.key(rank+1)
+    arr, _ = jax.random.split(arr)
+    print(arr)
+    res = jax.jit(lambda x: allgather(x)[0])(arr)
+    assert res.dtype == arr.dtype
+    print(res)
+    assert jnp.array_equal(res, jax.random.key(1))
