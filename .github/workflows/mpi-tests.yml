@@ -28,7 +28,7 @@ jobs:
             jax-version: "latest"
           # test minimum JAX and Python versions
           - os: ubuntu-latest
-            python-version: "3.7"
+            python-version: "3.8"
             mpi: openmpi
             jax-version: "0.3.25"
 
