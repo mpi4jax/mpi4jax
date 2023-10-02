@@ -20,7 +20,7 @@ from ..utils import (
     get_default_layouts,
     effect,
 )
-from ..jax_compat import hlo_custom_call, token_type, ShapedArray
+from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -126,7 +126,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         token,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_recv",
         result_types=out_types,
         operands=operands,
@@ -176,7 +176,7 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
         status_ptr,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_recv",
         result_types=out_types,
         operands=operands,

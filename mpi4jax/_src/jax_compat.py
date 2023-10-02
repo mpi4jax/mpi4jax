@@ -47,12 +47,12 @@ def check_jax_version():
 
 # TODO: remove the other path once we require jax/lib > 0.4.16
 if versiontuple(jax.__version__) >= (0, 4, 16):
-    from jaxlib.hlo_helpers import custom_call as hlo_custom_call  # noqa: F401
+    from jax.interpreters.mlir import custom_call  # noqa: F401
 else:
     if versiontuple(jaxlib.__version__) >= (0, 4, 2):
-        from jaxlib.hlo_helpers import custom_call as _hlo_custom_call  # noqa: F401
+        from jaxlib.hlo_helpers import custom_call as _custom_call  # noqa: F401
     else:
-        from jaxlib.mhlo_helpers import custom_call as _hlo_custom_call  # noqa: F401
+        from jaxlib.mhlo_helpers import custom_call as _custom_call  # noqa: F401
 
     # Recent versions return a structure with a field 'results'. We mock it on
     # older versions
@@ -60,8 +60,8 @@ else:
 
     MockResult = namedtuple("MockResult", ["results"])
 
-    def hlo_custom_call(*args, result_types, **kwargs):
-        results = _hlo_custom_call(*args, out_types=result_types, **kwargs)
+    def custom_call(*args, result_types, **kwargs):
+        results = _custom_call(*args, out_types=result_types, **kwargs)
         # TODO: remove this path once we require jax>=0.4.10
         if versiontuple(jaxlib.__version__) < (0, 4, 10):
             if not isinstance(results, list):
