@@ -44,7 +44,7 @@ def get_default_layouts(operands, order="c"):
     elif order == "f":
         default_layout = lambda t: tuple(range(len(t.shape)))
     else:
-        raise ValueError("Unknown order: {}".format(order))
+        raise ValueError(f"Unknown order: {order}")
 
     for op in operands:
         if isinstance(op, (ir.Value)):
@@ -61,7 +61,7 @@ def get_default_layouts(operands, order="c"):
             layouts.append(())
 
         else:
-            raise ValueError("Unknown operand type: {}".format(type(op)))
+            raise ValueError(f"Unknown operand type: {type(op)}")
 
     return layouts
 
@@ -110,7 +110,7 @@ def to_dtype_handle(dtype):
     """
     dtype_name = _np.dtype(dtype).name
     if dtype_name not in MPI_TYPE_MAP:
-        raise RuntimeError("Unknown MPI type for dtype {}".format(dtype_name))
+        raise RuntimeError(f"Unknown MPI type for dtype {dtype_name}")
 
     mpi_type = getattr(_MPI, MPI_TYPE_MAP[dtype_name])
     return to_mpi_handle(mpi_type)

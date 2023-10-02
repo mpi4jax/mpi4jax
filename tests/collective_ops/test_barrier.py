@@ -45,7 +45,7 @@ def test_barrier(capsys):
 
     time.sleep(size * 0.2)
 
-    with open(write_to, "r") as f:
+    with open(write_to) as f:
         outputs = f.readlines()
 
     assert len(outputs) == size * 2
