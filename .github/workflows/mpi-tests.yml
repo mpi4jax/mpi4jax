@@ -30,7 +30,7 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.8"
             mpi: openmpi
-            jax-version: "0.4.4"
+            jax-version: "0.4.5"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
