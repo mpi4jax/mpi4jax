@@ -5,11 +5,16 @@ name: Upload Python Package
 
 on:
   release:
-    types: [published]
+    types: [published, workflow_dispatch]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mpi4jax
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
     steps:
       - uses: actions/checkout@v2
@@ -30,11 +35,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel twine mpi4py cython
-
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      
+      - name: Build package
         run: |
           python setup.py sdist
-          twine upload dist/*
+      
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
