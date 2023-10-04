@@ -267,13 +267,13 @@ def mpi_sendrecv_xla_encode_gpu(
 
     return hlo_custom_call(
         b"mpi_sendrecv",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 # This function evaluates only the shapes during AST construction

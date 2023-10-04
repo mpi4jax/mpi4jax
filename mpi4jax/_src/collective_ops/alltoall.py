@@ -164,14 +164,14 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
 
     return hlo_custom_call(
         b"mpi_alltoall",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # force c order because first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 # This function evaluates only the shapes during AST construction
