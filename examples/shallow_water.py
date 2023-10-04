@@ -424,7 +424,7 @@ def solve_shallow_water(t1, num_multisteps=10):
     """Iterate the model forward in time."""
     # initial conditions
     h, u, v = get_initial_conditions()
-    du, dv, dh = [jnp.zeros((ny_local, nx_local)) for _ in range(3)]
+    du, dv, dh = (jnp.zeros((ny_local, nx_local)) for _ in range(3))
 
     state = ModelState(h, u, v, dh, du, dv)
     sol = [state]
