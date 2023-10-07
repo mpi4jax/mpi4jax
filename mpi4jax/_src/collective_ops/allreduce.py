@@ -9,7 +9,7 @@ from jax.lax import create_token
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -20,10 +20,10 @@ from ..utils import (
     get_default_layouts,
     ordered_effect,
 )
-from ..jax_compat import hlo_custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu
-from ..validation import enforce_types
-from ..comm import get_default_comm
+from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
+from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
 
 
 # The Jax primitive
@@ -126,7 +126,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
 
 @translation_rule_gpu
 def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)

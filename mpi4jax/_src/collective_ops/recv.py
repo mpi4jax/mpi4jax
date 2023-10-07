@@ -8,7 +8,7 @@ from jax.lax import create_token
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -20,10 +20,10 @@ from ..utils import (
     get_default_layouts,
     ordered_effect,
 )
-from ..jax_compat import hlo_custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu
-from ..validation import enforce_types
-from ..comm import get_default_comm
+from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
+from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
 
 
 # The Jax primitive
@@ -90,7 +90,7 @@ def recv(
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -146,8 +146,8 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
