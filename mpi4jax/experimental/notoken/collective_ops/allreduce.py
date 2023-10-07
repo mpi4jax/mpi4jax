@@ -18,7 +18,7 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     ordered_effect,
 )
-from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
+from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
 from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
@@ -98,7 +98,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
         token,
     )
 
-    custom_call = hlo_custom_call(
+    result_obj = custom_call(
         b"mpi_allreduce",
         result_types=out_types,
         operands=operands,
@@ -107,7 +107,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
         has_side_effect=True,
     )
 
-    results = list(custom_call.results)
+    results = list(result_obj.results)
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
@@ -154,7 +154,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
         to_dtype_handle(x_nptype),
     )
 
-    custom_call = hlo_custom_call(
+    result_obj = custom_call(
         b"mpi_allreduce",
         result_types=out_types,
         operands=operands,
@@ -164,7 +164,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
         backend_config=descriptor,
     )
 
-    results = list(custom_call.results)
+    results = list(result_obj.results)
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
