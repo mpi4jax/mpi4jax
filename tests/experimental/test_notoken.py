@@ -199,7 +199,7 @@ def test_alltoall_jit():
 
     arr = jnp.ones((size, 3, 2)) * rank
 
-    res = jax.jit(lambda x: alltoall(x)[0])(arr)
+    res = jax.jit(lambda x: alltoall(x))(arr)
     for p in range(size):
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
@@ -213,7 +213,7 @@ def test_bcast_scalar_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: bcast(x, root=0)[0])(_arr)
+    res = jax.jit(lambda x: bcast(x, root=0))(_arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
@@ -223,7 +223,7 @@ def test_gather_scalar_jit():
     from mpi4jax.experimental.notoken import gather
 
     arr = rank
-    res = jax.jit(lambda x: gather(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: gather(x, root=0))(arr)
     if rank == 0:
         assert jnp.array_equal(res, jnp.arange(size))
     else:
@@ -234,7 +234,7 @@ def test_reduce_scalar_jit():
     from mpi4jax.experimental.notoken import reduce
 
     arr = rank
-    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0)[0])(arr)
+    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0))(arr)
     if rank == 0:
         assert jnp.array_equal(res, sum(range(size)))
     else:
@@ -245,7 +245,7 @@ def test_scan_scalar_jit():
     from mpi4jax.experimental.notoken import scan
 
     arr = rank
-    res = jax.jit(lambda x: scan(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: scan(x, op=MPI.SUM))(arr)
     assert jnp.array_equal(res, sum(range(rank + 1)))
 
 
@@ -257,7 +257,7 @@ def test_scatter_jit():
     else:
         arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: scatter(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: scatter(x, root=0))(arr)
     assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
 
 
@@ -271,9 +271,9 @@ def test_sendrecv_status_jit():
     other = 1 - rank
 
     status = MPI.Status()
-    res = jax.jit(
-        lambda x, y: sendrecv(x, y, source=other, dest=other, status=status)[0]
-    )(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other, status=status))(
+        arr, arr
+    )
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -309,37 +309,34 @@ def test_while_loop_consistency():
 def test_cond_consistency():
     from mpi4jax.experimental.notoken import recv, send
 
-    def hot_potato_right(args):
-        arr = args
+    def hot_potato_right(arr):
         a = arr + 1
         _ = recv(arr, source=1, comm=comm)
-        t = send(a, dest=1, comm=comm)
+        send(a, dest=1, comm=comm)
         c = recv(arr, source=1, comm=comm)
         d = recv(arr, source=1, comm=comm)
         e = c + d
-        t = send(e, dest=1, comm=comm)
+        send(e, dest=1, comm=comm)
         f = recv(arr, source=1, comm=comm)
-        t = send(e + f, dest=1, comm=comm)
-        t = send(e * d, dest=1, comm=comm)
-        return f, t
+        send(e + f, dest=1, comm=comm)
+        send(e * d, dest=1, comm=comm)
+        return f
 
-    def hot_potato_left(args):
-        arr = args
+    def hot_potato_left(arr):
         a = arr + 2
-        t = send(a, dest=0, comm=comm)
+        send(a, dest=0, comm=comm)
         b = recv(arr, source=0, comm=comm)
-        t = send(a + b, dest=0, comm=comm)
-        t = send(a * b, dest=0, comm=comm)
+        send(a + b, dest=0, comm=comm)
+        send(a * b, dest=0, comm=comm)
         c = recv(arr, source=0, comm=comm)
-        t = send(b - c, dest=0, comm=comm)
+        send(b - c, dest=0, comm=comm)
         d = recv(arr, source=0, comm=comm)
         e = recv(arr, source=0, comm=comm)
-        return d + e, t
+        return d + e
 
     @jax.jit
     def run(arr, my_rank):
-        t = jax.lax.create_token()
-        res1 = jax.lax.cond(my_rank == 0, hot_potato_right, hot_potato_left, (arr, t))
+        res1 = jax.lax.cond(my_rank == 0, hot_potato_right, hot_potato_left, arr)
         return res1
 
     res = run(jnp.zeros((2, 2)), rank)

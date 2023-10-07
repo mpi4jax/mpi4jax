@@ -156,7 +156,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
 
     custom_call = hlo_custom_call(
         b"mpi_allreduce",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),

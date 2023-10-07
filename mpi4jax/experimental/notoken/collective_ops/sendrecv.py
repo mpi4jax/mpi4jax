@@ -261,7 +261,7 @@ def mpi_sendrecv_xla_encode_gpu(
 
     custom_call = hlo_custom_call(
         b"mpi_sendrecv",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),

@@ -118,7 +118,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
 
 
 @translation_rule_gpu
-def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
+def mpi_alltoall_xla_encode_gpu(ctx, x, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
 
     comm = unpack_hashable(comm)
@@ -141,6 +141,8 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
         *token_type(),
     ]
 
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
     operands = (
         x,
         token,
@@ -158,7 +160,7 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
 
     custom_call = hlo_custom_call(
         b"mpi_alltoall",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # force c order because first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
