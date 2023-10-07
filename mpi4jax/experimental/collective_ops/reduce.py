@@ -63,6 +63,7 @@ def reduce(x, op, root, *, comm=None):
 
     return res
 
+
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_reduce_xla_encode_cpu(ctx, x, op, root, comm):

@@ -185,7 +185,6 @@ def mpi_sendrecv_xla_encode_cpu(
     return results
 
 
-
 @translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(
     ctx,
@@ -365,7 +364,7 @@ def mpi_sendrecv_value_and_jvp(
 def mpi_sendrecv_transpose_rule(
     tan_args, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
 ):
-    out_tan, = tan_args
+    (out_tan,) = tan_args
 
     # swap the sender and receiver
     res = mpi_sendrecv_p.bind(

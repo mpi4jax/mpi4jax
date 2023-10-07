@@ -199,7 +199,7 @@ def mpi_gather_xla_encode_gpu(ctx, x, root, comm):
         has_side_effect=True,
         backend_config=descriptor,
     )
-    
+
     results = list(custom_call.results)
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))

@@ -182,14 +182,14 @@ def mpi_allreduce_abstract_eval(xs, op, comm, transpose):
 
 
 def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
-    x, = in_args
+    (x,) = in_args
     res = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
     return res, batch_axes
 
 
 def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
-    x, = in_args
-    x_tan, = tan_args
+    (x,) = in_args
+    (x_tan,) = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
@@ -198,23 +198,19 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
 
     val = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
 
-    jvp = mpi_allreduce_p.bind(
-        x_tan, op=op, comm=comm, transpose=transpose
-    )
+    jvp = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=transpose)
     return val, jvp
 
 
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
-    x_tan, = tan_args
+    (x_tan,) = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
 
-    res = mpi_allreduce_p.bind(
-        x_tan, op=op, comm=comm, transpose=(not transpose)
-    )
+    res = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=(not transpose))
     return res
 
 
