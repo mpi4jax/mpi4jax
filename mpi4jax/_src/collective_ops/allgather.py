@@ -8,7 +8,7 @@ from jax.lax import create_token
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from mpi4jax._src.utils import (
+from ..utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -17,12 +17,12 @@ from mpi4jax._src.utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    ordered_effect,
+    effect,
 )
-from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
-from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
+from ..jax_compat import custom_call, token_type, ShapedArray
+from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..validation import enforce_types
+from ..comm import get_default_comm
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -99,8 +99,6 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         *token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
@@ -113,7 +111,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         token,
     )
 
-    custom_call = hlo_custom_call(
+    return custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -121,18 +119,12 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
-    )
-
-    results = list(custom_call.results)
-    token = results[-1]
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-
-    return results
+    ).results
 
 
 @translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -165,11 +157,9 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
         to_mpi_handle(comm),
     )
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
     operands = (sendbuf, token)
 
-    custom_call = hlo_custom_call(
+    return custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -178,13 +168,7 @@ def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
         result_layouts=get_default_layouts(out_types, order="c"),
         backend_config=descriptor,
         has_side_effect=True,
-    )
-
-    results = list(custom_call.results)
-    token = results[-1]
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-
-    return results
+    ).results
 
 
 # This function evaluates only the shapes during AST construction
@@ -195,7 +179,7 @@ def mpi_allgather_abstract_eval(x, token, comm):
     return (
         ShapedArray(out_shape, x.dtype),
         core.abstract_token,
-    ), {ordered_effect}
+    ), {effect}
 
 
 mpi_allgather_p.multiple_results = True

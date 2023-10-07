@@ -8,7 +8,7 @@ from jax.lax import create_token
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from mpi4jax._src.utils import (
+from ..utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -19,10 +19,10 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     effect,
 )
-from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
-from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
+from ..jax_compat import custom_call, token_type, ShapedArray
+from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..validation import enforce_types
+from ..comm import get_default_comm
 
 
 # The Jax primitive
@@ -112,7 +112,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
         token,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_alltoall",
         result_types=out_types,
         operands=operands,
@@ -125,7 +125,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
 
 @translation_rule_gpu
 def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -162,16 +162,16 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
         to_mpi_handle(comm),
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_alltoall",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # force c order because first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 # This function evaluates only the shapes during AST construction

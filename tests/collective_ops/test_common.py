@@ -47,11 +47,10 @@ def run_in_subprocess(code, test_file, timeout=10):
 
     proc = subprocess.run(
         [sys.executable, test_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         bufsize=0,
         timeout=timeout,
-        universal_newlines=True,
+        text=True,
         env=env,
     )
     return proc

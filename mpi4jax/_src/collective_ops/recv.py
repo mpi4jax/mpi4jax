@@ -8,7 +8,7 @@ from jax.lax import create_token
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from mpi4jax._src.utils import (
+from ..utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -18,12 +18,12 @@ from mpi4jax._src.utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    ordered_effect,
+    effect,
 )
-from mpi4jax._src.jax_compat import hlo_custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
-from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
+from ..jax_compat import custom_call, token_type, ShapedArray
+from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..validation import enforce_types
+from ..comm import get_default_comm
 
 
 # The Jax primitive
@@ -90,7 +90,7 @@ def recv(
 # This function compiles the operation
 @translation_rule_cpu
 def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -116,8 +116,6 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         as_mhlo_constant(source, _np.intc),
@@ -128,26 +126,20 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         token,
     )
 
-    custom_call = hlo_custom_call(
+    return custom_call(
         b"mpi_recv",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    )
-
-    results = list(custom_call.results)
-    token = results[-1]
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-
-    return results
+    ).results
 
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
+    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -184,7 +176,7 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
         status_ptr,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_recv",
         result_types=out_types,
         operands=operands,
@@ -200,7 +192,7 @@ def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
         ShapedArray(xs.shape, xs.dtype),
         core.abstract_token,
-    ), {ordered_effect}
+    ), {effect}
 
 
 mpi_recv_p.multiple_results = True
