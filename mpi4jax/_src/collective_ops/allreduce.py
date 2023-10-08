@@ -19,6 +19,7 @@ from ..utils import (
     as_mhlo_constant,
     get_default_layouts,
     effect,
+    prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -61,6 +62,11 @@ def allreduce(x, op, *, comm=None, token=None):
     """
     if token is None:
         token = create_token(x)
+
+    if prefer_notoken():
+        from mpi4jax.experimental.notoken import allreduce
+
+        return allreduce(x, op, comm=comm), token
 
     if comm is None:
         comm = get_default_comm()

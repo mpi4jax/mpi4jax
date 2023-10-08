@@ -19,6 +19,7 @@ jobs:
         python-version: ["3.11"]
         mpi: [mpich, openmpi]
         jax-version: ["latest"]
+        notoken: ["false", "true"]
 
         include:
           # test intelmpi on Linux
@@ -34,6 +35,7 @@ jobs:
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
+       MPI4JAX_PREFER_NOTOKEN: ${{ matrix.notoken }}
 
     steps:
       - uses: actions/checkout@v2

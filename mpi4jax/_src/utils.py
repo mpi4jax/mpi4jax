@@ -1,3 +1,4 @@
+import os
 import functools
 
 from mpi4py import MPI as _MPI
@@ -158,3 +159,8 @@ def has_cuda_support() -> bool:
     from . import xla_bridge
 
     return xla_bridge.HAS_GPU_EXT
+
+
+def prefer_notoken() -> bool:
+    """Returns True if primitive implementations should prefer not to use tokens."""
+    return os.environ.get("MPI4JAX_PREFER_NOTOKEN", "0").lower() in ("1", "true", "on")

@@ -20,6 +20,7 @@ from ..utils import (
     as_mhlo_constant,
     get_default_layouts,
     effect,
+    prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import translation_rule_cpu, translation_rule_gpu
@@ -82,6 +83,23 @@ def sendrecv(
     """
     if token is None:
         token = create_token(sendbuf)
+
+    if prefer_notoken():
+        from mpi4jax.experimental.notoken import sendrecv
+
+        return (
+            sendrecv(
+                sendbuf,
+                recvbuf,
+                source,
+                dest,
+                sendtag=sendtag,
+                recvtag=recvtag,
+                status=status,
+                comm=comm,
+            ),
+            token,
+        )
 
     if comm is None:
         comm = get_default_comm()
