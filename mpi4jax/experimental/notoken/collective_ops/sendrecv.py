@@ -305,6 +305,7 @@ def mpi_sendrecv_batch_eval(
     sendbuf, recvbuf = in_args
 
     assert batch_axes[0] == batch_axes[1]
+    ax = batch_axes[0]
 
     res = mpi_sendrecv_p.bind(
         sendbuf,
@@ -317,7 +318,7 @@ def mpi_sendrecv_batch_eval(
         status=status,
         _must_transpose=_must_transpose,
     )
-    return res, (batch_axes[0], batch_axes[2])
+    return res, ax
 
 
 def mpi_sendrecv_value_and_jvp(
@@ -362,10 +363,8 @@ def mpi_sendrecv_value_and_jvp(
 
 
 def mpi_sendrecv_transpose_rule(
-    tan_args, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
+    out_tan, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
 ):
-    (out_tan,) = tan_args
-
     # swap the sender and receiver
     res = mpi_sendrecv_p.bind(
         out_tan,
@@ -378,7 +377,7 @@ def mpi_sendrecv_transpose_rule(
         status=status,
         _must_transpose=not _must_transpose,
     )
-    return res, ad.Zero.from_value(res)
+    return (res,)
 
 
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)

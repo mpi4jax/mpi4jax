@@ -70,7 +70,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
 
     if transpose:
         assert op == _MPI.SUM
-        return x
+        return [x]
 
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
@@ -123,7 +123,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
 
     if transpose:
         assert op == _MPI.SUM
-        return x
+        return [x]
 
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
@@ -168,7 +168,7 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
-    return results
+    return results[0]
 
 
 # This function evaluates only the shapes during AST construction
@@ -183,8 +183,9 @@ def mpi_allreduce_abstract_eval(xs, op, comm, transpose):
 
 def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
     (x,) = in_args
+    (ax,) = batch_axes
     res = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
-    return res, batch_axes
+    return res, ax
 
 
 def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
@@ -197,21 +198,18 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
         )
 
     val = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
-
     jvp = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=transpose)
     return val, jvp
 
 
-def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
-    (x_tan,) = tan_args
-
+def mpi_allreduce_transpose_rule(x_tan, *x_args, op, comm, transpose):
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
 
     res = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=(not transpose))
-    return res
+    return (res,)
 
 
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
