@@ -51,9 +51,15 @@ def get_default_layouts(operands, order="c"):
     layouts = []
 
     if order == "c":
-        default_layout = lambda t: tuple(range(len(t.shape) - 1, -1, -1))
+
+        def default_layout(t):
+            return tuple(range(len(t.shape) - 1, -1, -1))
+
     elif order == "f":
-        default_layout = lambda t: tuple(range(len(t.shape)))
+
+        def default_layout(t):
+            return tuple(range(len(t.shape)))
+
     else:
         raise ValueError(f"Unknown order: {order}")
 
@@ -96,7 +102,8 @@ def to_mpi_ptr(mpi_obj):
     return _np.uintp(_MPI._addressof(mpi_obj))
 
 
-# store type names as strings since we cannot expect all type objects to be present on all platforms
+# store type names as strings since we cannot expect all type objects
+# to be present on all platforms
 MPI_TYPE_MAP = {
     "f32": "FLOAT",
     "f64": "DOUBLE",

@@ -31,7 +31,6 @@ def test_allreduce_jit():
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
-
     arr = jnp.ones((3, 2), dtype=jnp.complex64)
     _arr = arr.copy()
 

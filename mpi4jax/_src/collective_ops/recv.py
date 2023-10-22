@@ -102,7 +102,6 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
     status = unpack_hashable(status)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -110,7 +109,6 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -127,7 +125,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         as_mhlo_constant(source, _np.intc),
         as_mhlo_constant(tag, _np.intc),
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         as_mhlo_constant(status_ptr, _np.uintp),
         token,
     )
@@ -151,7 +149,6 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
     status = unpack_hashable(status)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -159,7 +156,6 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -178,7 +174,7 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
         source,
         tag,
         to_mpi_handle(comm),
-        dtype_handle,
+        to_dtype_handle(dtype),
         status_ptr,
     )
 
