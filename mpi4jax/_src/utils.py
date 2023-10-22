@@ -16,13 +16,15 @@ from .jax_compat import token_type, register_effect, EffectType
 class MPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
-        return hashlib.sha256("I love mpi4jax".encode("utf-8")).hexdigest()
+        return int(hashlib.md5("I love mpi4jax".encode("utf-8")).hexdigest(), 16)
 
 
 class OrderedMPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
-        return hashlib.sha256("I love mpi4jax very much".encode("utf-8")).hexdigest()
+        return int(
+            hashlib.md5("I love mpi4jax very much".encode("utf-8")).hexdigest(), 16
+        )
 
 
 effect = register_effect(MPIEffect)
