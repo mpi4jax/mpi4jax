@@ -2,6 +2,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax.core import Primitive
+from jax.lax import create_token
 from jax.interpreters import ad, batching
 
 from jax.interpreters import mlir
@@ -57,14 +58,17 @@ def allreduce(x, op, *, comm=None):
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=False)
+    token = create_token()
+    return mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False)
 
 
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 @translation_rule_cpu
-def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
+def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
+    del token  # unused
+
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -115,8 +119,10 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
 
 
 @translation_rule_gpu
-def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
+def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
+
+    del token  # unused
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -168,11 +174,11 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, op, comm, transpose):
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
-    return results[0]
+    return results
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_allreduce_abstract_eval(xs, op, comm, transpose):
+def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):
     if not transpose:
         return ShapedArray(xs.shape, xs.dtype), {ordered_effect}
     else:
@@ -182,23 +188,22 @@ def mpi_allreduce_abstract_eval(xs, op, comm, transpose):
 
 
 def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
-    (x,) = in_args
-    (ax,) = batch_axes
-    res = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
+    (ax, *_) = batch_axes
+    res = mpi_allreduce_p.bind(*in_args, op=op, comm=comm, transpose=transpose)
     return res, ax
 
 
 def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
-    (x,) = in_args
-    (x_tan,) = tan_args
+    (x, token) = in_args
+    (x_tan, *_) = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The adjoint of allreduce is only defined for op=MPI.SUM"
         )
 
-    val = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
-    jvp = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=transpose)
+    val = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
+    jvp = mpi_allreduce_p.bind(x_tan, token, op=op, comm=comm, transpose=transpose)
     return val, jvp
 
 
@@ -207,9 +212,12 @@ def mpi_allreduce_transpose_rule(x_tan, *x_args, op, comm, transpose):
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
-
-    res = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=(not transpose))
-    return (res,)
+    _, token = x_args
+    res = mpi_allreduce_p.bind(
+        x_tan, token, op=op, comm=comm, transpose=(not transpose)
+    )
+    token_tan = ad.Zero.from_value(token)
+    return (res, token_tan)
 
 
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
