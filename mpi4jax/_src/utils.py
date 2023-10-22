@@ -1,5 +1,6 @@
 import os
 import functools
+import hashlib
 
 from mpi4py import MPI as _MPI
 
@@ -15,13 +16,13 @@ from .jax_compat import token_type, register_effect, EffectType
 class MPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
-        return hash("I love mpi4jax")
+        return hashlib.sha256("I love mpi4jax".encode("utf-8")).hexdigest()
 
 
 class OrderedMPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
-        return hash("I love mpi4jax very much")
+        return hashlib.sha256("I love mpi4jax very much".encode("utf-8")).hexdigest()
 
 
 effect = register_effect(MPIEffect)

@@ -108,9 +108,8 @@ else:
         import jax._src.custom_derivatives as custom_derivatives
 
         if ordered:
-            raise NotImplementedError(
-                "Ordered effects are not supported with this version of JAX"
-            )
+            # orderd effects are not supported, ensure that it is not used
+            return None
 
         effect = EffectType()
         mlir.lowerable_effects.add_type(EffectType)
