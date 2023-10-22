@@ -23,15 +23,17 @@ jobs:
 
         include:
           # test intelmpi on Linux
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             python-version: "3.11"
             mpi: intelmpi
             jax-version: "latest"
+            mode: "token"
           # test minimum JAX and Python versions
           - os: ubuntu-latest
             python-version: "3.8"
             mpi: openmpi
             jax-version: "0.4.5"
+            mode: "token"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
