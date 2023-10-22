@@ -6,9 +6,17 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from mpi4jax._src.utils import ordered_effect
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+
+# TODO: remove once we require JAX>=0.4.16
+pytestmark = pytest.mark.skipif(
+    ordered_effect is None, reason="ordered_effect not implemented in this version"
+)
 
 
 def test_allreduce():
