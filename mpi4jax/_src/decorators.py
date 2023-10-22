@@ -4,15 +4,16 @@ import functools
 
 # global variables to keep track of state
 _cuda_mpi_setup_done = False
+_hip_mpi_setup_done = False
 
 
 def ensure_gpu_ext():
-    from .xla_bridge import HAS_GPU_EXT
+    from .xla_bridge import HAS_GPU_CUDA_EXT, HAS_GPU_HIP_EXT
 
-    if not HAS_GPU_EXT:
+    if not HAS_GPU_CUDA_EXT and not HAS_GPU_HIP_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
-            "Please re-build mpi4jax with CUDA support and try again."
+            "Please re-build mpi4jax with CUDA or HIP support and try again."
         )
 
 
@@ -48,9 +49,44 @@ def setup_cuda_mpi():
         )
         warnings.warn(warn_msg)
 
-    from .xla_bridge import mpi_xla_bridge_gpu
+    try:
+        from .xla_bridge import mpi_xla_bridge_gpu_cuda
 
-    mpi_xla_bridge_gpu.set_copy_to_host(not has_cuda_mpi)
+        mpi_xla_bridge_gpu_cuda.set_copy_to_host(not has_cuda_mpi)
+    except ImportError:
+        warnings.warn("CUDA xla_bridge is not compiled")
+
+
+def setup_hip_mpi():
+    global _hip_mpi_setup_done
+
+    if _hip_mpi_setup_done:
+        return
+
+    _hip_mpi_setup_done = True
+
+    gpu_copy_behavior = os.getenv("MPI4JAX_USE_HIP_MPI", "")
+
+    if _is_truthy(gpu_copy_behavior):
+        has_hip_mpi = True
+    elif _is_falsy(gpu_copy_behavior):
+        has_hip_mpi = False
+    else:
+        has_hip_mpi = False
+        warn_msg = (
+            "Not using HIP-enabled MPI. "
+            "If you are sure that your MPI library is built with HIP support, "
+            "set MPI4JAX_USE_HIP_MPI=1. To silence this warning, "
+            "set MPI4JAX_USE_HIP_MPI=0."
+        )
+        warnings.warn(warn_msg)
+
+    try:
+        from .xla_bridge import mpi_xla_bridge_gpu_hip
+
+        mpi_xla_bridge_gpu_hip.set_copy_to_host(not has_hip_mpi)
+    except ImportError:
+        warnings.warn("HIP xla_bridge is not compiled")
 
 
 def translation_rule_cpu(func):
@@ -81,6 +117,7 @@ def translation_rule_gpu(func):
     setup_funcs = (
         ensure_gpu_ext,
         setup_cuda_mpi,
+        setup_hip_mpi,
     )
 
     @functools.wraps(func)

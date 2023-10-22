@@ -150,4 +150,13 @@ def has_cuda_support() -> bool:
     """
     from . import xla_bridge
 
-    return xla_bridge.HAS_GPU_EXT
+    return xla_bridge.HAS_GPU_CUDA_EXT
+
+
+def has_hip_support() -> bool:
+    """Returns True if mpi4jax is built with ROCM/HIP support and can be used with GPU-based
+    jax-arrays, False otherwise.
+    """
+    from . import xla_bridge
+
+    return xla_bridge.HAS_GPU_HIP_EXT

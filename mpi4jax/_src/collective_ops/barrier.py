@@ -83,8 +83,34 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
 
 
 @translation_rule_gpu
-def mpi_barrier_xla_encode_gpu(ctx, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
+def mpi_barrier_xla_encode_gpu_cuda(ctx, token, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu_cuda import build_barrier_descriptor
+
+    comm = unpack_hashable(comm)
+
+    out_types = token_type()
+
+    operands = (token,)
+
+    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
+
+    # JAX insists on outputs being iterable
+    return [
+        hlo_custom_call(
+            b"mpi_barrier",
+            out_types=out_types,
+            operands=operands,
+            operand_layouts=get_default_layouts(operands),
+            result_layouts=get_default_layouts(out_types),
+            has_side_effect=True,
+            backend_config=descriptor,
+        )
+    ]
+
+
+@translation_rule_gpu
+def mpi_barrier_xla_encode_gpu_hip(ctx, token, comm):
+    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_barrier_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -123,4 +149,5 @@ batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu_cuda, platform="cuda")
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu_hip, platform="rocm")
