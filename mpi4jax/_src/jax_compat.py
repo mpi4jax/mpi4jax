@@ -102,10 +102,15 @@ if versiontuple(jax.__version__) >= (0, 4, 16):
 else:
     EffectType = object
 
-    def register_effect(EffectType):
+    def register_effect(EffectType, ordered=False):
         from jax.interpreters import mlir
         from jax._src.lax import control_flow as lcf
         import jax._src.custom_derivatives as custom_derivatives
+
+        if ordered:
+            raise NotImplementedError(
+                "Ordered effects are not supported with this version of JAX"
+            )
 
         effect = EffectType()
         mlir.lowerable_effects.add_type(EffectType)
