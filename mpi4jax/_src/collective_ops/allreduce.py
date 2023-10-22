@@ -94,7 +94,6 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         return [x, token]
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -136,7 +135,6 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         return [x, token]
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type

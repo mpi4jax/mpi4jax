@@ -107,7 +107,6 @@ def mpi_gather_xla_encode_cpu(ctx, x, token, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -115,8 +114,6 @@ def mpi_gather_xla_encode_cpu(ctx, x, token, root, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
 
     # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -134,10 +131,10 @@ def mpi_gather_xla_encode_cpu(ctx, x, token, root, comm):
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         # we only support matching input and output arrays
         as_mhlo_constant(nitems, _np.intc),
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         #
         as_mhlo_constant(root, _np.intc),
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
@@ -159,7 +156,6 @@ def mpi_gather_xla_encode_device(ctx, x, token, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -167,8 +163,6 @@ def mpi_gather_xla_encode_device(ctx, x, token, root, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
 
     # output is only used on root, so prevent memory allocation
     rank = comm.Get_rank()
@@ -190,10 +184,10 @@ def mpi_gather_xla_encode_device(ctx, x, token, root, comm):
 
     descriptor = build_gather_descriptor(
         nitems,
-        dtype_handle,
+        to_dtype_handle(dtype),
         # we only support matching input and output arrays
         nitems,
-        dtype_handle,
+        to_dtype_handle(dtype),
         #
         root,
         to_mpi_handle(comm),
