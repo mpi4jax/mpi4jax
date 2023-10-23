@@ -1,4 +1,6 @@
+import os
 import functools
+import hashlib
 
 from mpi4py import MPI as _MPI
 
@@ -14,10 +16,19 @@ from .jax_compat import token_type, register_effect, EffectType
 class MPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
-        return hash("I love mpi4jax")
+        return int(hashlib.md5("I love mpi4jax".encode("utf-8")).hexdigest(), 16)
+
+
+class OrderedMPIEffect(EffectType):
+    def __hash__(self):
+        # enforce a constant (known) hash
+        return int(
+            hashlib.md5("I love mpi4jax very much".encode("utf-8")).hexdigest(), 16
+        )
 
 
 effect = register_effect(MPIEffect)
+ordered_effect = register_effect(OrderedMPIEffect, ordered=True)
 
 
 def default_primitive_impl(primitive):
@@ -151,3 +162,8 @@ def has_cuda_support() -> bool:
     from . import xla_bridge
 
     return xla_bridge.HAS_GPU_EXT
+
+
+def prefer_notoken() -> bool:
+    """Returns True if primitive implementations should prefer not to use tokens."""
+    return os.environ.get("MPI4JAX_PREFER_NOTOKEN", "0").lower() in ("1", "true", "on")

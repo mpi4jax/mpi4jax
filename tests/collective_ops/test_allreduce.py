@@ -199,7 +199,9 @@ def test_allreduce_chained():
     def foo(x):
         token = jax.lax.create_token()
         x1, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        print(x1, token)
         x2, token = allreduce(x, op=MPI.SUM, comm=comm, token=token)
+        print(x2, token)
         return x1 + x2
 
     res_t = jax.grad(foo)(0.0)

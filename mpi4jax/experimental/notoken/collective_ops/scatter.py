@@ -1,14 +1,12 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax.core import Primitive, Tracer, Token
-from jax.lax import create_token
+from jax.core import Primitive
 
 from jax.interpreters import mlir
 import jaxlib.mlir.ir as ir
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -17,13 +15,12 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
-    prefer_notoken,
+    ordered_effect,
 )
-from ..jax_compat import custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu
-from ..validation import enforce_types
-from ..comm import get_default_comm
+from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
+from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
 
 
 # The Jax primitive
@@ -35,14 +32,12 @@ mpi_scatter_impl = default_primitive_impl(mpi_scatter_p)
 @enforce_types(
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), Token, Tracer),
 )
 def scatter(
     x,
     root,
     *,
     comm=None,
-    token=None,
 ):
     """Perform a scatter operation.
 
@@ -63,23 +58,11 @@ def scatter(
         root (int): Rank of the root MPI process.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
-        token (Token): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Received data.
-            - A new, modified token, that depends on this operation.
+        DeviceArray: Received data.
 
     """
-    if token is None:
-        token = create_token(x)
-
-    if prefer_notoken():
-        from mpi4jax.experimental.notoken import scatter
-
-        return scatter(x, root, comm=comm), token
-
     if comm is None:
         comm = get_default_comm()
 
@@ -91,19 +74,16 @@ def scatter(
 
     comm = wrap_as_hashable(comm)
 
-    return tuple(
-        mpi_scatter_p.bind(
-            x,
-            token,
-            root=root,
-            comm=comm,
-        )
+    return mpi_scatter_p.bind(
+        x,
+        root=root,
+        comm=comm,
     )
 
 
 # This function compiles the operation
 @translation_rule_cpu
-def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
+def mpi_scatter_xla_encode_cpu(ctx, x, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -125,6 +105,8 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
         ir.RankedTensorType.get(dims, dtype),
         *token_type(),
     ]
+
+    token = ctx.tokens_in.get(ordered_effect)[0]
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -139,19 +121,25 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
         token,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_scatter",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 @translation_rule_gpu
-def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
+def mpi_scatter_xla_encode_gpu(ctx, x, root, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -174,6 +162,8 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         ir.RankedTensorType.get(dims, dtype),
         *token_type(),
     ]
+
+    token = ctx.tokens_in.get(ordered_effect)[0]
 
     operands = (
         x,
@@ -191,7 +181,7 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         to_mpi_handle(comm),
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_scatter",
         result_types=out_types,
         operands=operands,
@@ -199,11 +189,17 @@ def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_scatter_abstract_eval(x, token, root, comm):
+def mpi_scatter_abstract_eval(x, root, comm):
     comm = unpack_hashable(comm)
     rank = comm.Get_rank()
     if rank == root:
@@ -211,13 +207,9 @@ def mpi_scatter_abstract_eval(x, token, root, comm):
     else:
         out_shape = x.shape
 
-    return (
-        ShapedArray(out_shape, x.dtype),
-        core.abstract_token,
-    ), {effect}
+    return ShapedArray(out_shape, x.dtype), {ordered_effect}
 
 
-mpi_scatter_p.multiple_results = True
 mpi_scatter_p.def_impl(mpi_scatter_impl)
 mpi_scatter_p.def_effectful_abstract_eval(mpi_scatter_abstract_eval)
 
