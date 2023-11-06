@@ -13,4 +13,4 @@ exclude =
 # for compatibility with black
 max-line-length = 88
 select = C,E,F,W,B,B950
-extend-ignore = E203,E501,E731
+extend-ignore = E203,E501,E731,W503
