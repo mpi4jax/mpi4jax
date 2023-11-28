@@ -164,6 +164,14 @@ def has_cuda_support() -> bool:
     return xla_bridge.HAS_GPU_EXT
 
 
+def has_sycl_support() -> bool:
+    """Returns True if mpi4jax is built with SYCL support and can be used with XPU-based
+    jax-arrays, False otherwise.
+    """
+    from . import xla_bridge
+
+    return xla_bridge.HAS_XPU_EXT
+
 def prefer_notoken() -> bool:
     """Returns True if primitive implementations should prefer not to use tokens."""
     return os.environ.get("MPI4JAX_PREFER_NOTOKEN", "0").lower() in ("1", "true", "on")

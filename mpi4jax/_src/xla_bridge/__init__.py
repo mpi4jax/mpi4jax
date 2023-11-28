@@ -11,6 +11,12 @@ except ImportError:
 else:
     HAS_GPU_EXT = True
 
+try:
+    from . import mpi_xla_bridge_xpu
+except ImportError:
+    HAS_XPU_EXT = False
+else:
+    HAS_XPU_EXT = True
 
 # setup logging
 
@@ -29,3 +35,7 @@ for name, fn in mpi_xla_bridge_cpu.cpu_custom_call_targets.items():
 if HAS_GPU_EXT:
     for name, fn in mpi_xla_bridge_gpu.gpu_custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="CUDA")
+
+if HAS_XPU_EXT:
+    for name, fn in mpi_xla_bridge_xpu.xpu_custom_call_targets.items():
+        xla_client.register_custom_call_target(name, fn, platform="SYCL")
