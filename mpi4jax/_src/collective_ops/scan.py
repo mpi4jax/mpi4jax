@@ -174,3 +174,4 @@ mpi_scan_p.def_effectful_abstract_eval(mpi_scan_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_scan_p, mpi_scan_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_scan_p, mpi_scan_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_scan_p, mpi_scan_xla_encode_xpu, platform="xpu")
