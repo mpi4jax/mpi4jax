@@ -129,7 +129,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
     ).results
 
 @translation_rule_xpu
-def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
+def mpi_alltoall_xla_encode_xpu(ctx, x, token, comm):
     print("XPU ALLTOALL not implemented!")
     exit(-1)
 
