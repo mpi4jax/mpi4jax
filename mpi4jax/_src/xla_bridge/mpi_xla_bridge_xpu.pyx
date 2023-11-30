@@ -3,16 +3,16 @@ from cpython.pycapsule cimport PyCapsule_New
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc, free
 
-#from mpi4py.libmpi cimport (
-#    MPI_Comm,
-#    MPI_Comm_rank,
-#    MPI_Comm_size,
-#    MPI_Datatype,
-#    MPI_Op,
-#    MPI_Status,
-#    MPI_Type_size,
-#)
-#
+from mpi4py.libmpi cimport (
+    MPI_Comm,
+    MPI_Comm_rank,
+    MPI_Comm_size,
+    MPI_Datatype,
+    MPI_Op,
+    MPI_Status,
+    MPI_Type_size,
+)
+
 #from .cuda_runtime_api cimport (
 #    cudaGetErrorName,
 #    cudaGetErrorString,
