@@ -426,10 +426,11 @@ cdef void mpi_bcast_xpu(cudaStream_t stream, void** buffers,
     mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm)
 
     if COPY_TO_HOST:
-        if rank != root:
-            # copy back to device
 # TODO: uncomment
+#        if rank != root:
+            # copy back to device
 #            checked_cuda_memcpy(out_data, buf, count, cudaMemcpyHostToDevice, comm)
+
         free(buf)
 
 
