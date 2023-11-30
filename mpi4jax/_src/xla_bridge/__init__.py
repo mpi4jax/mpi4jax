@@ -38,4 +38,4 @@ if HAS_GPU_EXT:
 
 if HAS_XPU_EXT:
     for name, fn in mpi_xla_bridge_xpu.xpu_custom_call_targets.items():
-        xla_client.register_custom_call_target(name, fn, platform="SYCL")
+        xla_client.register_custom_call_target(name, fn, platform="xpu")
