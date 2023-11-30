@@ -209,6 +209,11 @@ def mpi_sendrecv_xla_encode_cpu(
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_sendrecv_xla_encode_xpu(ctx, sendbuf, recvbuf, token, source, dest, sendtag, recvtag, comm, status, _must_transpose=False,
+):
+    print("XPU SENDRECV not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(

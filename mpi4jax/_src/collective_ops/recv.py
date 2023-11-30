@@ -141,6 +141,10 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
+    print("XPU RECV not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):

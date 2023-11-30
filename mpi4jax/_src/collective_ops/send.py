@@ -106,6 +106,10 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
+    print("XPU SEND not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):

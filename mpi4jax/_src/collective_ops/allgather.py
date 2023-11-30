@@ -127,6 +127,10 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_allgather_xla_encode_xpu(ctx, sendbuf, token, comm):
+    print("XPU ALLGATHER not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):

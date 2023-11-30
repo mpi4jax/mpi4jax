@@ -88,6 +88,10 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_barrier_xla_encode_xpu(ctx, token, comm):
+    print("XPU BARRIER not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(ctx, token, comm):

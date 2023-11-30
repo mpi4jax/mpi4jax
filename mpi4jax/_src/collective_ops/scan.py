@@ -111,6 +111,10 @@ def mpi_scan_xla_encode_cpu(ctx, x, token, op, comm):
         has_side_effect=True,
     ).results
 
+@translation_rule_xpu
+def mpi_scan_xla_encode_xpu(ctx, x, token, op, comm):
+    print("XPU SCAN not implemented!")
+    exit(-1)
 
 @translation_rule_gpu
 def mpi_scan_xla_encode_gpu(ctx, x, token, op, comm):
