@@ -20,7 +20,7 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import translation_rule_cpu, translation_rule_gpu, translation_rule_xpu
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
