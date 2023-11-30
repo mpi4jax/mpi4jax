@@ -170,6 +170,15 @@ def get_extensions():
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
     ]
 
+
+# TODO: make proper dependencies
+    extensions.append(
+        Extension(
+            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
+            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+        )
+    )
+
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(
             Extension(
