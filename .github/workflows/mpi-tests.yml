@@ -84,7 +84,5 @@ jobs:
         run: |
           if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
             source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
-            mpirun -v -np 2 pytest .
-          else
-            mpirun -host localhost:2 -v -np 2 pytest .
           fi
+          mpirun -v -np 2 pytest .
