@@ -34,6 +34,7 @@ def run_in_subprocess(code, test_file, timeout=10):
     # passing a mostly empty env seems to be the only way to
     # force MPI to initialize again
     env = dict(
+        HOME=os.getenv("HOME", ""),
         PATH=os.getenv("PATH", ""),
         PYTHONPATH=os.getenv("PYTHONPATH", ""),
         COVERAGE_PROCESS_START="pyproject.toml",
