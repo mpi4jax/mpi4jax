@@ -122,6 +122,30 @@ def get_cuda_path():
 
     return _cuda_path
 
+#TODO: implement properly
+def get_sycl_path():
+    basekit = os.environ.get('ONEAPI_ROOT')
+    return basekit
+
+
+def get_sycl_info():
+    sycl_info = {"compile": [], "libdirs": [], "libs": []}
+    sycl_path = get_sycl_path()
+    if not sycl_path:
+        return sycl_info
+
+    incdir = os.path.join(sycl_path, "compiler/latest/linux/include/sycl/")
+    if os.path.isdir(incdir):
+        sycl_info["compile"].append(incdir)
+
+    lib_dir = os.path.join(sycl_path, "compiler/latest/linux/lib/")
+    if os.path.isdir(lib_dir):
+        sycl_info["libdirs"].append(lib_dir)
+
+    sycl_info["libs"].append("sycl")
+    return sycl_info
+
+sycl_info = get_sycl_info()
 
 def get_cuda_info():
     cuda_info = {"compile": [], "libdirs": [], "libs": []}

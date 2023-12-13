@@ -13,6 +13,8 @@ from mpi4py.libmpi cimport (
     MPI_Type_size,
 )
 
+import dpctl  # Make it imported conditionally 
+
 #from .cuda_runtime_api cimport (
 #    cudaGetErrorName,
 #    cudaGetErrorString,
@@ -213,11 +215,13 @@ cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle,
     )
     return bytes((<char*> &desc)[:sizeof(AllreduceDescriptor)])
 
-
 cdef void mpi_allreduce_xpu(cudaStream_t stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
+
+#    print("{}",dpctl.get_platforms()[0])
+   # dpctl
 
     # decode inputs
     cdef void* data = buffers[0]
