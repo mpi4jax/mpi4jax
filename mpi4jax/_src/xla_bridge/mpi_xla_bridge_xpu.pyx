@@ -135,7 +135,7 @@ cpdef bytes build_allgather_descriptor(
 
 # cudaStream_t stream -> int stream
 # TODO: uncomment
-cdef void mpi_allgather_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_allgather_xpu(void* stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -284,7 +284,7 @@ cpdef bytes build_alltoall_descriptor(
     return bytes((<char*> &desc)[:sizeof(AlltoallDescriptor)])
 
 
-cdef void mpi_alltoall_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_alltoall_xpu(void* stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -355,7 +355,7 @@ cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
     return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
 
 
-cdef void mpi_barrier_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_barrier_xpu(void* stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     if opaque_len != sizeof(BarrierDescriptor):
         with gil:
@@ -384,7 +384,7 @@ cpdef bytes build_bcast_descriptor(int nitems, int root, uintptr_t comm_handle,
     return bytes((<char*> &desc)[:sizeof(BcastDescriptor)])
 
 
-cdef void mpi_bcast_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_bcast_xpu(void* stream, void** buffers,
                         const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -459,7 +459,7 @@ cpdef bytes build_gather_descriptor(
     return bytes((<char*> &desc)[:sizeof(GatherDescriptor)])
 
 
-cdef void mpi_gather_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_gather_xpu(void* stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -551,7 +551,7 @@ cpdef bytes build_recv_descriptor(int nitems, int dest, int tag, uintptr_t comm_
     return bytes((<char*> &desc)[:sizeof(RecvDescriptor)])
 
 
-cdef void mpi_recv_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_recv_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -611,7 +611,7 @@ cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
     return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
 
-cdef void mpi_reduce_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_reduce_xpu(void* stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -680,7 +680,7 @@ cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle,
     return bytes((<char*> &desc)[:sizeof(ScanDescriptor)])
 
 
-cdef void mpi_scan_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_scan_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -750,7 +750,7 @@ cpdef bytes build_scatter_descriptor(
     return bytes((<char*> &desc)[:sizeof(ScatterDescriptor)])
 
 
-cdef void mpi_scatter_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_scatter_xpu(void* stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -835,7 +835,7 @@ cpdef bytes build_send_descriptor(int nitems, int dest, int tag, uintptr_t comm_
     return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
 
 
-cdef void mpi_send_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_send_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -903,7 +903,7 @@ cpdef bytes build_sendrecv_descriptor(
     return bytes((<char*> &desc)[:sizeof(SendrecvDescriptor)])
 
 
-cdef void mpi_sendrecv_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_sendrecv_xpu(void* stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, send_dtype_size, recv_dtype_size
     cdef size_t bytes_send, bytes_recv

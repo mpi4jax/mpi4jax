@@ -134,9 +134,12 @@ def get_sycl_info():
     if not sycl_path:
         return sycl_info
 
-    incdir = os.path.join(sycl_path, "compiler/latest/linux/include/sycl/")
+    incdir = os.path.join(sycl_path, "compiler/latest/linux/include/")
     if os.path.isdir(incdir):
         sycl_info["compile"].append(incdir)
+    incdir2 = os.path.join(sycl_path, "compiler/latest/linux/include/sycl")
+    if os.path.isdir(incdir2):
+        sycl_info["compile"].append(incdir2)
 
     lib_dir = os.path.join(sycl_path, "compiler/latest/linux/lib/")
     if os.path.isdir(lib_dir):
@@ -203,6 +206,7 @@ def get_extensions():
                 include_dirs=sycl_info["compile"],
                 library_dirs=sycl_info["libdirs"],
                 libraries=sycl_info["libs"],
+                language="c++",
             )
         )
     else:

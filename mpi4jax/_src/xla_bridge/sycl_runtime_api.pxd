@@ -1,6 +1,7 @@
-cdef extern from "sycl.hpp":
+cdef extern from "sycl/CL/sycl.hpp":
     #    cdef enum cudaError:
     #    cudaSuccess = 0
+    ctypedef void* cudaStream_t
 
     #cdef enum cudaMemcpyKind:
     #    cudaMemcpyHostToHost = 0
@@ -11,7 +12,6 @@ cdef extern from "sycl.hpp":
 
     #ctypedef cudaError cudaError_t
 
-    ctypedef void* cudaStream_t
     #cudaError_t cudaStreamSynchronize(cudaStream_t stream) nogil
     #cudaError_t cudaMemcpy(void *dst, const void *src, size_t count, cudaMemcpyKind kind) nogil
 
