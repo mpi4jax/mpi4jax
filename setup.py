@@ -134,12 +134,20 @@ def get_sycl_info():
     if not sycl_path:
         return sycl_info
 
+    # TODO: Make a nice look over all those potential paths instead this nasty code
     incdir = os.path.join(sycl_path, "compiler/latest/linux/include/")
     if os.path.isdir(incdir):
         sycl_info["compile"].append(incdir)
     incdir2 = os.path.join(sycl_path, "compiler/latest/linux/include/sycl")
     if os.path.isdir(incdir2):
         sycl_info["compile"].append(incdir2)
+
+    incdir3 = os.path.join(sycl_path, "compiler/latest/include/")
+    if os.path.isdir(incdir3):
+        sycl_info["compile"].append(incdir3)
+    incdir4 = os.path.join(sycl_path, "compiler/latest/include/sycl")
+    if os.path.isdir(incdir4):
+        sycl_info["compile"].append(incdir4)
 
     lib_dir = os.path.join(sycl_path, "compiler/latest/linux/lib/")
     if os.path.isdir(lib_dir):
