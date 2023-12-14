@@ -15,7 +15,7 @@ from mpi4py.libmpi cimport (
 
 import dpctl  # Make it imported conditionally 
 
-#from .cuda_runtime_api cimport (
+from .sycl_runtime_api cimport (
 #    cudaGetErrorName,
 #    cudaGetErrorString,
 #    cudaError_t,
@@ -24,15 +24,12 @@ import dpctl  # Make it imported conditionally
 #    cudaMemcpyDeviceToHost,
 #    cudaMemcpyKind,
 #    cudaMemcpyHostToDevice,
-#    cudaStream_t,
+    cudaStream_t,
 #    cudaStreamSynchronize,
 #    cudaSuccess,
-#)
-
-ctypedef int cudaStream_t 
+)
 
 from . cimport mpi_xla_bridge
-
 
 # Error handling
 
@@ -215,7 +212,7 @@ cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle,
     )
     return bytes((<char*> &desc)[:sizeof(AllreduceDescriptor)])
 
-cdef void mpi_allreduce_xpu(cudaStream_t stream, void** buffers,
+cdef void mpi_allreduce_xpu(void* stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count

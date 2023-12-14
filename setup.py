@@ -195,13 +195,18 @@ def get_extensions():
     ]
 
 
-# TODO: make proper dependencies
-    extensions.append(
-        Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+    if sycl_info["compile"] and sycl_info["libdirs"]:
+        extensions.append(
+            Extension(
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+                include_dirs=sycl_info["compile"],
+                library_dirs=sycl_info["libdirs"],
+                libraries=sycl_info["libs"],
+            )
         )
-    )
+    else:
+        print_warning("SYCL (Intel Basekit) path not found. Did you call {you basekit dir}/setvars.sh? You can use ONEAPI_ROOT", "(XPU extensions will not be built)")
 
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(
