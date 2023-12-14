@@ -51,16 +51,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install MPI (${{ matrix.mpi }})
-        run: |
-          sh ./conf/travis-install-mpi.sh ${{ matrix.mpi }}
+      - name: Setup MPI (${{ matrix.mpi }})
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
 
       - name: Pip install python dependencies
         run: |
-          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
-            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
-          fi
-
           python -m pip install --upgrade pip
           pip install .[dev]
 
@@ -74,15 +71,9 @@ jobs:
       - name: Single-execution test with pytest
         timeout-minutes: 5
         run: |
-          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
-            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
-          fi
           pytest .
 
       - name: mpirun test with pytest
         timeout-minutes: 5
         run: |
-          if [ ${{ matrix.mpi }} == 'intelmpi' ]; then
-            source ${HOME}/intel/compilers_and_libraries/linux/mpi/intel64/bin/mpivars.sh -ofi_internal=1 release
-          fi
           mpirun -v -np 2 pytest .

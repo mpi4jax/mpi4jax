@@ -33,9 +33,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install MPI
-        run: |
-          sh ./conf/travis-install-mpi.sh mpich
+      - name: Setup MPI (${{ matrix.mpi }})
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
 
       - name: Pip install python dependencies
         run: |

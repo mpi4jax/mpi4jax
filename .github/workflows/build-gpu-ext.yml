@@ -50,8 +50,10 @@ jobs:
         fi
       shell: bash
 
-    - name: Install MPI
-      run: sh ./conf/travis-install-mpi.sh mpich
+    - name: Setup MPI (mpich)
+      uses: mpi4py/setup-mpi@v1
+      with:
+        mpi: mpich
 
     - name: Install dependencies
       run: |
