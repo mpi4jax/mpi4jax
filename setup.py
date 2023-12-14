@@ -1,10 +1,13 @@
 import os
 import sys
 import shlex
+import logging
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext
+
+#logging.basicConfig(level=logging.INFO)
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -125,6 +128,7 @@ def get_cuda_path():
 #TODO: implement properly
 def get_sycl_path():
     basekit = os.environ.get('ONEAPI_ROOT')
+    logging.info("ONEAPI_ROOT={basekit}")
     return basekit
 
 
@@ -138,20 +142,30 @@ def get_sycl_info():
     incdir = os.path.join(sycl_path, "compiler/latest/linux/include/")
     if os.path.isdir(incdir):
         sycl_info["compile"].append(incdir)
+        logging.info("Adding include={incdir}")
     incdir2 = os.path.join(sycl_path, "compiler/latest/linux/include/sycl")
     if os.path.isdir(incdir2):
         sycl_info["compile"].append(incdir2)
+        logging.info("Adding include={incdir2}")
 
     incdir3 = os.path.join(sycl_path, "compiler/latest/include/")
     if os.path.isdir(incdir3):
         sycl_info["compile"].append(incdir3)
+        logging.info("Adding include={incdir3}")
     incdir4 = os.path.join(sycl_path, "compiler/latest/include/sycl")
     if os.path.isdir(incdir4):
         sycl_info["compile"].append(incdir4)
+        logging.info("Adding include={incdir4}")
 
     lib_dir = os.path.join(sycl_path, "compiler/latest/linux/lib/")
     if os.path.isdir(lib_dir):
         sycl_info["libdirs"].append(lib_dir)
+        logging.info("Adding lib dir={lib_dir}")
+
+    lib_dir2 = os.path.join(sycl_path, "compiler/latest/lib/")
+    if os.path.isdir(lib_dir2):
+        sycl_info["libdirs"].append(lib_dir2)
+        logging.info("Adding lib dir={lib_dir2}")
 
     sycl_info["libs"].append("sycl")
     return sycl_info
