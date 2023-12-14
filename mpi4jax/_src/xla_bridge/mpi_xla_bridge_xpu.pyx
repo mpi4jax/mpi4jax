@@ -24,10 +24,11 @@ from .sycl_runtime_api cimport (
 #    cudaMemcpyDeviceToHost,
 #    cudaMemcpyKind,
 #    cudaMemcpyHostToDevice,
-    cudaStream_t,
+    queue,
 #    cudaStreamSynchronize,
 #    cudaSuccess,
 )
+
 
 from . cimport mpi_xla_bridge
 
@@ -217,9 +218,6 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
     cdef int ierr, dtype_size
     cdef size_t count
 
-#    print("{}",dpctl.get_platforms()[0])
-   # dpctl
-
     # decode inputs
     cdef void* data = buffers[0]
     cdef void* out_data = buffers[2]
@@ -239,6 +237,8 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
 
 # TODO: uncomment
 #    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xpuq = <queue*>stream
+    xpuq.wait()
 
     if COPY_TO_HOST:
         # copy memory to host

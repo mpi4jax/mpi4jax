@@ -1,7 +1,9 @@
-cdef extern from "sycl/CL/sycl.hpp":
-    #    cdef enum cudaError:
-    #    cudaSuccess = 0
-    ctypedef void* cudaStream_t
+cdef extern from "sycl/CL/sycl.hpp" namespace "cl::sycl":
+
+    cdef cppclass queue "cl::sycl::queue":
+            void wait() nogil
+            pass
+
 
     #cdef enum cudaMemcpyKind:
     #    cudaMemcpyHostToHost = 0
