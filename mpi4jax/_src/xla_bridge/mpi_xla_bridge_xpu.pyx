@@ -13,8 +13,6 @@ from mpi4py.libmpi cimport (
     MPI_Type_size,
 )
 
-import dpctl  # Make it imported conditionally 
-
 from .sycl_runtime_api cimport (
 #    cudaGetErrorName,
 #    cudaGetErrorString,
