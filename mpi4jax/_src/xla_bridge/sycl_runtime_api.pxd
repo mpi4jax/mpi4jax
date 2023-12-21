@@ -10,6 +10,7 @@ cdef extern from "sycl/CL/sycl.hpp" namespace "cl::sycl":
 
     cdef cppclass device "cl::sycl::device":
         bool is_accelerator() nogil
+        bool is_gpu() nogil
         pass
 
 #    cdef enum info_device "cl::sycl::info::device": 
