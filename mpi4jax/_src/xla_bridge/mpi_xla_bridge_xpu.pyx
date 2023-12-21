@@ -242,7 +242,9 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
 
     cdef device d = xq.get_device()
     cdef bool is_xpu = d.is_accelerator()
-    cdef bool is_gpu = d.is_accelerator()
+    cdef bool is_gpu = d.is_gpu()
+    printf("is_xpu: %d\n",is_xpu)
+    printf("is_gpu: %d\n",is_gpu)
     if is_xpu: 
         printf("==> Device is an accelerator\n")
     if is_gpu: 
