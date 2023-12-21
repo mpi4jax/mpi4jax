@@ -1,9 +1,7 @@
 from cpython.pycapsule cimport PyCapsule_New
 
-from libc.stdio cimport printf
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc, free
-from libcpp cimport bool
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
@@ -16,18 +14,7 @@ from mpi4py.libmpi cimport (
 )
 
 from .sycl_runtime_api cimport (
-#    cudaGetErrorName,
-#    cudaGetErrorString,
-#    cudaError_t,
-#    cudaMemcpy,
-#    cudaMemcpyDeviceToDevice,
-#    cudaMemcpyDeviceToHost,
-#    cudaMemcpyKind,
-#    cudaMemcpyHostToDevice,
     queue,
-    device,
-#    cudaStreamSynchronize,
-#    cudaSuccess,
 )
 
 from . cimport mpi_xla_bridge
@@ -237,23 +224,8 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
 
 # TODO: uncomment
 #    checked_cuda_stream_synchronize(stream, comm)
-    cdef queue* xq = <queue*>stream
-    xq.wait()
-
-    cdef device d = xq.get_device()
-    cdef bool is_xpu = d.is_accelerator()
-    cdef bool is_gpu = d.is_gpu()
-    printf("is_xpu: %d\n",is_xpu)
-    printf("is_gpu: %d\n",is_gpu)
-    if is_xpu: 
-        printf("==> Device is an accelerator\n")
-    if is_gpu: 
-        printf("==> Device is a GPU\n")
-
-    if is_xpu == False and is_gpu == False:
-        printf("==> Device is a cpu\n")
-
-#    print("SYCL device: ",d)
+    cdef queue* xqueue = <queue*>stream
+    xqueue.wait()
 
     if COPY_TO_HOST:
         # copy memory to host

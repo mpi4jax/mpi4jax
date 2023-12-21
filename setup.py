@@ -131,41 +131,34 @@ def get_sycl_path():
     logging.info("ONEAPI_ROOT={basekit}")
     return basekit
 
-
 def get_sycl_info():
     sycl_info = {"compile": [], "libdirs": [], "libs": []}
     sycl_path = get_sycl_path()
     if not sycl_path:
         return sycl_info
 
-    # TODO: Make a nice look over all those potential paths instead this nasty code
-    incdir = os.path.join(sycl_path, "compiler/latest/linux/include/")
-    if os.path.isdir(incdir):
-        sycl_info["compile"].append(incdir)
-        logging.info("Adding include={incdir}")
-    incdir2 = os.path.join(sycl_path, "compiler/latest/linux/include/sycl")
-    if os.path.isdir(incdir2):
-        sycl_info["compile"].append(incdir2)
-        logging.info("Adding include={incdir2}")
+    include_suffices = [
+        "compiler/latest/linux/include/",
+        "compiler/latest/linux/include/sycl",
+        "compiler/latest/include/",
+        "compiler/latest/include/sycl",
+            ]
 
-    incdir3 = os.path.join(sycl_path, "compiler/latest/include/")
-    if os.path.isdir(incdir3):
-        sycl_info["compile"].append(incdir3)
-        logging.info("Adding include={incdir3}")
-    incdir4 = os.path.join(sycl_path, "compiler/latest/include/sycl")
-    if os.path.isdir(incdir4):
-        sycl_info["compile"].append(incdir4)
-        logging.info("Adding include={incdir4}")
+    for inc_suffix in include_suffices:
+        incdir = os.path.join(sycl_path, inc_suffix)
+        if os.path.isdir(incdir):
+            sycl_info["compile"].append(incdir)
+            logging.info("Adding include={incdir}")
 
-    lib_dir = os.path.join(sycl_path, "compiler/latest/linux/lib/")
-    if os.path.isdir(lib_dir):
-        sycl_info["libdirs"].append(lib_dir)
-        logging.info("Adding lib dir={lib_dir}")
-
-    lib_dir2 = os.path.join(sycl_path, "compiler/latest/lib/")
-    if os.path.isdir(lib_dir2):
-        sycl_info["libdirs"].append(lib_dir2)
-        logging.info("Adding lib dir={lib_dir2}")
+    libdir_suffices = [ 
+           "compiler/latest/linux/lib/",
+           "compiler/latest/lib/",
+            ]
+    for libdir_suffix in libdir_suffices:
+        lib_dir = os.path.join(sycl_path,libdir_suffix)
+        if os.path.isdir(lib_dir):
+            sycl_info["libdirs"].append(lib_dir)
+            logging.info("Adding lib dir={lib_dir}")
 
     sycl_info["libs"].append("sycl")
     return sycl_info
