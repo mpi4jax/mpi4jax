@@ -1,7 +1,9 @@
 from cpython.pycapsule cimport PyCapsule_New
 
+from libc.stdio cimport printf
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc, free
+from libcpp cimport bool
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
@@ -23,10 +25,10 @@ from .sycl_runtime_api cimport (
 #    cudaMemcpyKind,
 #    cudaMemcpyHostToDevice,
     queue,
+    device,
 #    cudaStreamSynchronize,
 #    cudaSuccess,
 )
-
 
 from . cimport mpi_xla_bridge
 
@@ -235,8 +237,17 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
 
 # TODO: uncomment
 #    checked_cuda_stream_synchronize(stream, comm)
-    cdef queue* xpuq = <queue*>stream
-    xpuq.wait()
+    cdef queue* xq = <queue*>stream
+    xq.wait()
+
+    cdef device d = xq.get_device()
+    cdef bool is_xpu = d.is_accelerator()
+    if is_xpu: 
+        printf("==> Device is an accelerator\n")
+    else:
+        printf("==> Device is a cpu\n")
+
+#    print("SYCL device: ",d)
 
     if COPY_TO_HOST:
         # copy memory to host
