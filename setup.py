@@ -1,10 +1,13 @@
 import os
 import sys
 import shlex
+import logging
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext
+
+#logging.basicConfig(level=logging.INFO)
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -122,6 +125,44 @@ def get_cuda_path():
 
     return _cuda_path
 
+def get_sycl_path():
+    basekit = os.environ.get('ONEAPI_ROOT')
+    logging.info("ONEAPI_ROOT={basekit}")
+    return basekit
+
+def get_sycl_info():
+    sycl_info = {"compile": [], "libdirs": [], "libs": []}
+    sycl_path = get_sycl_path()
+    if not sycl_path:
+        return sycl_info
+
+    include_suffices = [
+        "compiler/latest/linux/include/",
+        "compiler/latest/linux/include/sycl",
+        "compiler/latest/include/",
+        "compiler/latest/include/sycl",
+            ]
+
+    for inc_suffix in include_suffices:
+        incdir = os.path.join(sycl_path, inc_suffix)
+        if os.path.isdir(incdir):
+            sycl_info["compile"].append(incdir)
+            logging.info("Adding include={incdir}")
+
+    libdir_suffices = [ 
+           "compiler/latest/linux/lib/",
+           "compiler/latest/lib/",
+            ]
+    for libdir_suffix in libdir_suffices:
+        lib_dir = os.path.join(sycl_path,libdir_suffix)
+        if os.path.isdir(lib_dir):
+            sycl_info["libdirs"].append(lib_dir)
+            logging.info("Adding lib dir={lib_dir}")
+
+    sycl_info["libs"].append("sycl")
+    return sycl_info
+
+sycl_info = get_sycl_info()
 
 def get_cuda_info():
     cuda_info = {"compile": [], "libdirs": [], "libs": []}
@@ -171,13 +212,19 @@ def get_extensions():
     ]
 
 
-# TODO: make proper dependencies
-    extensions.append(
-        Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+    if sycl_info["compile"] and sycl_info["libdirs"]:
+        extensions.append(
+            Extension(
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+                include_dirs=sycl_info["compile"],
+                library_dirs=sycl_info["libdirs"],
+                libraries=sycl_info["libs"],
+                language="c++",
+            )
         )
-    )
+    else:
+        print_warning("SYCL (Intel Basekit) path not found. Did you call {you basekit dir}/setvars.sh? You can use env var ONEAPI_ROOT to point Basekit directory where sycl is", "(XPU extensions will not be built)")
 
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(
