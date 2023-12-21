@@ -125,7 +125,6 @@ def get_cuda_path():
 
     return _cuda_path
 
-#TODO: implement properly
 def get_sycl_path():
     basekit = os.environ.get('ONEAPI_ROOT')
     logging.info("ONEAPI_ROOT={basekit}")
@@ -225,7 +224,7 @@ def get_extensions():
             )
         )
     else:
-        print_warning("SYCL (Intel Basekit) path not found. Did you call {you basekit dir}/setvars.sh? You can use ONEAPI_ROOT", "(XPU extensions will not be built)")
+        print_warning("SYCL (Intel Basekit) path not found. Did you call {you basekit dir}/setvars.sh? You can use env var ONEAPI_ROOT to point Basekit directory where sycl is", "(XPU extensions will not be built)")
 
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(
