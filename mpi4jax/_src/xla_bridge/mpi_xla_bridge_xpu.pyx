@@ -75,6 +75,14 @@ cdef inline void* checked_malloc(size_t count, MPI_Comm comm) nogil:
 #    return ierr
 #
 #
+
+cdef inline void checked_sycl_queue_wait(queue* sycl_queue, MPI_Comm comm):
+    try:
+        sycl_queue.wait()
+    except:
+        mpi_xla_bridge.abort(0, comm, "Error: Unable to execute SYCL queue::wait()")
+    return 
+
 #cdef inline cudaError_t checked_cuda_stream_synchronize(
 #    cudaStream_t stream, MPI_Comm comm
 #) nogil:
@@ -222,10 +230,11 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
-# TODO: uncomment
 #    checked_cuda_stream_synchronize(stream, comm)
     cdef queue* xqueue = <queue*>stream
-    xqueue.wait()
+
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
