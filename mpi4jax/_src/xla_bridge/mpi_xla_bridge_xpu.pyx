@@ -3,6 +3,8 @@ from cpython.pycapsule cimport PyCapsule_New
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc, free
 
+from cython.operator cimport dereference as deref
+
 from mpi4py.libmpi cimport (
     MPI_Comm,
     MPI_Comm_rank,
@@ -15,6 +17,7 @@ from mpi4py.libmpi cimport (
 
 from .sycl_runtime_api cimport (
     queue,
+    event,
 )
 
 from . cimport mpi_xla_bridge
@@ -56,44 +59,19 @@ cdef inline void* checked_malloc(size_t count, MPI_Comm comm) nogil:
     return mem
 
 
-#cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count,
-#                                            cudaMemcpyKind kind, MPI_Comm comm) nogil:
-#    cdef cudaError_t ierr
-#    ierr = cudaMemcpy(dst, src, count, kind)
-#
-#    if ierr != cudaSuccess:
-#        with gil:
-#            err_str = get_error_name(ierr)
-#            err_des = get_error_string(ierr)
-#            message = (
-#                f"cudaMemcpy failed with the following error:\n"
-#                f"\tError {ierr} {err_str}: {err_des}"
-#            )
-#
-#        mpi_xla_bridge.abort(0, comm, message)
-#
-#    return ierr
-#
-#
-#cdef inline cudaError_t checked_cuda_stream_synchronize(
-#    cudaStream_t stream, MPI_Comm comm
-#) nogil:
-#    cdef cudaError_t ierr
-#    ierr = cudaStreamSynchronize(stream)
-#
-#    if ierr != cudaSuccess:
-#        with gil:
-#            err_str = get_error_name(ierr)
-#            err_des = get_error_string(ierr)
-#            message = (
-#                f"cudaStreamSynchronize failed with the following error:\n"
-#                f"\tError {ierr} {err_str}: {err_des}"
-#            )
-#
-#        mpi_xla_bridge.abort(0, comm, message)
-#
-#    return ierr
+cdef inline checked_sycl_memcpy(queue* sycl_queue, void* dst, void* src, size_t count, MPI_Comm comm):
+    try:
+        sycl_queue.memcpy(dst, src, count).wait()
+    except:
+        mpi_xla_bridge.abort(0, comm, f"Error: Unable to copy Data from the Device to CPU")
+    return 
 
+cdef inline void checked_sycl_queue_wait(queue* sycl_queue, MPI_Comm comm):
+    try:
+        sycl_queue.wait()
+    except:
+        mpi_xla_bridge.abort(0, comm, f"Error: Unable to execute SYCL queue::wait()")
+    return 
 
 #
 # GPU XLA targets
@@ -222,10 +200,9 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
     cdef queue* xqueue = <queue*>stream
-    xqueue.wait()
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -235,15 +212,16 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
         count = dtype_size * nitems
         in_buf = checked_malloc(count, comm)
         out_buf = checked_malloc(count, comm)
-# TODO: uncomment
-#        checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost, comm)
+
+        with gil:
+            checked_sycl_memcpy(xqueue, in_buf, data , count, comm)
 
     mpi_xla_bridge.mpi_allreduce(in_buf, out_buf, nitems, dtype, op, comm)
 
     if COPY_TO_HOST:
         # copy back to device
-# TODO: uncomment
-#        checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice, comm)
+        with gil:
+            checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
         free(in_buf)
         free(out_buf)
 

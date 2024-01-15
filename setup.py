@@ -136,24 +136,24 @@ def get_sycl_info():
     if not sycl_path:
         return sycl_info
 
-    include_suffices = [
+    include_suffixes = [
         "compiler/latest/linux/include/",
         "compiler/latest/linux/include/sycl",
         "compiler/latest/include/",
         "compiler/latest/include/sycl",
             ]
 
-    for inc_suffix in include_suffices:
+    for inc_suffix in include_suffixes:
         incdir = os.path.join(sycl_path, inc_suffix)
         if os.path.isdir(incdir):
             sycl_info["compile"].append(incdir)
             logging.info("Adding include={incdir}")
 
-    libdir_suffices = [ 
+    libdir_suffixes = [ 
            "compiler/latest/linux/lib/",
            "compiler/latest/lib/",
             ]
-    for libdir_suffix in libdir_suffices:
+    for libdir_suffix in libdir_suffixes:
         lib_dir = os.path.join(sycl_path,libdir_suffix)
         if os.path.isdir(lib_dir):
             sycl_info["libdirs"].append(lib_dir)
