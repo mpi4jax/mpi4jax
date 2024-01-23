@@ -622,7 +622,8 @@ cdef void mpi_reduce_xpu(void* stream, void** buffers,
 
         if rank == root:
 #            # copy back to device
-            checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
+            with gil:
+                checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
 
         free(in_buf)
         free(out_buf)
