@@ -599,8 +599,9 @@ cdef void mpi_reduce_xpu(void* stream, void** buffers,
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -610,8 +611,8 @@ cdef void mpi_reduce_xpu(void* stream, void** buffers,
         count = dtype_size * nitems
         in_buf = checked_malloc(count, comm)
         out_buf = checked_malloc(count, comm)
-# TODO: uncomment
-#        checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost, comm)
+        with gil:
+            checked_sycl_memcpy(xqueue, in_buf, data , count, comm)
 
     mpi_xla_bridge.mpi_reduce(in_buf, out_buf, nitems, dtype, op, root, comm)
 
@@ -619,10 +620,9 @@ cdef void mpi_reduce_xpu(void* stream, void** buffers,
         ierr = MPI_Comm_rank(comm, &rank)
         mpi_xla_bridge.abort_on_error(ierr, comm, u"Comm_rank")
 
-# TODO: uncomment
-#        if rank == root:
+        if rank == root:
 #            # copy back to device
-#            checked_cuda_memcpy(out_data, out_buf, count, cudaMemcpyHostToDevice, comm)
+            checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
 
         free(in_buf)
         free(out_buf)
