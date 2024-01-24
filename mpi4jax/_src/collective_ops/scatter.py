@@ -150,7 +150,7 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
 
 @translation_rule_xpu
 def mpi_scatter_xla_encode_xpu(ctx, x, token, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_scatter_descriptor
 
     comm = unpack_hashable(comm)
 
