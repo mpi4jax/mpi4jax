@@ -151,8 +151,61 @@ def mpi_gather_xla_encode_cpu(ctx, x, token, root, comm):
 
 @translation_rule_xpu
 def mpi_gather_xla_encode_xpu(ctx, x, token, root, comm):
-    print("XPU GATHER not implemented!")
-    exit(-1)
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_gather_descriptor
+
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    # output is only used on root, so prevent memory allocation
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    if rank == root:
+        out_shape = (size, *dims)
+    else:
+        out_shape = (0,)
+
+    out_types = [
+        ir.RankedTensorType.get(out_shape, dtype),
+        *token_type(),
+    ]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_gather_descriptor(
+        nitems,
+        dtype_handle,
+        # we only support matching input and output arrays
+        nitems,
+        dtype_handle,
+        #
+        root,
+        to_mpi_handle(comm),
+    )
+
+    return custom_call(
+        b"mpi_gather",
+        result_types=out_types,
+        operands=operands,
+        # enforce c order because the first axis is special
+        operand_layouts=get_default_layouts(operands, order="c"),
+        result_layouts=get_default_layouts(out_types, order="c"),
+        has_side_effect=True,
+        backend_config=descriptor,
+    ).results
 
 @translation_rule_gpu
 def mpi_gather_xla_encode_gpu(ctx, x, token, root, comm):
