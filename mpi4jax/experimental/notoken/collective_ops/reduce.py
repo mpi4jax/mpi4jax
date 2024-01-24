@@ -182,7 +182,6 @@ def mpi_reduce_xla_encode_gpu(ctx, x, op, root, comm):
 
     return results
 
-
 # This function evaluates only the shapes during AST construction
 def mpi_reduce_abstract_eval(xs, op, root, comm):
     comm = unpack_hashable(comm)
