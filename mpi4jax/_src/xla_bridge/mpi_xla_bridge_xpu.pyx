@@ -448,8 +448,9 @@ cdef void mpi_gather_xpu(void* stream, void** buffers,
     cdef int root = desc.root
     cdef MPI_Comm comm = desc.comm
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -475,23 +476,19 @@ cdef void mpi_gather_xpu(void* stream, void** buffers,
 
         out_buf = checked_malloc(recvbytes, comm)
 
-# TODO: uncomment
-#        checked_cuda_memcpy(in_buf, data, sendbytes, cudaMemcpyDeviceToHost, comm)
+        with gil:
+            checked_sycl_memcpy(xqueue, in_buf, data , sendbytes, comm)
 
     mpi_xla_bridge.mpi_gather(
         in_buf, sendcount, sendtype, out_buf, recvcount, recvtype, root, comm
     )
 
-# TODO: uncomment
-#    if COPY_TO_HOST:
-#        if rank == root:
-#            # copy back to device
-#            checked_cuda_memcpy(
-#                out_data, out_buf, recvbytes, cudaMemcpyHostToDevice, comm
-#            )
-#
-#        free(in_buf)
-#        free(out_buf)
+    if COPY_TO_HOST:
+        if rank == root:
+            with gil:
+                checked_sycl_memcpy(xqueue, out_data, out_buf , recvbytes, comm)
+        free(in_buf)
+        free(out_buf)
 
 
 # Recv
