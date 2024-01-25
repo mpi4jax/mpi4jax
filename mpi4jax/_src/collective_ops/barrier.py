@@ -90,8 +90,25 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
 
 @translation_rule_xpu
 def mpi_barrier_xla_encode_xpu(ctx, token, comm):
-    print("XPU BARRIER not implemented!")
-    exit(-1)
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_barrier_descriptor
+
+    comm = unpack_hashable(comm)
+
+    out_types = token_type()
+
+    operands = (token,)
+
+    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
+
+    return custom_call(
+        b"mpi_barrier",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    ).results
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(ctx, token, comm):
