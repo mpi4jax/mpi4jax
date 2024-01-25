@@ -536,8 +536,9 @@ cdef void mpi_recv_xpu(void* stream, void** buffers,
     cdef MPI_Datatype dtype = desc.dtype
     cdef MPI_Status* status = desc.status
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -549,10 +550,10 @@ cdef void mpi_recv_xpu(void* stream, void** buffers,
 
     mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status)
 
-# TODO: uncomment
-#    if COPY_TO_HOST:
-#        checked_cuda_memcpy(out_buf, recvbuf, count, cudaMemcpyHostToDevice, comm)
-#        free(recvbuf)
+    if COPY_TO_HOST:
+        with gil:
+            checked_sycl_memcpy(xqueue, out_buf, recvbuf , count, comm)
+        free(recvbuf)
 
 
 # Reduce
