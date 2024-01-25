@@ -898,8 +898,9 @@ cdef void mpi_sendrecv_xpu(void* stream, void** buffers,
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Status* status = desc.status
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -913,8 +914,9 @@ cdef void mpi_sendrecv_xpu(void* stream, void** buffers,
         bytes_recv = recv_dtype_size * recvcount
         sendbuf = checked_malloc(bytes_send, comm)
         recvbuf = checked_malloc(bytes_recv, comm)
-# TODO: uncomment
-#        checked_cuda_memcpy(sendbuf, in_buf, bytes_send, cudaMemcpyDeviceToHost, comm)
+
+        with gil:
+            checked_sycl_memcpy(xqueue, sendbuf, in_buf, bytes_send, comm)
 
     mpi_xla_bridge.mpi_sendrecv(
         sendbuf, sendcount, sendtype, dest, sendtag,
@@ -923,8 +925,8 @@ cdef void mpi_sendrecv_xpu(void* stream, void** buffers,
     )
 
     if COPY_TO_HOST:
-# TODO: uncomment
-        #        checked_cuda_memcpy(out_buf, recvbuf, bytes_recv, cudaMemcpyHostToDevice, comm)
+        with gil:
+            checked_sycl_memcpy(xqueue, out_buf, recvbuf , bytes_recv, comm)
         free(recvbuf)
 
 
