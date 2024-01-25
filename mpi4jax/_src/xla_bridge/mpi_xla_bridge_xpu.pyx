@@ -834,7 +834,7 @@ cdef void mpi_send_xpu(void* stream, void** buffers,
         sendbuf = checked_malloc(count, comm)
 
         with gil:
-            checked_sycl_memcpy(xqueue, in_buf, data , count, comm)
+            checked_sycl_memcpy(xqueue, sendbuf, data , count, comm)
 
     mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm)
 
