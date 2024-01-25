@@ -821,8 +821,9 @@ cdef void mpi_send_xpu(void* stream, void** buffers,
     cdef MPI_Comm comm = desc.comm
     cdef MPI_Datatype dtype = desc.dtype
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
@@ -831,8 +832,9 @@ cdef void mpi_send_xpu(void* stream, void** buffers,
 
         count = dtype_size * nitems
         sendbuf = checked_malloc(count, comm)
-# TODO: uncomment
-#        checked_cuda_memcpy(sendbuf, data, count, cudaMemcpyDeviceToHost, comm)
+
+        with gil:
+            checked_sycl_memcpy(xqueue, in_buf, data , count, comm)
 
     mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm)
 
