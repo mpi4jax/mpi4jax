@@ -127,8 +127,52 @@ def mpi_bcast_xla_encode_cpu(ctx, x, token, root, comm):
 
 @translation_rule_xpu
 def mpi_bcast_xla_encode_xpu(ctx, x, token, root, comm):
-    print("XPU BCAST not implemented!")
-    exit(-1)
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_bcast_descriptor
+
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    # output is not used on root, so prevent memory allocation
+    rank = comm.Get_rank()
+    if rank == root:
+        dims = (0,)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *token_type(),
+    ]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_bcast_descriptor(
+        nitems,
+        root,
+        to_mpi_handle(comm),
+        dtype_handle,
+    )
+
+    return custom_call(
+        b"mpi_bcast",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    ).results
 
 @translation_rule_gpu
 def mpi_bcast_xla_encode_gpu(ctx, x, token, root, comm):

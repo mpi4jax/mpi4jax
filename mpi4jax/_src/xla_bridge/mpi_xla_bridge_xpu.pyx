@@ -377,16 +377,16 @@ cdef void mpi_bcast_xpu(void* stream, void** buffers,
     ierr = MPI_Comm_rank(comm, &rank)
     mpi_xla_bridge.abort_on_error(ierr, comm, u"Comm_rank")
 
-# TODO: uncomment
-#    checked_cuda_stream_synchronize(stream, comm)
+    cdef queue* xqueue = <queue*>stream
+    with gil:
+        checked_sycl_queue_wait(xqueue, comm) 
 
     if COPY_TO_HOST:
         # copy memory to host
         count = dtype_size * nitems
         buf = checked_malloc(count, comm)
-# TODO: uncomment
-#        if rank == root:
-#            checked_cuda_memcpy(buf, data, count, cudaMemcpyDeviceToHost, comm)
+        with gil:
+            checked_sycl_memcpy(xqueue, buf, data , count, comm)
     else:
         if rank == root:
             buf = data
@@ -394,10 +394,10 @@ cdef void mpi_bcast_xpu(void* stream, void** buffers,
     mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm)
 
     if COPY_TO_HOST:
-# TODO: uncomment
-#        if rank != root:
+        if rank != root:
             # copy back to device
-#            checked_cuda_memcpy(out_data, buf, count, cudaMemcpyHostToDevice, comm)
+            with gil:
+                checked_sycl_memcpy(xqueue, out_data, buf , count, comm)
 
         free(buf)
 
