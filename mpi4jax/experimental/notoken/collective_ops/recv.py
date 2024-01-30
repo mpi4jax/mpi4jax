@@ -263,4 +263,4 @@ mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_gpu, platform="cuda")
-mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="sycl")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="xpu")

@@ -248,4 +248,4 @@ mpi_alltoall_p.def_effectful_abstract_eval(mpi_alltoall_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_gpu, platform="cuda")
-mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_xpu, platform="sycl")
+mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_xpu, platform="xpu")
