@@ -124,7 +124,7 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
 
 @translation_rule_xpu
 def mpi_bcast_xla_encode_xpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_bcast_descriptor
 
     comm = unpack_hashable(comm)
 
