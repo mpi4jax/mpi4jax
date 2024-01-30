@@ -18,7 +18,11 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
@@ -116,6 +120,63 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
     return results
 
 
+@translation_rule_xpu
+def mpi_allgather_xla_encode_xpu(ctx, sendbuf, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_allgather_descriptor
+
+    comm = unpack_hashable(comm)
+
+    sendbuf_aval, *_ = ctx.avals_in
+    send_nptype = sendbuf_aval.dtype
+
+    send_type = ir.RankedTensorType(sendbuf.type)
+    send_dtype = send_type.element_type
+    send_dims = send_type.shape
+
+    # compute total number of elements in send array
+    send_nitems = _np.prod(send_dims, dtype=int)
+    send_dtype_handle = to_dtype_handle(send_nptype)
+
+    size = comm.Get_size()
+    out_shape = (size, *send_dims)
+
+    out_types = [
+        ir.RankedTensorType.get(out_shape, send_dtype),
+        *token_type(),
+    ]
+
+    descriptor = build_allgather_descriptor(
+        send_nitems,
+        send_dtype_handle,
+        # we only support matching input and output arrays
+        send_nitems,
+        send_dtype_handle,
+        #
+        to_mpi_handle(comm),
+    )
+
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
+    operands = (sendbuf, token)
+
+    result_obj = custom_call(
+        b"mpi_allgather",
+        result_types=out_types,
+        operands=operands,
+        # layout matters here, because the first axis is special
+        operand_layouts=get_default_layouts(operands, order="c"),
+        result_layouts=get_default_layouts(out_types, order="c"),
+        backend_config=descriptor,
+        has_side_effect=True,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
+
+
 @translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(ctx, sendbuf, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
@@ -186,3 +247,4 @@ mpi_allgather_p.def_effectful_abstract_eval(mpi_allgather_abstract_eval)
 
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_xpu, platform="xpu")

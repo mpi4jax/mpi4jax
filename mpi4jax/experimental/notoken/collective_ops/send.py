@@ -18,7 +18,11 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
@@ -103,6 +107,56 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
     return results
 
 
+@translation_rule_xpu
+def mpi_send_xla_encode_xpu(ctx, x, dest, tag, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_send_descriptor
+
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    out_types = token_type()
+
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_send_descriptor(
+        nitems,
+        dest,
+        tag,
+        to_mpi_handle(comm),
+        dtype_handle,
+    )
+
+    result_obj = custom_call(
+        b"mpi_send",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
+
+
 @translation_rule_gpu
 def mpi_send_xla_encode_gpu(ctx, x, dest, tag, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_send_descriptor
@@ -165,3 +219,4 @@ mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_xpu, platform="xpu")

@@ -18,7 +18,11 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
@@ -118,6 +122,64 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
     return results
 
 
+@translation_rule_xpu
+def mpi_bcast_xla_encode_xpu(ctx, x, root, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
+
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = _np.prod(dims, dtype=int)
+    dtype_handle = to_dtype_handle(x_nptype)
+
+    # output is not used on root, so prevent memory allocation
+    rank = comm.Get_rank()
+    if rank == root:
+        dims = (0,)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        *token_type(),
+    ]
+
+    token = ctx.tokens_in.get(ordered_effect)[0]
+
+    operands = (
+        x,
+        token,
+    )
+
+    descriptor = build_bcast_descriptor(
+        nitems,
+        root,
+        to_mpi_handle(comm),
+        dtype_handle,
+    )
+
+    result_obj = custom_call(
+        b"mpi_bcast",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+
+    return results
+
+
 @translation_rule_gpu
 def mpi_bcast_xla_encode_gpu(ctx, x, root, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
@@ -195,3 +257,4 @@ mpi_bcast_p.def_effectful_abstract_eval(mpi_bcast_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_xpu, platform="xpu")
