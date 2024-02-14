@@ -1,0 +1,51 @@
+name: Build XPU extensions
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # make sure tags are fetched so we can get a version
+    - run: |
+        git fetch --prune --unshallow --tags
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install OneAPI components
+      run: |
+        wget -nv https://registrationcenter-download.intel.com/akdlm/IRC_NAS/bb99984f-370f-413d-bbec-38928d2458f2/l_dpcpp-cpp-compiler_p_2024.0.2.29_offline.sh -P $HOME/basekit
+        chmod +x $HOME/basekit/l_dpcpp-cpp-compiler_p_2024.0.2.29_offline.sh
+        bash $HOME/basekit/l_dpcpp-cpp-compiler_p_2024.0.2.29_offline.sh -f "$HOME/basekit" -a --install-dir "$HOME/basekit" --eula=accept --silent
+      shell: bash
+
+    - name: Setup MPI (mpich)
+      uses: mpi4py/setup-mpi@v1
+      with:
+        mpi: mpich
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel mpi4py cython
+
+    - name: Build XPU extensions
+      run: |
+        source $HOME/basekit/setvars.sh
+        export ONEAPI_ROOT=$HOME/basekit
+        python setup.py build_ext --inplace
+        test -f mpi4jax/_src/xla_bridge/mpi_xla_bridge_xpu*.so
