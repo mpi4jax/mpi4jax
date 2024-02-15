@@ -22,20 +22,6 @@ from .sycl_runtime_api cimport (
 
 from . cimport mpi_xla_bridge
 
-# Error handling
-
-#cpdef inline unicode py_string(const char* c_str):
-#    py_str = <bytes> c_str
-#    return py_str.decode("UTF-8")
-#
-#
-#cpdef inline unicode get_error_name(cudaError_t ierr):
-#    return py_string(cudaGetErrorName(ierr))
-#
-#
-#cpdef inline unicode get_error_string(cudaError_t ierr):
-#    return py_string(cudaGetErrorString(ierr))
-
 
 # Config
 
