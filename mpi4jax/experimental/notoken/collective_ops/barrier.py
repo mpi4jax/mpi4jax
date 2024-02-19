@@ -80,10 +80,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
     return results
 
 
-@translation_rule_xpu
-def mpi_barrier_xla_encode_xpu(ctx, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_barrier_descriptor
-
+def mpi_barrier_xla_encode_device(ctx, comm, build_barrier_descriptor):
     comm = unpack_hashable(comm)
 
     out_types = token_type()
@@ -109,37 +106,20 @@ def mpi_barrier_xla_encode_xpu(ctx, comm):
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
     return results
+
+
+@translation_rule_xpu
+def mpi_barrier_xla_encode_xpu(ctx, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_barrier_descriptor
+
+    return mpi_barrier_xla_encode_device(ctx, comm, build_barrier_descriptor)
 
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(ctx, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
 
-    comm = unpack_hashable(comm)
-
-    out_types = token_type()
-
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
-    operands = (token,)
-
-    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
-
-    result_obj = custom_call(
-        b"mpi_barrier",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-
-    return results
+    return mpi_barrier_xla_encode_device(ctx, comm, build_barrier_descriptor)
 
 
 # This function evaluates only the shapes during AST construction
