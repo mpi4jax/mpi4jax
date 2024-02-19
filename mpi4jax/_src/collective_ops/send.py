@@ -21,7 +21,11 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type
-from ..decorators import translation_rule_cpu, translation_rule_gpu, translation_rule_xpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
@@ -106,10 +110,8 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
         has_side_effect=True,
     ).results
 
-@translation_rule_xpu
-def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_send_descriptor
 
+def mpi_send_xla_encode_device(ctx, x, token, dest, tag, comm, build_send_descriptor):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -146,47 +148,24 @@ def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
         has_side_effect=True,
         backend_config=descriptor,
     ).results
+
+
+@translation_rule_xpu
+def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_send_descriptor
+
+    return mpi_send_xla_encode_device(
+        ctx, x, token, dest, tag, comm, build_send_descriptor
+    )
+
 
 @translation_rule_gpu
 def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_send_descriptor
 
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = token_type()
-
-    operands = (
-        x,
-        token,
+    return mpi_send_xla_encode_device(
+        ctx, x, token, dest, tag, comm, build_send_descriptor
     )
-
-    descriptor = build_send_descriptor(
-        nitems,
-        dest,
-        tag,
-        to_mpi_handle(comm),
-        dtype_handle,
-    )
-
-    return custom_call(
-        b"mpi_send",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
 
 
 # This function evaluates only the shapes during AST construction
