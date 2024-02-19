@@ -122,10 +122,9 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
     return results
 
 
-@translation_rule_xpu
-def mpi_allreduce_xla_encode_xpu(ctx, x, token, op, comm, transpose):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_allreduce_descriptor
-
+def mpi_allreduce_xla_encode_device(
+    ctx, x, token, op, comm, transpose, build_allreduce_descriptor
+):
     del token  # unused
 
     op = unpack_hashable(op)
@@ -179,65 +178,24 @@ def mpi_allreduce_xla_encode_xpu(ctx, x, token, op, comm, transpose):
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
     return results
+
+
+@translation_rule_xpu
+def mpi_allreduce_xla_encode_xpu(ctx, x, token, op, comm, transpose):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_allreduce_descriptor
+
+    return mpi_allreduce_xla_encode_device(
+        ctx, x, token, op, comm, transpose, build_allreduce_descriptor
+    )
 
 
 @translation_rule_gpu
 def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
 
-    del token  # unused
-
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    if transpose:
-        assert op == _MPI.SUM
-        return [x]
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
-    operands = (
-        x,
-        token,
+    return mpi_allreduce_xla_encode_device(
+        ctx, x, token, op, comm, transpose, build_allreduce_descriptor
     )
-
-    descriptor = build_allreduce_descriptor(
-        _np.intc(nitems),
-        to_mpi_handle(op),
-        to_mpi_handle(comm),
-        to_dtype_handle(x_nptype),
-    )
-
-    result_obj = custom_call(
-        b"mpi_allreduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-
-    return results
 
 
 # This function evaluates only the shapes during AST construction
