@@ -121,10 +121,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
     return results
 
 
-@translation_rule_xpu
-def mpi_alltoall_xla_encode_xpu(ctx, x, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_alltoall_descriptor
-
+def mpi_alltoall_xla_encode_device(ctx, x, comm, build_alltoall_descriptor):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -177,64 +174,20 @@ def mpi_alltoall_xla_encode_xpu(ctx, x, comm):
     token = results.pop(-1)
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
     return results
+
+
+@translation_rule_xpu
+def mpi_alltoall_xla_encode_xpu(ctx, x, comm):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_alltoall_descriptor
+
+    return mpi_alltoall_xla_encode_device(ctx, x, comm, build_alltoall_descriptor)
 
 
 @translation_rule_gpu
 def mpi_alltoall_xla_encode_gpu(ctx, x, comm):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
 
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    size = comm.Get_size()
-    assert dims[0] == size
-    nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    token = ctx.tokens_in.get(ordered_effect)[0]
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_alltoall_descriptor(
-        nitems_per_proc,
-        dtype_handle,
-        # we only support matching input and output arrays
-        nitems_per_proc,
-        dtype_handle,
-        #
-        to_mpi_handle(comm),
-    )
-
-    result_obj = custom_call(
-        b"mpi_alltoall",
-        result_types=out_types,
-        operands=operands,
-        # force c order because first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
-    return results
+    return mpi_alltoall_xla_encode_device(ctx, x, comm, build_alltoall_descriptor)
 
 
 # This function evaluates only the shapes during AST construction
