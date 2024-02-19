@@ -172,6 +172,7 @@ def has_sycl_support() -> bool:
 
     return xla_bridge.HAS_XPU_EXT
 
+
 def prefer_notoken() -> bool:
     """Returns True if primitive implementations should prefer not to use tokens."""
     return os.environ.get("MPI4JAX_PREFER_NOTOKEN", "0").lower() in ("1", "true", "on")

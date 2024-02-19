@@ -15,7 +15,8 @@ def ensure_gpu_ext():
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with CUDA support and try again."
         )
-    
+
+
 def ensure_xpu_ext():
     from .xla_bridge import HAS_XPU_EXT
 
@@ -61,6 +62,7 @@ def setup_cuda_mpi():
     from .xla_bridge import mpi_xla_bridge_gpu
 
     mpi_xla_bridge_gpu.set_copy_to_host(not has_cuda_mpi)
+
 
 def setup_sycl_mpi():
     global _sycl_mpi_setup_done
@@ -128,6 +130,7 @@ def translation_rule_gpu(func):
         return func(*args, **kwargs)
 
     return wrapped
+
 
 def translation_rule_xpu(func):
     """XLA primitive translation rule on XPU for mpi4jax custom calls.
