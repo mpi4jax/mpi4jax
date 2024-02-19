@@ -85,8 +85,7 @@ cpdef bytes build_allgather_descriptor(
     )
     return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
 
-# cudaStream_t stream -> int stream
-# TODO: uncomment
+
 cdef void mpi_allgather_xpu(void* stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
