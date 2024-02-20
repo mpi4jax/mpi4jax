@@ -323,7 +323,6 @@ def mpi_sendrecv_xla_encode_xpu(
 
 @translation_rule_gpu
 def mpi_sendrecv_xla_encode_gpu(
-    build_sendrecv_descriptor,
     ctx,
     sendbuf,
     recvbuf,
