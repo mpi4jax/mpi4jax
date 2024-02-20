@@ -102,7 +102,7 @@ To build ``mpi4jax``'s XPU extensions, we need to locate SYCL headers
 and libraries on your system. SYCL comes as part of `Intel BaseKit
 AI <https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html>`__.
 Please check Section install oneAPI components in `xpu build workflow
-file <.github/workflows/build-xpu-ext.yml>`__ for set up instruction.
+file <../.github/workflows/build-xpu-ext.yml>`__ for set up instruction.
 
 Using mpi4jax with XPU/GPU aware MPI implementation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
