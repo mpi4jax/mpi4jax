@@ -180,9 +180,7 @@ def mpi_allgather_xla_encode_device(
     ).results
 
 
-translation_rule_xpu
-
-
+@translation_rule_xpu
 def mpi_allgather_xla_encode_xpu(ctx, sendbuf, token, comm, build_allgather_descriptor):
     from ..xla_bridge.mpi_xla_bridge_xpu import build_allgather_descriptor
 
