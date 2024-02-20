@@ -21,7 +21,11 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu, translation_rule_xpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
@@ -128,8 +132,10 @@ def mpi_reduce_xla_encode_cpu(ctx, x, token, op, root, comm):
         has_side_effect=True,
     ).results
 
-@translation_rule_xpu
-def mpi_reduce_xla_encode_xpu(ctx, x, token, op, root, comm):
+
+def mpi_reduce_xla_encode_device(
+    ctx, x, token, op, root, comm, build_reduce_descriptor
+):
     from ..xla_bridge.mpi_xla_bridge_xpu import build_reduce_descriptor
 
     op = unpack_hashable(op)
@@ -182,58 +188,22 @@ def mpi_reduce_xla_encode_xpu(ctx, x, token, op, root, comm):
     ).results
 
 
+@translation_rule_xpu
+def mpi_reduce_xla_encode_xpu(ctx, x, token, op, root, comm):
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_reduce_descriptor
+
+    return mpi_reduce_xla_encode_device(
+        ctx, x, token, op, root, comm, build_reduce_descriptor
+    )
+
+
 @translation_rule_gpu
 def mpi_reduce_xla_encode_gpu(ctx, x, token, op, root, comm):
     from ..xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
 
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    # output is only used on root, so prevent memory allocation
-    rank = comm.Get_rank()
-
-    if rank != root:
-        dims = (0,)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    operands = (
-        x,
-        token,
+    return mpi_reduce_xla_encode_device(
+        ctx, x, token, op, root, comm, build_reduce_descriptor
     )
-
-    descriptor = build_reduce_descriptor(
-        nitems,
-        to_mpi_handle(op),
-        root,
-        to_mpi_handle(comm),
-        dtype_handle,
-    )
-
-    return custom_call(
-        b"mpi_reduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
 
 
 # This function evaluates only the shapes during AST construction

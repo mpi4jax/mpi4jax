@@ -22,7 +22,11 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu, translation_rule_xpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
@@ -141,10 +145,11 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
         has_side_effect=True,
     ).results
 
-@translation_rule_xpu
-def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
+
+def mpi_recv_xla_encode_device(
+    ctx, x, token, source, tag, comm, status, build_recv_descriptor
+):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -190,56 +195,24 @@ def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
         has_side_effect=True,
         backend_config=descriptor,
     ).results
+
+
+@translation_rule_xpu
+def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
+    from ..xla_bridge.mpi_xla_bridge_xpu import build_recv_descriptor
+
+    return mpi_recv_xla_encode_device(
+        ctx, x, token, source, tag, comm, status, build_recv_descriptor
+    )
+
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
     from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    if status is None:
-        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = to_mpi_ptr(status)
-
-    operands = (token,)
-
-    descriptor = build_recv_descriptor(
-        nitems,
-        source,
-        tag,
-        to_mpi_handle(comm),
-        dtype_handle,
-        status_ptr,
+    return mpi_recv_xla_encode_device(
+        ctx, x, token, source, tag, comm, status, build_recv_descriptor
     )
-
-    return custom_call(
-        b"mpi_recv",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
 
 
 # This function evaluates only the shapes during AST construction
