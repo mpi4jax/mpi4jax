@@ -86,3 +86,29 @@ If this is a bottleneck in your application, you can build MPI with CUDA support
 .. seealso::
 
    Read :ref:`here <gpu-usage>` on how to use zero-copy GPU communication after installation.
+
+
+Installation with Intel GPU/XPU support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``mpi4jax`` also supports JAX arrays stored in Intel GPU/XPU memory.
+
+**Note:** To use mpi4jax and Jax on the Intel XPU or Intel GPU you need
+to have installed
+`intel-extension-for-openxla <https://github.com/intel/intel-extension-for-openxla>`__
+at least in version 0.3.0
+
+To build ``mpi4jax``'s XPU extensions, we need to locate SYCL headers
+and libraries on your system. SYCL comes as part of `Intel oneAPI Base Toolkit <https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html>`__.
+Please check Section install oneAPI components in `xpu build workflow
+file <../.github/workflows/build-xpu-ext.yml>`__ for set up instruction.
+
+Using mpi4jax with XPU/GPU aware MPI implementation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some MPI implementations like Intel MPI can work directly with Intel
+XPU/GPU memory. If you happen to have such an MPI implementation
+installed and would like to use it for your work with mpi4jax then you
+also need to rebuild
+`mpi4py <https://mpi4py.readthedocs.io/en/stable/install.html>`__ so it
+works with XPU/GPU aware MPI implementation.
