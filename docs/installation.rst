@@ -96,11 +96,10 @@ Installation with Intel GPU/XPU support
 **Note:** To use mpi4jax and Jax on the Intel XPU or Intel GPU you need
 to have installed
 `intel-extension-for-openxla <https://github.com/intel/intel-extension-for-openxla>`__
-at least in version 0.2.1
+at least in version 0.3.0
 
 To build ``mpi4jax``'s XPU extensions, we need to locate SYCL headers
-and libraries on your system. SYCL comes as part of `Intel BaseKit
-AI <https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html>`__.
+and libraries on your system. SYCL comes as part of `Intel oneAPI Base Toolkit <https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html>`__.
 Please check Section install oneAPI components in `xpu build workflow
 file <../.github/workflows/build-xpu-ext.yml>`__ for set up instruction.
 
