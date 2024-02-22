@@ -215,7 +215,6 @@ def mpi_sendrecv_xla_encode_cpu(
 
 
 def mpi_sendrecv_xla_encode_device(
-    build_sendrecv_descriptor,
     ctx,
     sendbuf,
     recvbuf,
@@ -227,6 +226,7 @@ def mpi_sendrecv_xla_encode_device(
     comm,
     status,
     _must_transpose,
+    build_sendrecv_descriptor,
 ):
     if _must_transpose:
         raise RuntimeError(
@@ -314,7 +314,6 @@ def mpi_sendrecv_xla_encode_xpu(
     from ..xla_bridge.mpi_xla_bridge_xpu import build_sendrecv_descriptor
 
     return mpi_sendrecv_xla_encode_device(
-        build_sendrecv_descriptor,
         ctx,
         sendbuf,
         recvbuf,
@@ -326,6 +325,7 @@ def mpi_sendrecv_xla_encode_xpu(
         comm,
         status,
         _must_transpose,
+        build_sendrecv_descriptor,
     )
 
 
@@ -346,7 +346,6 @@ def mpi_sendrecv_xla_encode_gpu(
     from ..xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
     return mpi_sendrecv_xla_encode_device(
-        build_sendrecv_descriptor,
         ctx,
         sendbuf,
         recvbuf,
@@ -358,6 +357,7 @@ def mpi_sendrecv_xla_encode_gpu(
         comm,
         status,
         _must_transpose,
+        build_sendrecv_descriptor,
     )
 
 
