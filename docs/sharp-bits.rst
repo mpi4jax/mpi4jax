@@ -78,6 +78,29 @@ Data will then be copied directly from GPU to GPU. If your MPI library
 does not have CUDA support, you will receive a segmentation fault when
 trying to access GPU memory.
 
+Using Intel XPU aware MPI
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``mpi4jax`` is able to communicate data directly from and to Intel XPU
+and Intel GPU memory. This requires that you have installed MPI that is
+Intel GPU/XPU aware (MPI calls can work directly with XPU/GPU memory)
+and that JAX and `mpi4jax is built with Intel XPU
+support <installation>`__.
+
+Currently, we cannot detect whether MPI is XPU/GPU aware. Therefore, by
+default, ``mpi4jax`` will not read directly from XPU/GPU memory, but
+instead copy to the CPU and back.
+
+If you are certain that the underlying MPI library is XPU/GPU aware
+then, you can set the following environment variable:
+
+.. code:: bash
+
+   $ export MPI4JAX_USE_SYCL_MPI=1
+
+Data will then be copied directly from XPU to XPU. If your MPI library
+cannot work with Intel GPU/XPU buffers, you will receive a segmentation
+fault when trying to access mentioned GPU/XPU memory.
 
 Using ``mpi4jax`` *and* ``mpi4py``
 ----------------------------------

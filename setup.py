@@ -1,13 +1,10 @@
 import os
 import sys
 import shlex
-import logging
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext
-
-# logging.basicConfig(level=logging.INFO)
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -128,7 +125,6 @@ def get_cuda_path():
 
 def get_sycl_path():
     basekit = os.environ.get("ONEAPI_ROOT")
-    logging.info("ONEAPI_ROOT={basekit}")
     return basekit
 
 
@@ -149,7 +145,6 @@ def get_sycl_info():
         incdir = os.path.join(sycl_path, inc_suffix)
         if os.path.isdir(incdir):
             sycl_info["compile"].append(incdir)
-            logging.info("Adding include={incdir}")
 
     libdir_suffixes = [
         "compiler/latest/linux/lib/",
@@ -159,7 +154,6 @@ def get_sycl_info():
         lib_dir = os.path.join(sycl_path, libdir_suffix)
         if os.path.isdir(lib_dir):
             sycl_info["libdirs"].append(lib_dir)
-            logging.info("Adding lib dir={lib_dir}")
 
     sycl_info["libs"].append("sycl")
     return sycl_info
@@ -229,7 +223,7 @@ def get_extensions():
         )
     else:
         print_warning(
-            "SYCL (Intel Basekit) path not found. Did you call {you basekit dir}/setvars.sh? You can use env var ONEAPI_ROOT to point Basekit directory where sycl is",
+            "SYCL (Intel Basekit) path not found",
             "(XPU extensions will not be built)",
         )
 
