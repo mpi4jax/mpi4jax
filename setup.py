@@ -124,7 +124,8 @@ def get_cuda_path():
 
 
 def get_sycl_path():
-    basekit = os.environ.get("ONEAPI_ROOT")
+    basekit = os.environ.get("CMPLR_ROOT")
+    # TODO: make fallback path
     return basekit
 
 
@@ -218,6 +219,8 @@ def get_extensions():
                 library_dirs=sycl_info["libdirs"],
                 libraries=sycl_info["libs"],
                 language="c++",
+                # This macro instructs C++ compiler to ignore potential existance of
+                # OpenMPI C++ bindings which are deprecated
                 define_macros=[("OMPI_SKIP_MPICXX", "1")],
             )
         )
