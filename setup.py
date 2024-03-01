@@ -125,8 +125,11 @@ def get_cuda_path():
 
 def get_sycl_path():
     basekit = os.environ.get("CMPLR_ROOT")
-    # TODO: make fallback path
-    return basekit
+    if basekit:
+        return basekit
+    else:
+        # If basekit env is not set then try default path
+        return "/opt/intel/oneapi/compiler/latest/"
 
 
 def get_sycl_info():
@@ -136,10 +139,10 @@ def get_sycl_info():
         return sycl_info
 
     include_suffixes = [
-        "compiler/latest/linux/include/",
-        "compiler/latest/linux/include/sycl",
-        "compiler/latest/include/",
-        "compiler/latest/include/sycl",
+        "/linux/include/",
+        "/linux/include/sycl",
+        "/include/",
+        "/include/sycl",
     ]
 
     for inc_suffix in include_suffixes:
@@ -148,8 +151,8 @@ def get_sycl_info():
             sycl_info["compile"].append(incdir)
 
     libdir_suffixes = [
-        "compiler/latest/linux/lib/",
-        "compiler/latest/lib/",
+        "/linux/lib/",
+        "/lib/",
     ]
     for libdir_suffix in libdir_suffixes:
         lib_dir = os.path.join(sycl_path, libdir_suffix)
