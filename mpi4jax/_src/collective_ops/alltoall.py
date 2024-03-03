@@ -89,7 +89,6 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -99,7 +98,6 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
     size = comm.Get_size()
     assert dims[0] == size
     nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -109,10 +107,10 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
     operands = (
         as_mhlo_constant(nitems_per_proc, _np.intc),
         x,
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         # we only support matching input and output arrays
         as_mhlo_constant(nitems_per_proc, _np.intc),
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         #
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
         token,
@@ -136,7 +134,6 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -146,7 +143,6 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
     size = comm.Get_size()
     assert dims[0] == size
     nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -160,10 +156,10 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
 
     descriptor = build_alltoall_descriptor(
         nitems_per_proc,
-        dtype_handle,
+        to_dtype_handle(dtype),
         # we only support matching input and output arrays
         nitems_per_proc,
-        dtype_handle,
+        to_dtype_handle(dtype),
         #
         to_mpi_handle(comm),
     )
