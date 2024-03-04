@@ -139,10 +139,10 @@ def get_sycl_info():
         return sycl_info
 
     include_suffixes = [
-        "/linux/include/",
-        "/linux/include/sycl",
-        "/include/",
-        "/include/sycl",
+        "linux/include/",
+        "linux/include/sycl",
+        "include/",
+        "include/sycl",
     ]
 
     for inc_suffix in include_suffixes:
@@ -151,8 +151,8 @@ def get_sycl_info():
             sycl_info["compile"].append(incdir)
 
     libdir_suffixes = [
-        "/linux/lib/",
-        "/lib/",
+        "linux/lib/",
+        "lib/",
     ]
     for libdir_suffix in libdir_suffixes:
         lib_dir = os.path.join(sycl_path, libdir_suffix)

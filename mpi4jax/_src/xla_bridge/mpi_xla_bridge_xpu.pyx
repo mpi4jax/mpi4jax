@@ -15,6 +15,22 @@ from mpi4py.libmpi cimport (
     MPI_Type_size,
 )
 
+from .device_descriptors cimport (
+RecvDescriptor,
+AllgatherDescriptor,
+AllreduceDescriptor,
+AlltoallDescriptor,
+BarrierDescriptor,
+BcastDescriptor,
+GatherDescriptor,
+ReduceDescriptor,
+ScanDescriptor,
+ScatterDescriptor,
+SendDescriptor,
+SendrecvDescriptor,
+)
+
+
 from .sycl_runtime_api cimport (
     queue,
     event,
