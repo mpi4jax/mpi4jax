@@ -150,6 +150,14 @@ cdef struct ReduceDescriptor:
     MPI_Comm comm
     MPI_Datatype dtype
 
+
+cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
+                                    uintptr_t comm_handle, uintptr_t dtype_handle):
+    cdef ReduceDescriptor desc = ReduceDescriptor(
+        nitems, <MPI_Op> op_handle, root, <MPI_Comm> comm_handle,
+        <MPI_Datatype> dtype_handle
+    )
+    return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 # Scan
 
 cdef struct ScanDescriptor:
