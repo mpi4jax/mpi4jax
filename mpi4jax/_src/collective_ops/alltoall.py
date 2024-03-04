@@ -28,7 +28,7 @@ from ..decorators import (
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
-
+from ..xla_bridge.device_descriptors import build_alltoall_descriptor
 
 # The Jax primitive
 mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
@@ -183,8 +183,6 @@ def mpi_alltoall_xla_encode_device(ctx, x, token, comm, build_alltoall_descripto
 
 @translation_rule_xpu
 def mpi_alltoall_xla_encode_xpu(ctx, x, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_alltoall_descriptor
-
     return mpi_alltoall_xla_encode_device(
         ctx, x, token, comm, build_alltoall_descriptor
     )
@@ -192,8 +190,6 @@ def mpi_alltoall_xla_encode_xpu(ctx, x, token, comm):
 
 @translation_rule_gpu
 def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
-
     return mpi_alltoall_xla_encode_device(
         ctx, x, token, comm, build_alltoall_descriptor
     )

@@ -210,7 +210,7 @@ def get_extensions():
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
             sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
         )
-        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
+        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu", "device_descriptors")
     ]
 
     if sycl_info["compile"] and sycl_info["libdirs"]:

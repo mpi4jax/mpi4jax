@@ -27,6 +27,7 @@ from ..decorators import (
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_barrier_descriptor
 
 
 # The Jax primitive
@@ -115,15 +116,11 @@ def mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor):
 
 @translation_rule_xpu
 def mpi_barrier_xla_encode_xpu(ctx, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_barrier_descriptor
-
     return mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor)
 
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(ctx, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
-
     return mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor)
 
 

@@ -28,6 +28,7 @@ from ..decorators import (
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_send_descriptor
 
 
 # The Jax primitive
@@ -152,8 +153,6 @@ def mpi_send_xla_encode_device(ctx, x, token, dest, tag, comm, build_send_descri
 
 @translation_rule_xpu
 def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_send_descriptor
-
     return mpi_send_xla_encode_device(
         ctx, x, token, dest, tag, comm, build_send_descriptor
     )
@@ -161,8 +160,6 @@ def mpi_send_xla_encode_xpu(ctx, x, token, dest, tag, comm):
 
 @translation_rule_gpu
 def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_send_descriptor
-
     return mpi_send_xla_encode_device(
         ctx, x, token, dest, tag, comm, build_send_descriptor
     )
