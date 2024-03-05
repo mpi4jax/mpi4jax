@@ -26,6 +26,8 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
+from ...._src.xla_bridge.device_descriptors import build_bcast_descriptor
+
 
 # The Jax primitive
 mpi_bcast_p = Primitive("bcast_mpi")  # Create the primitive
@@ -179,15 +181,11 @@ def mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor):
 
 @translation_rule_xpu
 def mpi_bcast_xla_encode_xpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_bcast_descriptor
-
     return mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor)
 
 
 @translation_rule_gpu
 def mpi_bcast_xla_encode_gpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_bcast_descriptor
-
     return mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor)
 
 

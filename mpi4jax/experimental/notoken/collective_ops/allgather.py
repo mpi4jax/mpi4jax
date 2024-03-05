@@ -26,6 +26,8 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
+from ...._src.xla_bridge.device_descriptors import build_allgather_descriptor
+
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
 mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
@@ -176,8 +178,6 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm, build_allgather_descript
 
 @translation_rule_xpu
 def mpi_allgather_xla_encode_xpu(ctx, sendbuf, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_allgather_descriptor
-
     return mpi_allgather_xla_encode_device(
         ctx, sendbuf, comm, build_allgather_descriptor
     )
@@ -185,8 +185,6 @@ def mpi_allgather_xla_encode_xpu(ctx, sendbuf, comm):
 
 @translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(ctx, sendbuf, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allgather_descriptor
-
     return mpi_allgather_xla_encode_device(
         ctx, sendbuf, comm, build_allgather_descriptor
     )
