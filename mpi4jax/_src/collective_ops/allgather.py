@@ -134,9 +134,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
     ).results
 
 
-def mpi_allgather_xla_encode_device(
-    ctx, sendbuf, token, comm, build_allgather_descriptor
-):
+def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
@@ -184,16 +182,12 @@ def mpi_allgather_xla_encode_device(
 
 @translation_rule_xpu
 def mpi_allgather_xla_encode_xpu(ctx, sendbuf, token, comm):
-    return mpi_allgather_xla_encode_device(
-        ctx, sendbuf, token, comm, build_allgather_descriptor
-    )
+    return mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm)
 
 
 @translation_rule_gpu
 def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
-    return mpi_allgather_xla_encode_device(
-        ctx, sendbuf, token, comm, build_allgather_descriptor
-    )
+    return mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm)
 
 
 # This function evaluates only the shapes during AST construction

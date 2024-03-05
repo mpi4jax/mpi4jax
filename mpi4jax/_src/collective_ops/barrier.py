@@ -94,7 +94,7 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
     ).results
 
 
-def mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor):
+def mpi_barrier_xla_encode_device(ctx, token, comm):
     comm = unpack_hashable(comm)
 
     out_types = token_type()
@@ -116,12 +116,12 @@ def mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor):
 
 @translation_rule_xpu
 def mpi_barrier_xla_encode_xpu(ctx, token, comm):
-    return mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor)
+    return mpi_barrier_xla_encode_device(ctx, token, comm)
 
 
 @translation_rule_gpu
 def mpi_barrier_xla_encode_gpu(ctx, token, comm):
-    return mpi_barrier_xla_encode_device(ctx, token, comm, build_barrier_descriptor)
+    return mpi_barrier_xla_encode_device(ctx, token, comm)
 
 
 # This function evaluates only the shapes during AST construction

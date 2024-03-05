@@ -117,7 +117,7 @@ def mpi_scan_xla_encode_cpu(ctx, x, token, op, comm):
     ).results
 
 
-def mpi_scan_xla_encode_device(ctx, x, token, op, comm, build_scan_descriptor):
+def mpi_scan_xla_encode_device(ctx, x, token, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -163,12 +163,12 @@ def mpi_scan_xla_encode_device(ctx, x, token, op, comm, build_scan_descriptor):
 
 @translation_rule_xpu
 def mpi_scan_xla_encode_xpu(ctx, x, token, op, comm):
-    return mpi_scan_xla_encode_device(ctx, x, token, op, comm, build_scan_descriptor)
+    return mpi_scan_xla_encode_device(ctx, x, token, op, comm)
 
 
 @translation_rule_gpu
 def mpi_scan_xla_encode_gpu(ctx, x, token, op, comm):
-    return mpi_scan_xla_encode_device(ctx, x, token, op, comm, build_scan_descriptor)
+    return mpi_scan_xla_encode_device(ctx, x, token, op, comm)
 
 
 # This function evaluates only the shapes during AST construction

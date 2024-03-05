@@ -153,7 +153,7 @@ def mpi_scatter_xla_encode_cpu(ctx, x, token, root, comm):
     ).results
 
 
-def mpi_scatter_xla_encode_device(ctx, x, token, root, comm, build_scatter_descriptor):
+def mpi_scatter_xla_encode_device(ctx, x, token, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -205,16 +205,12 @@ def mpi_scatter_xla_encode_device(ctx, x, token, root, comm, build_scatter_descr
 
 @translation_rule_xpu
 def mpi_scatter_xla_encode_xpu(ctx, x, token, root, comm):
-    return mpi_scatter_xla_encode_device(
-        ctx, x, token, root, comm, build_scatter_descriptor
-    )
+    return mpi_scatter_xla_encode_device(ctx, x, token, root, comm)
 
 
 @translation_rule_gpu
 def mpi_scatter_xla_encode_gpu(ctx, x, token, root, comm):
-    return mpi_scatter_xla_encode_device(
-        ctx, x, token, root, comm, build_scatter_descriptor
-    )
+    return mpi_scatter_xla_encode_device(ctx, x, token, root, comm)
 
 
 # This function evaluates only the shapes during AST construction
