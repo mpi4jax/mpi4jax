@@ -26,6 +26,7 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
+from ...._src.xla_bridge.device_descriptors import build_gather_descriptor
 
 # The Jax primitive
 mpi_gather_p = Primitive("gather_mpi")  # Create the primitive
@@ -144,7 +145,7 @@ def mpi_gather_xla_encode_cpu(ctx, x, root, comm):
     return results
 
 
-def mpi_gather_xla_encode_device(ctx, x, root, comm, build_gather_descriptor):
+def mpi_gather_xla_encode_device(ctx, x, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -210,16 +211,12 @@ def mpi_gather_xla_encode_device(ctx, x, root, comm, build_gather_descriptor):
 
 @translation_rule_xpu
 def mpi_gather_xla_encode_xpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_gather_descriptor
-
-    return mpi_gather_xla_encode_device(ctx, x, root, comm, build_gather_descriptor)
+    return mpi_gather_xla_encode_device(ctx, x, root, comm)
 
 
 @translation_rule_gpu
 def mpi_gather_xla_encode_gpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_gather_descriptor
-
-    return mpi_gather_xla_encode_device(ctx, x, root, comm, build_gather_descriptor)
+    return mpi_gather_xla_encode_device(ctx, x, root, comm)
 
 
 # This function evaluates only the shapes during AST construction

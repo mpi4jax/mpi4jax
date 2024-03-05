@@ -30,6 +30,7 @@ from ..decorators import (
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
+from ..xla_bridge.device_descriptors import build_recv_descriptor
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -199,8 +200,6 @@ def mpi_recv_xla_encode_device(
 
 @translation_rule_xpu
 def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_recv_descriptor
-
     return mpi_recv_xla_encode_device(
         ctx, x, token, source, tag, comm, status, build_recv_descriptor
     )
@@ -208,8 +207,6 @@ def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
-
     return mpi_recv_xla_encode_device(
         ctx, x, token, source, tag, comm, status, build_recv_descriptor
     )

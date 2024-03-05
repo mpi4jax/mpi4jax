@@ -15,6 +15,22 @@ from mpi4py.libmpi cimport (
     MPI_Type_size,
 )
 
+from .device_descriptors cimport (
+RecvDescriptor,
+AllgatherDescriptor,
+AllreduceDescriptor,
+AlltoallDescriptor,
+BarrierDescriptor,
+BcastDescriptor,
+GatherDescriptor,
+ReduceDescriptor,
+ScanDescriptor,
+ScatterDescriptor,
+SendDescriptor,
+SendrecvDescriptor,
+)
+
+
 from .sycl_runtime_api cimport (
     queue,
     event,
@@ -59,31 +75,6 @@ cdef inline void checked_sycl_queue_wait(queue* sycl_queue, MPI_Comm comm):
         mpi_xla_bridge.abort(0, comm, f"Error: Unable to execute SYCL queue::wait()")
     return 
 
-#
-# GPU XLA targets
-#
-
-# Allgather
-
-cdef struct AllgatherDescriptor:
-    int sendcount
-    MPI_Datatype sendtype
-    int recvcount
-    MPI_Datatype recvtype
-    MPI_Comm comm
-
-
-cpdef bytes build_allgather_descriptor(
-    int sendcount, uintptr_t sendtype_handle,
-    int recvcount, uintptr_t recvtype_addr,
-    uintptr_t comm_handle
-):
-    cdef AllgatherDescriptor desc = AllgatherDescriptor(
-        sendcount, <MPI_Datatype> sendtype_handle,
-        recvcount, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
 
 
 cdef void mpi_allgather_xpu(void* stream, void** buffers,
@@ -148,22 +139,6 @@ cdef void mpi_allgather_xpu(void* stream, void** buffers,
         free(out_buf)
 
 
-# Allreduce
-
-cdef struct AllreduceDescriptor:
-    int nitems
-    MPI_Op op
-    MPI_Comm comm
-    MPI_Datatype dtype
-
-
-cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle,
-                                       uintptr_t comm_handle, uintptr_t dtype_handle):
-    cdef AllreduceDescriptor desc = AllreduceDescriptor(
-        nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(AllreduceDescriptor)])
-
 cdef void mpi_allreduce_xpu(void* stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
@@ -210,29 +185,6 @@ cdef void mpi_allreduce_xpu(void* stream, void** buffers,
             checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
         free(in_buf)
         free(out_buf)
-
-
-# Alltoall
-
-cdef struct AlltoallDescriptor:
-    int sendcount
-    MPI_Datatype sendtype
-    int recvcount
-    MPI_Datatype recvtype
-    MPI_Comm comm
-
-
-cpdef bytes build_alltoall_descriptor(
-    int sendcount, uintptr_t sendtype_handle,
-    int recvcount, uintptr_t recvtype_addr,
-    uintptr_t comm_handle
-):
-    cdef AlltoallDescriptor desc = AlltoallDescriptor(
-        sendcount, <MPI_Datatype> sendtype_handle,
-        recvcount, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(AlltoallDescriptor)])
 
 
 cdef void mpi_alltoall_xpu(void* stream, void** buffers,
@@ -296,17 +248,6 @@ cdef void mpi_alltoall_xpu(void* stream, void** buffers,
         free(out_buf)
 
 
-# Barrier
-
-cdef struct BarrierDescriptor:
-    MPI_Comm comm
-
-
-cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
-    cdef BarrierDescriptor desc = BarrierDescriptor(<MPI_Comm> comm_handle)
-    return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
-
-
 cdef void mpi_barrier_xpu(void* stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     if opaque_len != sizeof(BarrierDescriptor):
@@ -319,21 +260,6 @@ cdef void mpi_barrier_xpu(void* stream, void** buffers,
     mpi_xla_bridge.mpi_barrier(comm)
 
 
-# Bcast
-
-cdef struct BcastDescriptor:
-    int nitems
-    int root
-    MPI_Comm comm
-    MPI_Datatype dtype
-
-
-cpdef bytes build_bcast_descriptor(int nitems, int root, uintptr_t comm_handle,
-                                   uintptr_t dtype_handle):
-    cdef BcastDescriptor desc = BcastDescriptor(
-        nitems, root, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(BcastDescriptor)])
 
 
 cdef void mpi_bcast_xpu(void* stream, void** buffers,
@@ -387,28 +313,6 @@ cdef void mpi_bcast_xpu(void* stream, void** buffers,
         free(buf)
 
 
-# Gather
-
-cdef struct GatherDescriptor:
-    int sendcount
-    MPI_Datatype sendtype
-    int recvcount
-    MPI_Datatype recvtype
-    int root
-    MPI_Comm comm
-
-
-cpdef bytes build_gather_descriptor(
-    int sendcount, uintptr_t sendtype_handle,
-    int recvcount, uintptr_t recvtype_addr,
-    int root, uintptr_t comm_handle
-):
-    cdef GatherDescriptor desc = GatherDescriptor(
-        sendcount, <MPI_Datatype> sendtype_handle,
-        recvcount, <MPI_Datatype> recvtype_addr,
-        root, <MPI_Comm> comm_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(GatherDescriptor)])
 
 
 cdef void mpi_gather_xpu(void* stream, void** buffers,
@@ -478,28 +382,6 @@ cdef void mpi_gather_xpu(void* stream, void** buffers,
         free(out_buf)
 
 
-# Recv
-
-cdef struct RecvDescriptor:
-    int nitems
-    int source
-    int tag
-    MPI_Comm comm
-    MPI_Datatype dtype
-    MPI_Status* status
-
-
-cpdef bytes build_recv_descriptor(int nitems, int dest, int tag, uintptr_t comm_handle,
-                                  uintptr_t dtype_handle, uintptr_t status_addr):
-    cdef RecvDescriptor desc = RecvDescriptor(
-        nitems, dest, tag,
-        <MPI_Comm> comm_handle,
-        <MPI_Datatype> dtype_handle,
-        <MPI_Status*> status_addr
-    )
-    return bytes((<char*> &desc)[:sizeof(RecvDescriptor)])
-
-
 cdef void mpi_recv_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
@@ -540,25 +422,6 @@ cdef void mpi_recv_xpu(void* stream, void** buffers,
         with gil:
             checked_sycl_memcpy(xqueue, out_buf, recvbuf , count, comm)
         free(recvbuf)
-
-
-# Reduce
-
-cdef struct ReduceDescriptor:
-    int nitems
-    MPI_Op op
-    int root
-    MPI_Comm comm
-    MPI_Datatype dtype
-
-
-cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
-                                    uintptr_t comm_handle, uintptr_t dtype_handle):
-    cdef ReduceDescriptor desc = ReduceDescriptor(
-        nitems, <MPI_Op> op_handle, root, <MPI_Comm> comm_handle,
-        <MPI_Datatype> dtype_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
 
 cdef void mpi_reduce_xpu(void* stream, void** buffers,
@@ -614,23 +477,6 @@ cdef void mpi_reduce_xpu(void* stream, void** buffers,
         free(out_buf)
 
 
-# Scan
-
-cdef struct ScanDescriptor:
-    int nitems
-    MPI_Op op
-    MPI_Comm comm
-    MPI_Datatype dtype
-
-
-cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle,
-                                  uintptr_t comm_handle, uintptr_t dtype_handle):
-    cdef ScanDescriptor desc = ScanDescriptor(
-        nitems, <MPI_Op> op_handle, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(ScanDescriptor)])
-
-
 cdef void mpi_scan_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
@@ -676,30 +522,6 @@ cdef void mpi_scan_xpu(void* stream, void** buffers,
             checked_sycl_memcpy(xqueue, out_data, out_buf , count, comm)
         free(in_buf)
         free(out_buf)
-
-
-# Scatter
-
-cdef struct ScatterDescriptor:
-    int sendcount
-    MPI_Datatype sendtype
-    int recvcount
-    MPI_Datatype recvtype
-    int root
-    MPI_Comm comm
-
-
-cpdef bytes build_scatter_descriptor(
-    int sendcount, uintptr_t sendtype_handle,
-    int recvcount, uintptr_t recvtype_addr,
-    int root, uintptr_t comm_handle
-):
-    cdef ScatterDescriptor desc = ScatterDescriptor(
-        sendcount, <MPI_Datatype> sendtype_handle,
-        recvcount, <MPI_Datatype> recvtype_addr,
-        root, <MPI_Comm> comm_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(ScatterDescriptor)])
 
 
 cdef void mpi_scatter_xpu(void* stream, void** buffers,
@@ -770,24 +592,6 @@ cdef void mpi_scatter_xpu(void* stream, void** buffers,
         free(out_buf)
 
 
-# Send
-
-cdef struct SendDescriptor:
-    int nitems
-    int dest
-    int tag
-    MPI_Comm comm
-    MPI_Datatype dtype
-
-
-cpdef bytes build_send_descriptor(int nitems, int dest, int tag, uintptr_t comm_handle,
-                                  uintptr_t dtype_handle):
-    cdef SendDescriptor desc = SendDescriptor(
-        nitems, dest, tag, <MPI_Comm> comm_handle, <MPI_Datatype> dtype_handle
-    )
-    return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
-
-
 cdef void mpi_send_xpu(void* stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
@@ -828,34 +632,6 @@ cdef void mpi_send_xpu(void* stream, void** buffers,
 
     if COPY_TO_HOST:
         free(sendbuf)
-
-
-# Sendrecv
-
-cdef struct SendrecvDescriptor:
-    int sendcount
-    int dest
-    int sendtag
-    MPI_Datatype sendtype
-    int recvcount
-    int source
-    int recvtag
-    MPI_Datatype recvtype
-    MPI_Comm comm
-    MPI_Status* status
-
-
-cpdef bytes build_sendrecv_descriptor(
-    int sendcount, int dest, int sendtag, uintptr_t sendtype_handle,
-    int recvcount, int source, int recvtag, uintptr_t recvtype_addr,
-    uintptr_t comm_handle, uintptr_t status_addr
-):
-    cdef SendrecvDescriptor desc = SendrecvDescriptor(
-        sendcount, dest, sendtag, <MPI_Datatype> sendtype_handle,
-        recvcount, source, recvtag, <MPI_Datatype> recvtype_addr,
-        <MPI_Comm> comm_handle, <MPI_Status*> status_addr
-    )
-    return bytes((<char*> &desc)[:sizeof(SendrecvDescriptor)])
 
 
 cdef void mpi_sendrecv_xpu(void* stream, void** buffers,

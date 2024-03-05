@@ -30,6 +30,7 @@ from ..decorators import (
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_sendrecv_descriptor
 
 
 # The Jax primitive
@@ -311,8 +312,6 @@ def mpi_sendrecv_xla_encode_xpu(
     status,
     _must_transpose=False,
 ):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_sendrecv_descriptor
-
     return mpi_sendrecv_xla_encode_device(
         ctx,
         sendbuf,
@@ -343,8 +342,6 @@ def mpi_sendrecv_xla_encode_gpu(
     status,
     _must_transpose=False,
 ):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
-
     return mpi_sendrecv_xla_encode_device(
         ctx,
         sendbuf,

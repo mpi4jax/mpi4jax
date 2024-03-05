@@ -28,6 +28,7 @@ from ..decorators import (
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_reduce_descriptor
 
 
 # The Jax primitive
@@ -136,8 +137,6 @@ def mpi_reduce_xla_encode_cpu(ctx, x, token, op, root, comm):
 def mpi_reduce_xla_encode_device(
     ctx, x, token, op, root, comm, build_reduce_descriptor
 ):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_reduce_descriptor
-
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -190,8 +189,6 @@ def mpi_reduce_xla_encode_device(
 
 @translation_rule_xpu
 def mpi_reduce_xla_encode_xpu(ctx, x, token, op, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_xpu import build_reduce_descriptor
-
     return mpi_reduce_xla_encode_device(
         ctx, x, token, op, root, comm, build_reduce_descriptor
     )
@@ -199,8 +196,6 @@ def mpi_reduce_xla_encode_xpu(ctx, x, token, op, root, comm):
 
 @translation_rule_gpu
 def mpi_reduce_xla_encode_gpu(ctx, x, token, op, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_reduce_descriptor
-
     return mpi_reduce_xla_encode_device(
         ctx, x, token, op, root, comm, build_reduce_descriptor
     )

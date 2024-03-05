@@ -29,6 +29,8 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
+from ...._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
+
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -208,7 +210,6 @@ def mpi_sendrecv_xla_encode_device(
     comm,
     status,
     _must_transpose,
-    build_sendrecv_descriptor,
 ):
     if _must_transpose:
         raise RuntimeError(
@@ -303,8 +304,6 @@ def mpi_sendrecv_xla_encode_xpu(
     status,
     _must_transpose=False,
 ):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_xpu import build_sendrecv_descriptor
-
     return mpi_sendrecv_xla_encode_device(
         ctx,
         sendbuf,
@@ -317,7 +316,6 @@ def mpi_sendrecv_xla_encode_xpu(
         comm,
         status,
         _must_transpose,
-        build_sendrecv_descriptor,
     )
 
 
@@ -335,8 +333,6 @@ def mpi_sendrecv_xla_encode_gpu(
     status,
     _must_transpose=False,
 ):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
-
     return mpi_sendrecv_xla_encode_device(
         ctx,
         sendbuf,
@@ -349,7 +345,6 @@ def mpi_sendrecv_xla_encode_gpu(
         comm,
         status,
         _must_transpose,
-        build_sendrecv_descriptor,
     )
 
 
