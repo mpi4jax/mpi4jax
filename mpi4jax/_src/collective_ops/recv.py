@@ -22,10 +22,15 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
 
+from ..xla_bridge.device_descriptors import build_recv_descriptor
 
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
@@ -142,10 +147,8 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
     ).results
 
 
-@translation_rule_gpu
-def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
+def mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status):
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -193,6 +196,16 @@ def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
     ).results
 
 
+@translation_rule_xpu
+def mpi_recv_xla_encode_xpu(ctx, x, token, source, tag, comm, status):
+    return mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status)
+
+
+@translation_rule_gpu
+def mpi_recv_xla_encode_gpu(ctx, x, token, source, tag, comm, status):
+    return mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_recv_abstract_eval(xs, token, source, tag, comm, status):
     return (
@@ -208,3 +221,4 @@ mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="xpu")
