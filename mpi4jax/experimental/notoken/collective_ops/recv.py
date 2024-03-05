@@ -136,9 +136,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
     return results
 
 
-def mpi_recv_xla_encode_device(
-    ctx, x, source, tag, comm, status, build_recv_descriptor
-):
+def mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
@@ -197,16 +195,12 @@ def mpi_recv_xla_encode_device(
 
 @translation_rule_xpu
 def mpi_recv_xla_encode_xpu(ctx, x, source, tag, comm, status):
-    return mpi_recv_xla_encode_device(
-        ctx, x, source, tag, comm, status, build_recv_descriptor
-    )
+    return mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status)
 
 
 @translation_rule_gpu
 def mpi_recv_xla_encode_gpu(ctx, x, source, tag, comm, status):
-    return mpi_recv_xla_encode_device(
-        ctx, x, source, tag, comm, status, build_recv_descriptor
-    )
+    return mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status)
 
 
 # This function evaluates only the shapes during AST construction

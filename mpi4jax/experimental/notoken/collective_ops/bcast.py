@@ -124,7 +124,7 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
     return results
 
 
-def mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor):
+def mpi_bcast_xla_encode_device(ctx, x, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -181,12 +181,12 @@ def mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor):
 
 @translation_rule_xpu
 def mpi_bcast_xla_encode_xpu(ctx, x, root, comm):
-    return mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor)
+    return mpi_bcast_xla_encode_device(ctx, x, root, comm)
 
 
 @translation_rule_gpu
 def mpi_bcast_xla_encode_gpu(ctx, x, root, comm):
-    return mpi_bcast_xla_encode_device(ctx, x, root, comm, build_bcast_descriptor)
+    return mpi_bcast_xla_encode_device(ctx, x, root, comm)
 
 
 # This function evaluates only the shapes during AST construction

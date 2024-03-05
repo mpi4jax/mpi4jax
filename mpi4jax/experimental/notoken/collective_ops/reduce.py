@@ -126,7 +126,7 @@ def mpi_reduce_xla_encode_cpu(ctx, x, op, root, comm):
     return results
 
 
-def mpi_reduce_xla_encode_device(ctx, x, op, root, comm, build_reduce_descriptor):
+def mpi_reduce_xla_encode_device(ctx, x, op, root, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -187,12 +187,12 @@ def mpi_reduce_xla_encode_device(ctx, x, op, root, comm, build_reduce_descriptor
 
 @translation_rule_xpu
 def mpi_reduce_xla_encode_xpu(ctx, x, op, root, comm):
-    return mpi_reduce_xla_encode_device(ctx, x, op, root, comm, build_reduce_descriptor)
+    return mpi_reduce_xla_encode_device(ctx, x, op, root, comm)
 
 
 @translation_rule_gpu
 def mpi_reduce_xla_encode_gpu(ctx, x, op, root, comm):
-    return mpi_reduce_xla_encode_device(ctx, x, op, root, comm, build_reduce_descriptor)
+    return mpi_reduce_xla_encode_device(ctx, x, op, root, comm)
 
 
 # This function evaluates only the shapes during AST construction

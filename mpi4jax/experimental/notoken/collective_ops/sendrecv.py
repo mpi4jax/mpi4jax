@@ -210,7 +210,6 @@ def mpi_sendrecv_xla_encode_device(
     comm,
     status,
     _must_transpose,
-    build_sendrecv_descriptor,
 ):
     if _must_transpose:
         raise RuntimeError(
@@ -317,7 +316,6 @@ def mpi_sendrecv_xla_encode_xpu(
         comm,
         status,
         _must_transpose,
-        build_sendrecv_descriptor,
     )
 
 
@@ -347,7 +345,6 @@ def mpi_sendrecv_xla_encode_gpu(
         comm,
         status,
         _must_transpose,
-        build_sendrecv_descriptor,
     )
 
 
