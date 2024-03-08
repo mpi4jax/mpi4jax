@@ -82,6 +82,7 @@ cdef inline cudaError_t checked_cuda_memcpy(void* dst, void* src, size_t count,
 
         mpi_xla_bridge.abort(0, comm, message)
 
+    ierr = checked_cuda_stream_synchronize(stream, comm)
     return ierr
 
 
@@ -174,8 +175,9 @@ cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
         out_buf = checked_malloc(recvbytes, comm)
 
         checked_cuda_memcpy(in_buf, data, sendbytes, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_allgather(
         in_buf, sendcount, sendtype,
         out_buf, recvcount, recvtype,
@@ -237,8 +239,9 @@ cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
         in_buf = checked_malloc(count, comm)
         out_buf = checked_malloc(count, comm)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_allreduce(in_buf, out_buf, nitems, dtype, op, comm)
 
     if COPY_TO_HOST:
@@ -314,8 +317,9 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
         out_buf = checked_malloc(recvbytes, comm)
 
         checked_cuda_memcpy(in_buf, data, sendbytes, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_alltoall(
         in_buf, sendcount, sendtype, out_buf, recvcount, recvtype, comm
     )
@@ -402,8 +406,8 @@ cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
     else:
         if rank == root:
             buf = data
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_bcast(buf, nitems, dtype, root, comm)
 
     if COPY_TO_HOST:
@@ -486,8 +490,9 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
         out_buf = checked_malloc(recvbytes, comm)
 
         checked_cuda_memcpy(in_buf, data, sendbytes, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_gather(
         in_buf, sendcount, sendtype, out_buf, recvcount, recvtype, root, comm
     )
@@ -554,8 +559,9 @@ cdef void mpi_recv_gpu(cudaStream_t stream, void** buffers,
 
         count = dtype_size * nitems
         recvbuf = checked_malloc(count, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_recv(recvbuf, nitems, dtype, source, tag, comm, status)
 
     if COPY_TO_HOST:
@@ -614,8 +620,9 @@ cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
         in_buf = checked_malloc(count, comm)
         out_buf = checked_malloc(count, comm)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_reduce(in_buf, out_buf, nitems, dtype, op, root, comm)
 
     if COPY_TO_HOST:
@@ -678,8 +685,9 @@ cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
         in_buf = checked_malloc(count, comm)
         out_buf = checked_malloc(count, comm)
         checked_cuda_memcpy(in_buf, data, count, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_scan(in_buf, out_buf, nitems, dtype, op, comm)
 
     if COPY_TO_HOST:
@@ -762,8 +770,9 @@ cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
         out_buf = checked_malloc(recvbytes, comm)
 
         checked_cuda_memcpy(in_buf, data, sendbytes, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_scatter(
         in_buf, sendcount, sendtype, out_buf, recvcount, recvtype, root, comm
     )
@@ -823,8 +832,9 @@ cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
         count = dtype_size * nitems
         sendbuf = checked_malloc(count, comm)
         checked_cuda_memcpy(sendbuf, data, count, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_send(sendbuf, nitems, dtype, dest, tag, comm)
 
     if COPY_TO_HOST:
@@ -900,8 +910,9 @@ cdef void mpi_sendrecv_gpu(cudaStream_t stream, void** buffers,
         sendbuf = checked_malloc(bytes_send, comm)
         recvbuf = checked_malloc(bytes_recv, comm)
         checked_cuda_memcpy(sendbuf, in_buf, bytes_send, cudaMemcpyDeviceToHost, stream, comm)
+    else:
+        checked_cuda_stream_synchronize(stream, comm)
 
-    checked_cuda_stream_synchronize(stream, comm)
     mpi_xla_bridge.mpi_sendrecv(
         sendbuf, sendcount, sendtype, dest, sendtag,
         recvbuf, recvcount, recvtype, source, recvtag,
