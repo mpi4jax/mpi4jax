@@ -65,7 +65,8 @@ jobs:
           if [ ${{ matrix.jax-version }} == 'latest' ]; then
             pip install jax[cpu] -c mpi4jax/_src/_latest_jax_version.txt
           else
-            pip install jax[cpu]==${{ matrix.jax-version }}
+            # some older versions of JAX are not available on PyPI
+            pip install jax[cpu]==${{ matrix.jax-version }} -f https://storage.googleapis.com/jax-releases/jax_releases.html
           fi
 
       - name: Single-execution test with pytest
