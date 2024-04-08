@@ -2,12 +2,9 @@ from libc.stdint cimport uintptr_t
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
-    MPI_Comm_rank,
-    MPI_Comm_size,
     MPI_Datatype,
     MPI_Op,
     MPI_Status,
-    MPI_Type_size,
 )
 
 

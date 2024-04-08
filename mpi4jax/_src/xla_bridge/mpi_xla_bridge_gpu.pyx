@@ -14,18 +14,18 @@ from mpi4py.libmpi cimport (
 )
 
 from .device_descriptors cimport (
-RecvDescriptor,
-AllgatherDescriptor,
-AllreduceDescriptor,
-AlltoallDescriptor,
-BarrierDescriptor,
-BcastDescriptor,
-GatherDescriptor,
-ReduceDescriptor,
-ScanDescriptor,
-ScatterDescriptor,
-SendDescriptor,
-SendrecvDescriptor,
+    RecvDescriptor,
+    AllgatherDescriptor,
+    AllreduceDescriptor,
+    AlltoallDescriptor,
+    BarrierDescriptor,
+    BcastDescriptor,
+    GatherDescriptor,
+    ReduceDescriptor,
+    ScanDescriptor,
+    ScatterDescriptor,
+    SendDescriptor,
+    SendrecvDescriptor,
 )
 
 from .cuda_runtime_api cimport (

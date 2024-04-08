@@ -211,14 +211,8 @@ def mpi_gather_xla_encode_device(ctx, x, token, root, comm):
     ).results
 
 
-@translation_rule_xpu
-def mpi_gather_xla_encode_xpu(ctx, x, token, root, comm):
-    return mpi_gather_xla_encode_device(ctx, x, token, root, comm)
-
-
-@translation_rule_gpu
-def mpi_gather_xla_encode_gpu(ctx, x, token, root, comm):
-    return mpi_gather_xla_encode_device(ctx, x, token, root, comm)
+mpi_gather_xla_encode_xpu = translation_rule_xpu(mpi_gather_xla_encode_device)
+mpi_gather_xla_encode_gpu = translation_rule_gpu(mpi_gather_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction

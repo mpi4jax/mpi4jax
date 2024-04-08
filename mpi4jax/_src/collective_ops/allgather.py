@@ -180,14 +180,8 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
     ).results
 
 
-@translation_rule_xpu
-def mpi_allgather_xla_encode_xpu(ctx, sendbuf, token, comm):
-    return mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm)
-
-
-@translation_rule_gpu
-def mpi_allgather_xla_encode_gpu(ctx, sendbuf, token, comm):
-    return mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm)
+mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
+mpi_allgather_xla_encode_gpu = translation_rule_gpu(mpi_allgather_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction

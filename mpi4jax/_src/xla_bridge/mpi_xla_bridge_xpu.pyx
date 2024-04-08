@@ -16,20 +16,19 @@ from mpi4py.libmpi cimport (
 )
 
 from .device_descriptors cimport (
-RecvDescriptor,
-AllgatherDescriptor,
-AllreduceDescriptor,
-AlltoallDescriptor,
-BarrierDescriptor,
-BcastDescriptor,
-GatherDescriptor,
-ReduceDescriptor,
-ScanDescriptor,
-ScatterDescriptor,
-SendDescriptor,
-SendrecvDescriptor,
+    RecvDescriptor,
+    AllgatherDescriptor,
+    AllreduceDescriptor,
+    AlltoallDescriptor,
+    BarrierDescriptor,
+    BcastDescriptor,
+    GatherDescriptor,
+    ReduceDescriptor,
+    ScanDescriptor,
+    ScatterDescriptor,
+    SendDescriptor,
+    SendrecvDescriptor,
 )
-
 
 from .sycl_runtime_api cimport (
     queue,
@@ -65,14 +64,14 @@ cdef inline checked_sycl_memcpy(queue* sycl_queue, void* dst, void* src, size_t 
     try:
         sycl_queue.memcpy(dst, src, count).wait()
     except:
-        mpi_xla_bridge.abort(0, comm, f"Error: Unable to copy Data from the Device to CPU")
+        mpi_xla_bridge.abort(0, comm, "Error: Unable to copy Data from the Device to CPU")
     return 
 
 cdef inline void checked_sycl_queue_wait(queue* sycl_queue, MPI_Comm comm):
     try:
         sycl_queue.wait()
     except:
-        mpi_xla_bridge.abort(0, comm, f"Error: Unable to execute SYCL queue::wait()")
+        mpi_xla_bridge.abort(0, comm, "Error: Unable to execute SYCL queue::wait()")
     return 
 
 

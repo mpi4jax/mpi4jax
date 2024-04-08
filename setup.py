@@ -222,7 +222,7 @@ def get_extensions():
                 library_dirs=sycl_info["libdirs"],
                 libraries=sycl_info["libs"],
                 language="c++",
-                # This macro instructs C++ compiler to ignore potential existance of
+                # This macro instructs C++ compiler to ignore potential existence of
                 # OpenMPI C++ bindings which are deprecated
                 define_macros=[("OMPI_SKIP_MPICXX", "1")],
             )

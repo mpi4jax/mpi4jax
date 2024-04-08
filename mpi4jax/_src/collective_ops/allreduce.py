@@ -173,14 +173,8 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
     ).results
 
 
-@translation_rule_gpu
-def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
-    return mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose)
-
-
-@translation_rule_xpu
-def mpi_allreduce_xla_encode_xpu(ctx, x, token, op, comm, transpose):
-    return mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose)
+mpi_allreduce_xla_encode_gpu = translation_rule_gpu(mpi_allreduce_xla_encode_device)
+mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction

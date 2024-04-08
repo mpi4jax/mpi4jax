@@ -26,7 +26,7 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
-from ...._src.xla_bridge.device_descriptors import build_allgather_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_allgather_descriptor
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -176,14 +176,8 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
     return results
 
 
-@translation_rule_xpu
-def mpi_allgather_xla_encode_xpu(ctx, sendbuf, comm):
-    return mpi_allgather_xla_encode_device(ctx, sendbuf, comm)
-
-
-@translation_rule_gpu
-def mpi_allgather_xla_encode_gpu(ctx, sendbuf, comm):
-    return mpi_allgather_xla_encode_device(ctx, sendbuf, comm)
+mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
+mpi_allgather_xla_encode_gpu = translation_rule_gpu(mpi_allgather_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction

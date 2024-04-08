@@ -29,7 +29,7 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
-from ...._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
 
 
 # The Jax primitive

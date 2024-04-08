@@ -26,7 +26,7 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
-from ...._src.xla_bridge.device_descriptors import build_scan_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_scan_descriptor
 
 
 # The Jax primitive
@@ -161,14 +161,8 @@ def mpi_scan_xla_encode_device(ctx, x, op, comm):
     return results
 
 
-@translation_rule_xpu
-def mpi_scan_xla_encode_xpu(ctx, x, op, comm):
-    return mpi_scan_xla_encode_device(ctx, x, op, comm)
-
-
-@translation_rule_gpu
-def mpi_scan_xla_encode_gpu(ctx, x, op, comm):
-    return mpi_scan_xla_encode_device(ctx, x, op, comm)
+mpi_scan_xla_encode_xpu = translation_rule_xpu(mpi_scan_xla_encode_device)
+mpi_scan_xla_encode_gpu = translation_rule_gpu(mpi_scan_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
