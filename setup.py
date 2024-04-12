@@ -124,12 +124,15 @@ def get_cuda_path():
 
 
 def get_sycl_path():
-    basekit = os.environ.get("CMPLR_ROOT")
-    if basekit:
-        return basekit
+    sycl_path = os.getenv("CMPLR_ROOT", "")
+    if len(sycl_path) > 0 and os.path.exists(sycl_path):
+        _sycl_path = sycl_path
+    elif os.path.exists("/opt/intel/oneapi/compiler/latest/"):
+        _sycl_path = "/opt/intel/oneapi/compiler/latest/"
     else:
-        # If basekit env is not set then try default path
-        return "/opt/intel/oneapi/compiler/latest/"
+        _sycl_path = None
+
+    return _sycl_path
 
 
 def get_sycl_info():
