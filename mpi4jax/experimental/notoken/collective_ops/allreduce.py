@@ -20,10 +20,15 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
+from mpi4jax._src.xla_bridge.device_descriptors import build_allreduce_descriptor
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -118,10 +123,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
     return results
 
 
-@translation_rule_gpu
-def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_allreduce_descriptor
-
+def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
     del token  # unused
 
     op = unpack_hashable(op)
@@ -175,6 +177,10 @@ def mpi_allreduce_xla_encode_gpu(ctx, x, token, op, comm, transpose):
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
     return results
+
+
+mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
+mpi_allreduce_xla_encode_gpu = translation_rule_gpu(mpi_allreduce_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -231,3 +237,4 @@ ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")

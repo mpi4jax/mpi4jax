@@ -21,10 +21,14 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type, ShapedArray
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
-
+from ..xla_bridge.device_descriptors import build_alltoall_descriptor
 
 # The Jax primitive
 mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
@@ -129,10 +133,7 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, token, comm):
     ).results
 
 
-@translation_rule_gpu
-def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_alltoall_descriptor
-
+def mpi_alltoall_xla_encode_device(ctx, x, token, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -180,6 +181,10 @@ def mpi_alltoall_xla_encode_gpu(ctx, x, token, comm):
     ).results
 
 
+mpi_alltoall_xla_encode_xpu = translation_rule_xpu(mpi_alltoall_xla_encode_device)
+mpi_alltoall_xla_encode_gpu = translation_rule_gpu(mpi_alltoall_xla_encode_device)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_alltoall_abstract_eval(xs, token, comm):
     return (
@@ -195,3 +200,4 @@ mpi_alltoall_p.def_effectful_abstract_eval(mpi_alltoall_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_xpu, platform="xpu")

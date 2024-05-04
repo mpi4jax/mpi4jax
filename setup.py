@@ -123,6 +123,52 @@ def get_cuda_path():
     return _cuda_path
 
 
+def get_sycl_path():
+    sycl_path = os.getenv("CMPLR_ROOT", "")
+    if len(sycl_path) > 0 and os.path.exists(sycl_path):
+        _sycl_path = sycl_path
+    elif os.path.exists("/opt/intel/oneapi/compiler/latest/"):
+        _sycl_path = "/opt/intel/oneapi/compiler/latest/"
+    else:
+        _sycl_path = None
+
+    return _sycl_path
+
+
+def get_sycl_info():
+    sycl_info = {"compile": [], "libdirs": [], "libs": []}
+    sycl_path = get_sycl_path()
+    if not sycl_path:
+        return sycl_info
+
+    include_suffixes = [
+        "linux/include/",
+        "linux/include/sycl",
+        "include/",
+        "include/sycl",
+    ]
+
+    for inc_suffix in include_suffixes:
+        incdir = os.path.join(sycl_path, inc_suffix)
+        if os.path.isdir(incdir):
+            sycl_info["compile"].append(incdir)
+
+    libdir_suffixes = [
+        "linux/lib/",
+        "lib/",
+    ]
+    for libdir_suffix in libdir_suffixes:
+        lib_dir = os.path.join(sycl_path, libdir_suffix)
+        if os.path.isdir(lib_dir):
+            sycl_info["libdirs"].append(lib_dir)
+
+    sycl_info["libs"].append("sycl")
+    return sycl_info
+
+
+sycl_info = get_sycl_info()
+
+
 def get_cuda_info():
     cuda_info = {"compile": [], "libdirs": [], "libs": []}
     cuda_path = get_cuda_path()
@@ -167,8 +213,28 @@ def get_extensions():
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
             sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
         )
-        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu")
+        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu", "device_descriptors")
     ]
+
+    if sycl_info["compile"] and sycl_info["libdirs"]:
+        extensions.append(
+            Extension(
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
+                include_dirs=sycl_info["compile"],
+                library_dirs=sycl_info["libdirs"],
+                libraries=sycl_info["libs"],
+                language="c++",
+                # This macro instructs C++ compiler to ignore potential existence of
+                # OpenMPI C++ bindings which are deprecated
+                define_macros=[("OMPI_SKIP_MPICXX", "1")],
+            )
+        )
+    else:
+        print_warning(
+            "SYCL (Intel Basekit) path not found",
+            "(XPU extensions will not be built)",
+        )
 
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extensions.append(

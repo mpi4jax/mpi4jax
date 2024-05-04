@@ -21,9 +21,14 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_send_descriptor
 
 
 # The Jax primitive
@@ -107,10 +112,7 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
     ).results
 
 
-@translation_rule_gpu
-def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_send_descriptor
-
+def mpi_send_xla_encode_device(ctx, x, token, dest, tag, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -149,6 +151,10 @@ def mpi_send_xla_encode_gpu(ctx, x, token, dest, tag, comm):
     ).results
 
 
+mpi_send_xla_encode_xpu = translation_rule_xpu(mpi_send_xla_encode_device)
+mpi_send_xla_encode_gpu = translation_rule_gpu(mpi_send_xla_encode_device)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_send_abstract_eval(xs, token, dest, tag, comm):
     return core.abstract_token, {effect}
@@ -160,3 +166,4 @@ mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_xpu, platform="xpu")

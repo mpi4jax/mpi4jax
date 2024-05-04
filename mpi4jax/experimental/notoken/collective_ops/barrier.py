@@ -15,9 +15,15 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_barrier_descriptor
 
 
 # The Jax primitive
@@ -76,10 +82,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
     return results
 
 
-@translation_rule_gpu
-def mpi_barrier_xla_encode_gpu(ctx, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
-
+def mpi_barrier_xla_encode_device(ctx, comm):
     comm = unpack_hashable(comm)
 
     out_types = token_type()
@@ -107,6 +110,10 @@ def mpi_barrier_xla_encode_gpu(ctx, comm):
     return results
 
 
+mpi_barrier_xla_encode_xpu = translation_rule_xpu(mpi_barrier_xla_encode_device)
+mpi_barrier_xla_encode_gpu = translation_rule_gpu(mpi_barrier_xla_encode_device)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_barrier_abstract_eval(comm):
     return (), {ordered_effect}
@@ -126,3 +133,4 @@ batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")

@@ -21,9 +21,15 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
 
 
 # The Jax primitive
@@ -192,8 +198,7 @@ def mpi_sendrecv_xla_encode_cpu(
     return results
 
 
-@translation_rule_gpu
-def mpi_sendrecv_xla_encode_gpu(
+def mpi_sendrecv_xla_encode_device(
     ctx,
     sendbuf,
     recvbuf,
@@ -204,7 +209,7 @@ def mpi_sendrecv_xla_encode_gpu(
     recvtag,
     comm,
     status,
-    _must_transpose=False,
+    _must_transpose,
 ):
     if _must_transpose:
         raise RuntimeError(
@@ -214,7 +219,6 @@ def mpi_sendrecv_xla_encode_gpu(
         )
 
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_sendrecv_descriptor
 
     del token  # unused
 
@@ -284,6 +288,64 @@ def mpi_sendrecv_xla_encode_gpu(
     ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
 
     return results
+
+
+@translation_rule_xpu
+def mpi_sendrecv_xla_encode_xpu(
+    ctx,
+    sendbuf,
+    recvbuf,
+    token,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
+):
+    return mpi_sendrecv_xla_encode_device(
+        ctx,
+        sendbuf,
+        recvbuf,
+        token,
+        source,
+        dest,
+        sendtag,
+        recvtag,
+        comm,
+        status,
+        _must_transpose,
+    )
+
+
+@translation_rule_gpu
+def mpi_sendrecv_xla_encode_gpu(
+    ctx,
+    sendbuf,
+    recvbuf,
+    token,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
+):
+    return mpi_sendrecv_xla_encode_device(
+        ctx,
+        sendbuf,
+        recvbuf,
+        token,
+        source,
+        dest,
+        sendtag,
+        recvtag,
+        comm,
+        status,
+        _must_transpose,
+    )
 
 
 # This function evaluates only the shapes during AST construction
@@ -408,3 +470,4 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")

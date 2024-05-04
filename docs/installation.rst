@@ -62,14 +62,14 @@ usually sufficient to specify the ``MPICC`` environment variable *before* instal
    In doubt, please refer to `the mpi4py documentation <https://mpi4py.readthedocs.io/en/stable/install.html>`_.
 
 
-Installation with GPU support
------------------------------
+Installation with NVIDIA GPU support (CUDA)
+-------------------------------------------
 
 .. note::
 
    To use JAX on the GPU, make sure that your ``jaxlib`` is `built with CUDA support <https://github.com/google/jax#installation>`_.
 
-``mpi4jax`` also supports JAX arrays stored in GPU memory.
+``mpi4jax`` supports communication of JAX arrays stored in GPU memory.
 
 To build ``mpi4jax``'s GPU extensions, we need to be able to locate the CUDA headers on your system. If they are not detected automatically, you can set the environment variable :envvar:`CUDA_ROOT` when installing ``mpi4jax``::
 
@@ -86,3 +86,18 @@ If this is a bottleneck in your application, you can build MPI with CUDA support
 .. seealso::
 
    Read :ref:`here <gpu-usage>` on how to use zero-copy GPU communication after installation.
+
+
+Installation with Intel GPU/XPU support
+---------------------------------------
+
+``mpi4jax`` supports communication of JAX arrays stored in Intel GPU/XPU memory, via JAX's ``xpu`` backend.
+
+**Requirements:**
+
+- `Intel extension for OpenXLA <https://github.com/intel/intel-extension-for-openxla>`__ at least in version 0.3.0.
+- SYCL headers and libraries, which come as part of the `Intel oneAPI Base Toolkit <https://www.intel.com/content/www/us/en/developer/tools/oneapi/ai-analytics-toolkit.html>`__.
+- Optionally, `Intel MPI <https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/mpi-library.html>`__ with Intel XPU/GPU support.
+  To leverage this, you also need to rebuild `mpi4py <https://mpi4py.readthedocs.io/en/stable/install.html>`__ to ensure it is linked to the XPU/GPU aware MPI implementation.
+
+An example setup is found in the `mpi4jax test suite <https://github.com/mpi4jax/mpi4jax/tree/master/.github/workflows/build-xpu-ext.yml>`__.

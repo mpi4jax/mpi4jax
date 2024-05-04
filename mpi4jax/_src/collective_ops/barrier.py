@@ -20,9 +20,14 @@ from ..utils import (
     prefer_notoken,
 )
 from ..jax_compat import custom_call, token_type
-from ..decorators import translation_rule_cpu, translation_rule_gpu
+from ..decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from ..validation import enforce_types
 from ..comm import get_default_comm
+from ..xla_bridge.device_descriptors import build_barrier_descriptor
 
 
 # The Jax primitive
@@ -89,10 +94,7 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
     ).results
 
 
-@translation_rule_gpu
-def mpi_barrier_xla_encode_gpu(ctx, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu import build_barrier_descriptor
-
+def mpi_barrier_xla_encode_device(ctx, token, comm):
     comm = unpack_hashable(comm)
 
     out_types = token_type()
@@ -110,6 +112,10 @@ def mpi_barrier_xla_encode_gpu(ctx, token, comm):
         has_side_effect=True,
         backend_config=descriptor,
     ).results
+
+
+mpi_barrier_xla_encode_xpu = translation_rule_xpu(mpi_barrier_xla_encode_device)
+mpi_barrier_xla_encode_gpu = translation_rule_gpu(mpi_barrier_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -131,3 +137,4 @@ batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")

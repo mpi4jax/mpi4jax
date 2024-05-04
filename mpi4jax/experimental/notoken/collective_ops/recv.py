@@ -19,9 +19,15 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_recv_descriptor
 
 
 # The Jax primitive
@@ -130,10 +136,8 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
     return results
 
 
-@translation_rule_gpu
-def mpi_recv_xla_encode_gpu(ctx, x, source, tag, comm, status):
+def mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_recv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -189,6 +193,10 @@ def mpi_recv_xla_encode_gpu(ctx, x, source, tag, comm, status):
     return results
 
 
+mpi_recv_xla_encode_xpu = translation_rule_xpu(mpi_recv_xla_encode_device)
+mpi_recv_xla_encode_gpu = translation_rule_gpu(mpi_recv_xla_encode_device)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_recv_abstract_eval(xs, source, tag, comm, status):
     return ShapedArray(xs.shape, xs.dtype), {ordered_effect}
@@ -200,3 +208,4 @@ mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="xpu")

@@ -18,9 +18,15 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
-from mpi4jax._src.decorators import translation_rule_cpu, translation_rule_gpu
+from mpi4jax._src.decorators import (
+    translation_rule_cpu,
+    translation_rule_gpu,
+    translation_rule_xpu,
+)
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_scatter_descriptor
 
 
 # The Jax primitive
@@ -137,10 +143,7 @@ def mpi_scatter_xla_encode_cpu(ctx, x, root, comm):
     return results
 
 
-@translation_rule_gpu
-def mpi_scatter_xla_encode_gpu(ctx, x, root, comm):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_gpu import build_scatter_descriptor
-
+def mpi_scatter_xla_encode_device(ctx, x, root, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -198,6 +201,10 @@ def mpi_scatter_xla_encode_gpu(ctx, x, root, comm):
     return results
 
 
+mpi_scatter_xla_encode_xpu = translation_rule_xpu(mpi_scatter_xla_encode_device)
+mpi_scatter_xla_encode_gpu = translation_rule_gpu(mpi_scatter_xla_encode_device)
+
+
 # This function evaluates only the shapes during AST construction
 def mpi_scatter_abstract_eval(x, root, comm):
     comm = unpack_hashable(comm)
@@ -216,3 +223,4 @@ mpi_scatter_p.def_effectful_abstract_eval(mpi_scatter_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_scatter_p, mpi_scatter_xla_encode_xpu, platform="xpu")
