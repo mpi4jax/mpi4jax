@@ -26,13 +26,21 @@ Installation
    $ pip install mpi4jax                     # Pip
    $ conda install -c conda-forge mpi4jax    # conda
 
-If you use pip and don't have JAX installed already, you will also need to do:
+Depending on the different jax backends you want to use, you can install mpi4jax in the following way
 
 .. code:: bash
 
-   $ pip install jaxlib
+   # pip install 'jax[cpu]'
+   $ pip install mpi4jax
 
-(or an equivalent GPU-enabled version, `see the JAX installation instructions <https://github.com/google/jax#installation>`_)
+   # pip install -U 'jax[cuda12_pip]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+   $ pip install cython
+   $ pip install mpi4jax --no-build-isolation
+
+   # pip install -U 'jax[cuda12_local]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+   $ CUDA_ROOT=XXX pip install mpi4jax
+
+(for more informations on jax GPU distributions, `see the JAX installation instructions <https://github.com/google/jax#installation>`_)
 
 In case your MPI installation is not detected correctly, `it can help to install mpi4py separately <https://mpi4py.readthedocs.io/en/stable/install.html>`_. When using a pre-installed ``mpi4py``, you *must* use ``--no-build-isolation`` when installing ``mpi4jax``:
 

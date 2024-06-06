@@ -8,7 +8,7 @@ Start by `installing a suitable version of JAX and jaxlib <https://github.com/go
 
 .. code:: bash
 
-   $ pip install jax jaxlib
+   $ pip install 'jax[cpu]'
 
 .. note::
 
@@ -67,11 +67,23 @@ Installation with NVIDIA GPU support (CUDA)
 
 .. note::
 
-   To use JAX on the GPU, make sure that your ``jaxlib`` is `built with CUDA support <https://github.com/google/jax#installation>`_.
+   There are 2 ways to install jax with CUDA support:
+   - using a pypi-distributed CUDA installation (suggested by jax developers) ``pip install -U 'jax[cuda12_pip]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`` 
+   - using the locally-installed CUDA version, which must be compatible with jax. ``pip install -U 'jax[cuda12_local]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`` 
+   The procedure to install ``mpi4jax`` for the two situations is different.
 
-``mpi4jax`` supports communication of JAX arrays stored in GPU memory.
+To use ``mpi4jax`` with pypi-distributed nvidia packages, which is the preferred way to install jax, you **must** install ``mpi4jax`` disabling
+the build-time-isolation in order for it to link to the libraries in the nvidia-cuda-nvcc-cu12 package. To do so, run the following command:
 
-To build ``mpi4jax``'s GPU extensions, we need to be able to locate the CUDA headers on your system. If they are not detected automatically, you can set the environment variable :envvar:`CUDA_ROOT` when installing ``mpi4jax``::
+.. code:: bash
+
+   # assuming pip install -U 'jax[cuda12_pip]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html has been run
+   $ pip install cython
+   $ pip install mpi4jax --no-build-isolation
+
+Alternatively, if you want to install ``mpi4jax`` with a locally-installed CUDA version, you can run the following command we need 
+to be able to locate the CUDA headers on your system. If they are not detected automatically, you can set the environment 
+variable :envvar:`CUDA_ROOT` when installing ``mpi4jax``::
 
    $ CUDA_ROOT=/usr/local/cuda pip install mpi4jax
 
