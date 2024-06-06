@@ -40,6 +40,9 @@ Depending on the different jax backends you want to use, you can install mpi4jax
    # pip install -U 'jax[cuda12_local]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
    $ CUDA_ROOT=XXX pip install mpi4jax
 
+   # pip install -U 'jax[cuda12]'
+   # Not yet supported
+
 (for more informations on jax GPU distributions, `see the JAX installation instructions <https://github.com/google/jax#installation>`_)
 
 In case your MPI installation is not detected correctly, `it can help to install mpi4py separately <https://mpi4py.readthedocs.io/en/stable/install.html>`_. When using a pre-installed ``mpi4py``, you *must* use ``--no-build-isolation`` when installing ``mpi4jax``:
