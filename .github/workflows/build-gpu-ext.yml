@@ -71,14 +71,6 @@ jobs:
         pip install setuptools wheel mpi4py cython
 
     - name: Build GPU extensions
-      if: matrix.cuda != 'pypi'
       run: |
-        python setup.py build_ext --inplace
-        test -f mpi4jax/_src/xla_bridge/mpi_xla_bridge_gpu*.so
-
-    - name: Build GPU extensions
-      if: matrix.cuda == 'pypi'
-      run: |
-        pip install mpi4py
         python setup.py build_ext --inplace
         test -f mpi4jax/_src/xla_bridge/mpi_xla_bridge_gpu*.so
