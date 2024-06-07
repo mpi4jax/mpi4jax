@@ -2,6 +2,10 @@ import os
 import sys
 import shlex
 
+import importlib.util
+import pathlib
+import fnmatch
+
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext
@@ -91,6 +95,30 @@ class custom_build_ext(build_ext):
 # Cuda detection
 
 
+# partly taken from JAX
+# https://github.com/google/jax/blob/4cca2335220dcc953edd2ac764b2387e53527495/jax/_src/lib/__init__.py#L129
+def get_cuda_paths_from_nvidia_pypi():
+    # try to check if nvidia-cuda-nvcc-cu* is installed
+    # we need to get the site-packages of this install. to do so we use
+    # mpi4py which must be installed
+    mpi4py_spec = importlib.util.find_spec("mpi4py")
+    depot_path = pathlib.Path(os.path.dirname(mpi4py_spec.origin)).parent
+
+    # If the pip package nvidia-cuda-nvcc-cu11 is installed, it should have
+    # both of the things XLA looks for in the cuda path, namely bin/ptxas and
+    # nvvm/libdevice/libdevice.10.bc
+    #
+    # The files are split in two sets of directories, so we return both
+    maybe_cuda_paths = [
+        depot_path / "nvidia" / "cuda_nvcc",
+        depot_path / "nvidia" / "cuda_runtime",
+    ]
+    if all(p.is_dir() for p in maybe_cuda_paths):
+        return [str(p) for p in maybe_cuda_paths]
+    else:
+        return []
+
+
 # Taken from CUPY (MIT License)
 def get_cuda_path():
     nvcc_path = search_on_path(("nvcc", "nvcc.exe"))
@@ -169,22 +197,86 @@ def get_sycl_info():
 sycl_info = get_sycl_info()
 
 
+def find_files(bases, pattern):
+    """Return list of files matching pattern in base folders and subfolders."""
+    if isinstance(bases, (str, pathlib.Path)):
+        bases = [bases]
+
+    result = []
+    for base in bases:
+        for root, dirs, files in os.walk(base):
+            for name in files:
+                if fnmatch.fnmatch(name, pattern):
+                    result.append(os.path.join(root, name))
+    return result
+
+
 def get_cuda_info():
-    cuda_info = {"compile": [], "libdirs": [], "libs": []}
-    cuda_path = get_cuda_path()
-    if not cuda_path:
+    cuda_info = {"compile": [], "libdirs": [], "libs": [], "rpaths": []}
+
+    # First check if the nvidia-cuda-nvcc-cu* package is installed. We ignore CUDA_ROOT
+    # because that is the same behaviour of jax.
+    cuda_paths = get_cuda_paths_from_nvidia_pypi()
+
+    # If not, try to find the CUDA_PATH by hand
+    if len(cuda_paths) > 0:
+        nvidia_pypi_package = True
+    else:
+        nvidia_pypi_package = False
+        _cuda_path = get_cuda_path()
+        if _cuda_path is None:
+            cuda_paths = []
+        else:
+            cuda_paths = [_cuda_path]
+
+    if len(cuda_paths) == 0:
         return cuda_info
 
-    incdir = os.path.join(cuda_path, "include")
-    if os.path.isdir(incdir):
-        cuda_info["compile"].append(incdir)
+    for cuda_path in cuda_paths:
+        incdir = os.path.join(cuda_path, "include")
+        if os.path.isdir(incdir):
+            cuda_info["compile"].append(incdir)
 
-    for libdir in ("lib64", "lib"):
-        full_dir = os.path.join(cuda_path, libdir)
-        if os.path.isdir(full_dir):
-            cuda_info["libdirs"].append(full_dir)
+        for libdir in ("lib64", "lib"):
+            full_dir = os.path.join(cuda_path, libdir)
+            if os.path.isdir(full_dir):
+                cuda_info["libdirs"].append(full_dir)
 
-    cuda_info["libs"].append("cudart")
+    # We need to link against libcudart.so
+    #   - If we are using standard CUDA installations, we simply add a link flag to
+    #     libcudart.so
+    #   - If we are using the nvidia-cuda-nvcc-cu* package, we need to find the exact
+    #     version of libcudart.so to link against because the the package does not provide
+    #     a generic binding to libcudart.so but only libcudart.so.XX.
+    #
+    # Moreover, if we are using nvidia-cuda-nvcc we must add @rpath (runtime search paths)
+    # because we do not expect the user to set LD_LIBRARY_PATH to the nvidia-cuda-nvcc
+    # package.
+    if not nvidia_pypi_package:
+        cuda_info["libs"].append("cudart")
+    else:
+        possible_libcudart = find_files(cuda_paths, "libcudart.so*")
+
+        if "libcudart.so" in possible_libcudart:
+            # If generic symlink is present, use standard linker flag.
+            # In theory with nvidia-cuda-nvcc-cu12 we should never reach this point
+            # But in the future they might fix it.
+            cuda_info["libs"].append("cudart")
+        elif len(possible_libcudart) > 0:
+            # This should be the standard case for nvidia-cuda-nvcc-cu*
+            # where we find a library libcudart.so.XX . The syntax to link to a
+            # specific version is -l:libcudart.so.XX
+            # We arbitrarily choose the first one
+            # and we add the runtime search path accordingly
+            lib_to_link = possible_libcudart[0]
+            cuda_info["libs"].append(f":{os.path.basename(lib_to_link)}")
+            cuda_info["rpaths"].append(os.path.dirname(lib_to_link))
+        else:
+            # If we cannot find libcudart.so, we cannot build the extension
+            # This should never happen with nvidia-cuda-nvcc-cu* package
+            cuda_info["libs"].append("cudart")
+
+    print("\n\nCUDA INFO:", cuda_info, "\n\n")
     return cuda_info
 
 
@@ -237,6 +329,10 @@ def get_extensions():
         )
 
     if cuda_info["compile"] and cuda_info["libdirs"]:
+        extra_extension_args = {}
+        if len(cuda_info["rpaths"]) > 0:
+            extra_extension_args["runtime_library_dirs"] = cuda_info["rpaths"]
+
         extensions.append(
             Extension(
                 name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
@@ -244,6 +340,7 @@ def get_extensions():
                 include_dirs=cuda_info["compile"],
                 library_dirs=cuda_info["libdirs"],
                 libraries=cuda_info["libs"],
+                **extra_extension_args,
             )
         )
     else:
