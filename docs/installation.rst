@@ -86,7 +86,7 @@ Alternatively, if you want to install ``mpi4jax`` with a locally-installed CUDA 
 to be able to locate the CUDA headers on your system. If they are not detected automatically, you can set the environment 
 variable :envvar:`CUDA_ROOT` when installing ``mpi4jax``::
 
-   $ CUDA_ROOT=/usr/local/cuda pip install mpi4jax
+   $ CUDA_ROOT=/usr/local/cuda pip install --no-build-isolation mpi4jax
 
 This is sufficient for most situations. However, ``mpi4jax`` will copy all data from GPU to CPU and back before and after invoking MPI.
 
