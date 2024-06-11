@@ -181,8 +181,8 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
 
 
 @translation_rule_gpu
-def mpi_allgather_xla_encode_gpu_hip(ctx, sendbuf, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_allgather_descriptor
+def mpi_allgather_xla_encode_hip(ctx, sendbuf, token, comm):
+    from ..xla_bridge.mpi_xla_bridge_hip import build_allgather_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -252,5 +252,5 @@ mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_xpu, platform="xpu")
 mlir.register_lowering(
-    mpi_allgather_p, mpi_allgather_xla_encode_gpu_hip, platform="rocm"
+    mpi_allgather_p, mpi_allgather_xla_encode_hip, platform="rocm"
 )
