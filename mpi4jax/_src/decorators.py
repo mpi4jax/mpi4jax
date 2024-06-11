@@ -9,9 +9,9 @@ _hip_mpi_setup_done = False
 
 
 def ensure_cuda_ext():
-    from .xla_bridge import HAS_CUDA_EXT, HAS_GPU_HIP_EXT
+    from .xla_bridge import HAS_CUDA_EXT, HAS_HIP_EXT
 
-    if not HAS_CUDA_EXT or not HAS_GPU_HIP_EXT:
+    if not HAS_CUDA_EXT or not HAS_HIP_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with CUDA or HIP support and try again."
@@ -28,10 +28,10 @@ def ensure_xpu_ext():
         )
 
 
-def ensure_gpu_hip_ext():
-    from .xla_bridge import HAS_GPU_HIP_EXT
+def ensure_hip_ext():
+    from .xla_bridge import HAS_HIP_EXT
 
-    if not HAS_GPU_HIP_EXT:
+    if not HAS_HIP_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with ROCM-HIP support and try again."
@@ -129,9 +129,9 @@ def setup_hip_mpi():
         warnings.warn(warn_msg)
 
     try:
-        from .xla_bridge import mpi_xla_bridge_gpu_hip
+        from .xla_bridge import mpi_xla_bridge_hip
 
-        mpi_xla_bridge_gpu_hip.set_copy_to_host(not has_hip_mpi)
+        mpi_xla_bridge_hip.set_copy_to_host(not has_hip_mpi)
     except ImportError:
         warnings.warn("HIP xla_bridge is not compiled")
 
@@ -163,7 +163,7 @@ def translation_rule_cuda(func):
     # functions to call before running the translation rule
     setup_funcs = (
         ensure_cuda_ext,
-        ensure_gpu_hip_ext,
+        ensure_hip_ext,
         setup_cuda_mpi,
         setup_hip_mpi,
     )

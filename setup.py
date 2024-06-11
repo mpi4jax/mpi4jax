@@ -419,8 +419,8 @@ def get_extensions():
     if hip_info["compile"] and hip_info["libdirs"]:
         extensions.append(
             Extension(
-                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu_hip",
-                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu_hip.pyx"],
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_hip",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_hip.pyx"],
                 include_dirs=hip_info["compile"],
                 library_dirs=hip_info["libdirs"],
                 define_macros=[("__HIP_PLATFORM_HCC__", "__HIP_PLATFORM_AMD__")],
