@@ -21,7 +21,7 @@ from ._src import (  # noqa: E402
     sendrecv,
     has_cuda_support,
     has_sycl_support,
-    has_hip_support,
+    has_rocm_support,
 )
 
 __all__ = [
@@ -39,5 +39,5 @@ __all__ = [
     "sendrecv",
     "has_cuda_support",
     "has_sycl_support",
-    "has_hip_support",
+    "has_rocm_support",
 ]

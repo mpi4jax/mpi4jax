@@ -1,4 +1,4 @@
 def test_flush():
-    from mpi4jax import has_hip_support
+    from mpi4jax import has_rocm_support
 
-    assert isinstance(has_hip_support(), bool)
+    assert isinstance(has_rocm_support(), bool)
