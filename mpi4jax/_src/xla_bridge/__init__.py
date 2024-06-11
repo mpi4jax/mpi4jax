@@ -37,7 +37,7 @@ if HAS_CUDA_EXT:
         # PJRT Client only supports standard strings, not bytes strings
         # See https://github.com/google/jax/issues/21807
         if type(name) is bytes:
-            name = name.decode('utf-8')
+            name = name.decode("utf-8")
         xla_client.register_custom_call_target(name, fn, platform="CUDA")
 
 if HAS_XPU_EXT:
