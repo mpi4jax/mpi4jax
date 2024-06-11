@@ -303,9 +303,6 @@ def get_extensions():
         else:
             return []
 
-    sycl_info = get_sycl_info()
-    cuda_info = get_cuda_info()
-
     extensions = [
         Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
@@ -314,6 +311,7 @@ def get_extensions():
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu", "device_descriptors")
     ]
 
+    sycl_info = get_sycl_info()
     if sycl_info["compile"] and sycl_info["libdirs"]:
         extensions.append(
             Extension(
@@ -334,6 +332,7 @@ def get_extensions():
             "(XPU extensions will not be built)",
         )
 
+    cuda_info = get_cuda_info()
     if cuda_info["compile"] and cuda_info["libdirs"]:
         extra_extension_args = {}
         if len(cuda_info["rpaths"]) > 0:
