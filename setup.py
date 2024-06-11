@@ -335,8 +335,8 @@ def get_extensions():
 
         extensions.append(
             Extension(
-                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_gpu",
-                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_gpu.pyx"],
+                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cuda",
+                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cuda.pyx"],
                 include_dirs=cuda_info["compile"],
                 library_dirs=cuda_info["libdirs"],
                 libraries=cuda_info["libs"],
