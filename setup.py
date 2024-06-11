@@ -102,6 +102,14 @@ def get_cuda_paths_from_nvidia_pypi():
     # we need to get the site-packages of this install. to do so we use
     # mpi4py which must be installed
     mpi4py_spec = importlib.util.find_spec("mpi4py")
+    if mpi4py_spec is None:
+        raise RuntimeError(
+            "When building mpi4jax with --no-build-isolation"
+            "you must install the dependencies, such as mpi4py and Cython,"
+            "yourself."
+            "Just run ``pip install cython mpi4py`` to fix this error."
+        )
+
     depot_path = pathlib.Path(os.path.dirname(mpi4py_spec.origin)).parent
 
     # If the pip package nvidia-cuda-nvcc-cu11 is installed, it should have
@@ -194,9 +202,6 @@ def get_sycl_info():
     return sycl_info
 
 
-sycl_info = get_sycl_info()
-
-
 def find_files(bases, pattern):
     """Return list of files matching pattern in base folders and subfolders."""
     if isinstance(bases, (str, pathlib.Path)):
@@ -280,8 +285,6 @@ def get_cuda_info():
     return cuda_info
 
 
-cuda_info = get_cuda_info()
-
 # /end Cuda detection
 #####################
 
@@ -299,6 +302,9 @@ def get_extensions():
             raise RuntimeError("Building mpi4jax requires Cython and mpi4py")
         else:
             return []
+
+    sycl_info = get_sycl_info()
+    cuda_info = get_cuda_info()
 
     extensions = [
         Extension(
