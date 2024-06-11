@@ -302,6 +302,11 @@ def get_extensions():
         # this should only happen when using python setup.py
         # or pip install --no-build-isolation
         if require_extensions:
+            print_warning("mpi4py and/or Cython are not installed.",
+                "When using pip install --no-build-isolation or python setup.py, ",
+                "they MUST be installed BEFORE attempting to install mpi4jax.",
+                "",
+                "To fix this error, install mpi4py and Cython.")
             raise RuntimeError("Building mpi4jax requires Cython and mpi4py")
         else:
             return []
