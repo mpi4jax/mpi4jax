@@ -14,15 +14,15 @@ def test_envvar_parsing():
     assert not _is_falsy("foo")
 
 
-def test_ensure_gpu_ext(monkeypatch):
+def test_ensure_cuda_ext(monkeypatch):
     from mpi4jax._src import xla_bridge
-    from mpi4jax._src.decorators import ensure_gpu_ext
+    from mpi4jax._src.decorators import ensure_cuda_ext
 
     with monkeypatch.context() as m:
-        m.setattr(xla_bridge, "HAS_GPU_EXT", False)
+        m.setattr(xla_bridge, "HAS_CUDA_EXT", False)
 
         with pytest.raises(ImportError) as excinfo:
-            ensure_gpu_ext()
+            ensure_cuda_ext()
 
         assert "GPU extensions could not be imported" in str(excinfo.value)
 

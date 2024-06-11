@@ -5,11 +5,11 @@ from . import mpi_xla_bridge
 from . import mpi_xla_bridge_cpu
 
 try:
-    from . import mpi_xla_bridge_gpu
+    from . import mpi_xla_bridge_cuda
 except ImportError:
-    HAS_GPU_EXT = False
+    HAS_CUDA_EXT = False
 else:
-    HAS_GPU_EXT = True
+    HAS_CUDA_EXT = True
 
 try:
     from . import mpi_xla_bridge_xpu
@@ -29,13 +29,13 @@ mpi_xla_bridge.set_logging(_is_truthy(os.getenv("MPI4JAX_DEBUG", "")))
 
 
 # register custom call targets
-for name, fn in mpi_xla_bridge_cpu.cpu_custom_call_targets.items():
+for name, fn in mpi_xla_bridge_cpu.custom_call_targets.items():
     xla_client.register_custom_call_target(name, fn, platform="cpu")
 
-if HAS_GPU_EXT:
-    for name, fn in mpi_xla_bridge_gpu.gpu_custom_call_targets.items():
+if HAS_CUDA_EXT:
+    for name, fn in mpi_xla_bridge_cuda.custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="CUDA")
 
 if HAS_XPU_EXT:
-    for name, fn in mpi_xla_bridge_xpu.xpu_custom_call_targets.items():
+    for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="SYCL")

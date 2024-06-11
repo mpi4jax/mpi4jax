@@ -38,6 +38,16 @@ from .sycl_runtime_api cimport (
 from . cimport mpi_xla_bridge
 
 
+# The XLA_BRIDGE extension will register with xla
+# all capsules stored in here. So all custom calls declared in this
+# file should be registered in this dictionary.
+custom_call_targets = {}
+
+cdef declare_custom_call_target(fn_name, void* fn):
+    cdef const char* name = "xla._CUSTOM_CALL_TARGET"
+    custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
+
+
 # Config
 
 cdef bint COPY_TO_HOST = False
@@ -692,23 +702,15 @@ cdef void mpi_sendrecv_xpu(void* stream, void** buffers,
             checked_sycl_memcpy(xqueue, out_buf, recvbuf , bytes_recv, comm)
         free(recvbuf)
 
-
-xpu_custom_call_targets = {}
-
-cdef register_custom_call_target(fn_name, void* fn):
-    cdef const char* name = "xla._CUSTOM_CALL_TARGET"
-    xpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
-
-
-register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_xpu))
-register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_xpu))
-register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_xpu))
-register_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_xpu))
-register_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_xpu))
-register_custom_call_target(b"mpi_gather", <void*>(mpi_gather_xpu))
-register_custom_call_target(b"mpi_recv", <void*>(mpi_recv_xpu))
-register_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_xpu))
-register_custom_call_target(b"mpi_scan", <void*>(mpi_scan_xpu))
-register_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_xpu))
-register_custom_call_target(b"mpi_send", <void*>(mpi_send_xpu))
-register_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_xpu))
+declare_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_xpu))
+declare_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_xpu))
+declare_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_xpu))
+declare_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_xpu))
+declare_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_xpu))
+declare_custom_call_target(b"mpi_gather", <void*>(mpi_gather_xpu))
+declare_custom_call_target(b"mpi_recv", <void*>(mpi_recv_xpu))
+declare_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_xpu))
+declare_custom_call_target(b"mpi_scan", <void*>(mpi_scan_xpu))
+declare_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_xpu))
+declare_custom_call_target(b"mpi_send", <void*>(mpi_send_xpu))
+declare_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_xpu))
