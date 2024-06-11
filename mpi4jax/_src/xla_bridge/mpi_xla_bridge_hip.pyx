@@ -30,6 +30,16 @@ from .hip_runtime_api cimport (
 from . cimport mpi_xla_bridge
 
 
+# The XLA_BRIDGE extension will register with xla
+# all capsules stored in here. So all custom calls declared in this
+# file should be registered in this dictionary.
+custom_call_targets = {}
+
+cdef declare_custom_call_target(fn_name, void* fn):
+    cdef const char* name = "xla._CUSTOM_CALL_TARGET"
+    custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
+
+
 # Error handling
 
 cpdef inline unicode py_string(const char* c_str):
@@ -932,15 +942,15 @@ cdef register_custom_call_target(fn_name, void* fn):
     gpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
 
 
-register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
-register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
-register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
-register_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_gpu))
-register_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_gpu))
-register_custom_call_target(b"mpi_gather", <void*>(mpi_gather_gpu))
-register_custom_call_target(b"mpi_recv", <void*>(mpi_recv_gpu))
-register_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_gpu))
-register_custom_call_target(b"mpi_scan", <void*>(mpi_scan_gpu))
-register_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_gpu))
-register_custom_call_target(b"mpi_send", <void*>(mpi_send_gpu))
-register_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_gpu))
+declare_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
+declare_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
+declare_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
+declare_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_gpu))
+declare_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_gpu))
+declare_custom_call_target(b"mpi_gather", <void*>(mpi_gather_gpu))
+declare_custom_call_target(b"mpi_recv", <void*>(mpi_recv_gpu))
+declare_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_gpu))
+declare_custom_call_target(b"mpi_scan", <void*>(mpi_scan_gpu))
+declare_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_gpu))
+declare_custom_call_target(b"mpi_send", <void*>(mpi_send_gpu))
+declare_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_gpu))
