@@ -32,7 +32,7 @@ def test_ensure_hip_ext(monkeypatch):
     from mpi4jax._src.decorators import ensure_gpu_ext
 
     with monkeypatch.context() as m:
-        m.setattr(xla_bridge, "HAS_HIP_EXT", False)
+        m.setattr(xla_bridge, "HAS_ROCM_EXT", False)
 
         with pytest.raises(ImportError) as excinfo:
             ensure_gpu_ext()

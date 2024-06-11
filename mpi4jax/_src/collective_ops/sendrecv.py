@@ -26,6 +26,7 @@ from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -296,93 +297,8 @@ def mpi_sendrecv_xla_encode_device(
         backend_config=descriptor,
     )
 
-
-@translation_rule_gpu
-def mpi_sendrecv_xla_encode_hip(
-    ctx,
-    sendbuf,
-    recvbuf,
-    token,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-
-    if _must_transpose:
-        raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
-            "the gradient might be located on a different mpi rank than the "
-            "desired one. Use reverse-mode (jvp) differentiation instead."
-        )
-
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..xla_bridge.mpi_xla_bridge_hip import build_sendrecv_descriptor
-
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
-    ]
-
-    if status is None:
-        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = to_mpi_ptr(status)
-
-    operands = (
-        sendbuf,
-        token,
-    )
-
-    descriptor = build_sendrecv_descriptor(
-        send_nitems,
-        dest,
-        sendtag,
-        send_dtype_handle,
-        recv_nitems,
-        source,
-        recvtag,
-        recv_dtype_handle,
-        to_mpi_handle(comm),
-        status_ptr,
-    )
-
-    return custom_call(
-        b"mpi_sendrecv",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
-
-
 mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(mpi_sendrecv_xla_encode_device)
+mpi_sendrecv_xla_encode_rocm = translation_rule_rocm(mpi_sendrecv_xla_encode_device)
 mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(mpi_sendrecv_xla_encode_device)
 
 
@@ -513,5 +429,5 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_hip, platform="rocm")

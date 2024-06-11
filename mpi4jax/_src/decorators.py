@@ -5,13 +5,13 @@ import functools
 # global variables to keep track of state
 _cuda_mpi_setup_done = False
 _sycl_mpi_setup_done = False
-_hip_mpi_setup_done = False
+_rocm_mpi_setup_done = False
 
 
 def ensure_cuda_ext():
-    from .xla_bridge import HAS_CUDA_EXT, HAS_HIP_EXT
+    from .xla_bridge import HAS_CUDA_EXT, HAS_ROCM_EXT
 
-    if not HAS_CUDA_EXT or not HAS_HIP_EXT:
+    if not HAS_CUDA_EXT or not HAS_ROCM_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with CUDA or HIP support and try again."
@@ -29,9 +29,9 @@ def ensure_xpu_ext():
 
 
 def ensure_hip_ext():
-    from .xla_bridge import HAS_HIP_EXT
+    from .xla_bridge import HAS_ROCM_EXT
 
-    if not HAS_HIP_EXT:
+    if not HAS_ROCM_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
             "Please re-build mpi4jax with ROCM-HIP support and try again."
@@ -105,12 +105,12 @@ def setup_sycl_mpi():
 
 
 def setup_hip_mpi():
-    global _hip_mpi_setup_done
+    global _rocm_mpi_setup_done
 
-    if _hip_mpi_setup_done:
+    if _rocm_mpi_setup_done:
         return
 
-    _hip_mpi_setup_done = True
+    _rocm_mpi_setup_done = True
 
     gpu_copy_behavior = os.getenv("MPI4JAX_USE_HIP_MPI", "")
 
@@ -129,9 +129,9 @@ def setup_hip_mpi():
         warnings.warn(warn_msg)
 
     try:
-        from .xla_bridge import mpi_xla_bridge_hip
+        from .xla_bridge import mpi_xla_bridge_rocm
 
-        mpi_xla_bridge_hip.set_copy_to_host(not has_hip_mpi)
+        mpi_xla_bridge_rocm.set_copy_to_host(not has_hip_mpi)
     except ImportError:
         warnings.warn("HIP xla_bridge is not compiled")
 
@@ -186,6 +186,26 @@ def translation_rule_xpu(func):
     setup_funcs = (
         ensure_xpu_ext,
         setup_sycl_mpi,
+    )
+
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        for f in setup_funcs:
+            f()
+        return func(*args, **kwargs)
+
+    return wrapped
+
+
+def translation_rule_rocm(func):
+    """XLA primitive translation rule on ROCM for mpi4jax custom calls.
+
+    This runs generic setup and boilerplate functions.
+    """
+    # functions to call before running the translation rule
+    setup_funcs = (
+        ensure_xpu_ext,
+        setup_hip_mpi,
     )
 
     @functools.wraps(func)
