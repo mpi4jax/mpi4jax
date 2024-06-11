@@ -143,7 +143,7 @@ cpdef bytes build_allgather_descriptor(
     return bytes((<char*> &desc)[:sizeof(AllgatherDescriptor)])
 
 
-cdef void mpi_allgather_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_allgather_hip(hipStream_t stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -218,7 +218,7 @@ cpdef bytes build_allreduce_descriptor(int nitems, uintptr_t op_handle,
     return bytes((<char*> &desc)[:sizeof(AllreduceDescriptor)])
 
 
-cdef void mpi_allreduce_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_allreduce_hip(hipStream_t stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -284,7 +284,7 @@ cpdef bytes build_alltoall_descriptor(
     return bytes((<char*> &desc)[:sizeof(AlltoallDescriptor)])
 
 
-cdef void mpi_alltoall_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_alltoall_hip(hipStream_t stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -352,7 +352,7 @@ cpdef bytes build_barrier_descriptor(uintptr_t comm_handle):
     return bytes((<char*> &desc)[:sizeof(BarrierDescriptor)])
 
 
-cdef void mpi_barrier_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_barrier_hip(hipStream_t stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     if opaque_len != sizeof(BarrierDescriptor):
         with gil:
@@ -381,7 +381,7 @@ cpdef bytes build_bcast_descriptor(int nitems, int root, uintptr_t comm_handle,
     return bytes((<char*> &desc)[:sizeof(BcastDescriptor)])
 
 
-cdef void mpi_bcast_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_bcast_hip(hipStream_t stream, void** buffers,
                         const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -452,7 +452,7 @@ cpdef bytes build_gather_descriptor(
     return bytes((<char*> &desc)[:sizeof(GatherDescriptor)])
 
 
-cdef void mpi_gather_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_gather_hip(hipStream_t stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -541,7 +541,7 @@ cpdef bytes build_recv_descriptor(int nitems, int dest, int tag, uintptr_t comm_
     return bytes((<char*> &desc)[:sizeof(RecvDescriptor)])
 
 
-cdef void mpi_recv_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_recv_hip(hipStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -599,7 +599,7 @@ cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
     return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
 
-cdef void mpi_reduce_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_reduce_hip(hipStream_t stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -665,7 +665,7 @@ cpdef bytes build_scan_descriptor(int nitems, uintptr_t op_handle,
     return bytes((<char*> &desc)[:sizeof(ScanDescriptor)])
 
 
-cdef void mpi_scan_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_scan_hip(hipStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -732,7 +732,7 @@ cpdef bytes build_scatter_descriptor(
     return bytes((<char*> &desc)[:sizeof(ScatterDescriptor)])
 
 
-cdef void mpi_scatter_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_scatter_hip(hipStream_t stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -814,7 +814,7 @@ cpdef bytes build_send_descriptor(int nitems, int dest, int tag, uintptr_t comm_
     return bytes((<char*> &desc)[:sizeof(SendDescriptor)])
 
 
-cdef void mpi_send_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_send_hip(hipStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -880,7 +880,7 @@ cpdef bytes build_sendrecv_descriptor(
     return bytes((<char*> &desc)[:sizeof(SendrecvDescriptor)])
 
 
-cdef void mpi_sendrecv_gpu(hipStream_t stream, void** buffers,
+cdef void mpi_sendrecv_hip(hipStream_t stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, send_dtype_size, recv_dtype_size
     cdef size_t bytes_send, bytes_recv
@@ -942,15 +942,15 @@ cdef register_custom_call_target(fn_name, void* fn):
     gpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
 
 
-declare_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
-declare_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
-declare_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
-declare_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_gpu))
-declare_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_gpu))
-declare_custom_call_target(b"mpi_gather", <void*>(mpi_gather_gpu))
-declare_custom_call_target(b"mpi_recv", <void*>(mpi_recv_gpu))
-declare_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_gpu))
-declare_custom_call_target(b"mpi_scan", <void*>(mpi_scan_gpu))
-declare_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_gpu))
-declare_custom_call_target(b"mpi_send", <void*>(mpi_send_gpu))
-declare_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_gpu))
+declare_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_hip))
+declare_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_hip))
+declare_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_hip))
+declare_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_hip))
+declare_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_hip))
+declare_custom_call_target(b"mpi_gather", <void*>(mpi_gather_hip))
+declare_custom_call_target(b"mpi_recv", <void*>(mpi_recv_hip))
+declare_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_hip))
+declare_custom_call_target(b"mpi_scan", <void*>(mpi_scan_hip))
+declare_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_hip))
+declare_custom_call_target(b"mpi_send", <void*>(mpi_send_hip))
+declare_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_hip))
