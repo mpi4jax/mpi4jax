@@ -45,6 +45,15 @@ from .cuda_runtime_api cimport (
 from . cimport mpi_xla_bridge
 
 
+# The XLA_BRIDGE extension will register with xla
+# all capsules stored in here. So all custom calls declared in this
+# file should be registered in this dictionary.
+custom_call_targets = {}
+
+cdef declare_custom_call_target(fn_name, void* fn):
+    cdef const char* name = "xla._CUSTOM_CALL_TARGET"
+    custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
+
 # Error handling
 
 cpdef inline unicode py_string(const char* c_str):
@@ -121,7 +130,7 @@ cdef inline cudaError_t checked_cuda_stream_synchronize(
     return ierr
 
 
-cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_allgather_cuda(cudaStream_t stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -179,7 +188,7 @@ cdef void mpi_allgather_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_allreduce_cuda(cudaStream_t stream, void** buffers,
                             const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -222,7 +231,7 @@ cdef void mpi_allreduce_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_alltoall_cuda(cudaStream_t stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, comm_size
     cdef size_t sendbytes, recvbytes
@@ -279,7 +288,7 @@ cdef void mpi_alltoall_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_barrier_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_barrier_cuda(cudaStream_t stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     if opaque_len != sizeof(BarrierDescriptor):
         with gil:
@@ -291,7 +300,7 @@ cdef void mpi_barrier_gpu(cudaStream_t stream, void** buffers,
     mpi_xla_bridge.mpi_barrier(comm)
 
 
-cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_bcast_cuda(cudaStream_t stream, void** buffers,
                         const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -339,7 +348,7 @@ cdef void mpi_bcast_gpu(cudaStream_t stream, void** buffers,
 
 
 
-cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_gather_cuda(cudaStream_t stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -406,7 +415,7 @@ cdef void mpi_gather_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_recv_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_recv_cuda(cudaStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -455,7 +464,7 @@ cpdef bytes build_reduce_descriptor(int nitems, uintptr_t op_handle, int root,
     return bytes((<char*> &desc)[:sizeof(ReduceDescriptor)])
 
 
-cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_reduce_cuda(cudaStream_t stream, void** buffers,
                          const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size, rank
     cdef size_t count
@@ -504,7 +513,7 @@ cdef void mpi_reduce_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_scan_cuda(cudaStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -547,7 +556,7 @@ cdef void mpi_scan_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_scatter_cuda(cudaStream_t stream, void** buffers,
                           const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, sendtype_size, recvtype_size, rank, size
     cdef size_t sendbytes, recvbytes
@@ -611,7 +620,7 @@ cdef void mpi_scatter_gpu(cudaStream_t stream, void** buffers,
         free(out_buf)
 
 
-cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_send_cuda(cudaStream_t stream, void** buffers,
                        const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, dtype_size
     cdef size_t count
@@ -649,7 +658,7 @@ cdef void mpi_send_gpu(cudaStream_t stream, void** buffers,
         free(sendbuf)
 
 
-cdef void mpi_sendrecv_gpu(cudaStream_t stream, void** buffers,
+cdef void mpi_sendrecv_cuda(cudaStream_t stream, void** buffers,
                            const char* opaque, size_t opaque_len) nogil:
     cdef int ierr, send_dtype_size, recv_dtype_size
     cdef size_t bytes_send, bytes_recv
@@ -704,22 +713,17 @@ cdef void mpi_sendrecv_gpu(cudaStream_t stream, void** buffers,
         free(recvbuf)
 
 
-gpu_custom_call_targets = {}
-
-cdef register_custom_call_target(fn_name, void* fn):
-    cdef const char* name = "xla._CUSTOM_CALL_TARGET"
-    gpu_custom_call_targets[fn_name] = PyCapsule_New(fn, name, NULL)
 
 
-register_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_gpu))
-register_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_gpu))
-register_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_gpu))
-register_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_gpu))
-register_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_gpu))
-register_custom_call_target(b"mpi_gather", <void*>(mpi_gather_gpu))
-register_custom_call_target(b"mpi_recv", <void*>(mpi_recv_gpu))
-register_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_gpu))
-register_custom_call_target(b"mpi_scan", <void*>(mpi_scan_gpu))
-register_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_gpu))
-register_custom_call_target(b"mpi_send", <void*>(mpi_send_gpu))
-register_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_gpu))
+declare_custom_call_target(b"mpi_allgather", <void*>(mpi_allgather_cuda))
+declare_custom_call_target(b"mpi_allreduce", <void*>(mpi_allreduce_cuda))
+declare_custom_call_target(b"mpi_alltoall", <void*>(mpi_alltoall_cuda))
+declare_custom_call_target(b"mpi_barrier", <void*>(mpi_barrier_cuda))
+declare_custom_call_target(b"mpi_bcast", <void*>(mpi_bcast_cuda))
+declare_custom_call_target(b"mpi_gather", <void*>(mpi_gather_cuda))
+declare_custom_call_target(b"mpi_recv", <void*>(mpi_recv_cuda))
+declare_custom_call_target(b"mpi_reduce", <void*>(mpi_reduce_cuda))
+declare_custom_call_target(b"mpi_scan", <void*>(mpi_scan_cuda))
+declare_custom_call_target(b"mpi_scatter", <void*>(mpi_scatter_cuda))
+declare_custom_call_target(b"mpi_send", <void*>(mpi_send_cuda))
+declare_custom_call_target(b"mpi_sendrecv", <void*>(mpi_sendrecv_cuda))

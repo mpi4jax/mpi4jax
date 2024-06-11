@@ -20,7 +20,7 @@ from mpi4jax._src.utils import (
 from mpi4jax._src.jax_compat import custom_call, token_type
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
-    translation_rule_gpu,
+    translation_rule_cuda,
     translation_rule_xpu,
 )
 from mpi4jax._src.validation import enforce_types
@@ -156,7 +156,7 @@ def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
 
 
 mpi_send_xla_encode_xpu = translation_rule_xpu(mpi_send_xla_encode_device)
-mpi_send_xla_encode_gpu = translation_rule_gpu(mpi_send_xla_encode_device)
+mpi_send_xla_encode_cuda = translation_rule_cuda(mpi_send_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -170,5 +170,5 @@ mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
 
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_gpu, platform="cuda")
+mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_xpu, platform="xpu")

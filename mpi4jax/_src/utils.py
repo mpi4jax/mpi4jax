@@ -161,7 +161,7 @@ def has_cuda_support() -> bool:
     """
     from . import xla_bridge
 
-    return xla_bridge.HAS_GPU_EXT
+    return xla_bridge.HAS_CUDA_EXT
 
 
 def has_sycl_support() -> bool:
