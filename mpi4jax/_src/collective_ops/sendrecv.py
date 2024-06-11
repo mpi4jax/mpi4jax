@@ -297,62 +297,8 @@ def mpi_sendrecv_xla_encode_device(
     ).results
 
 
-@translation_rule_xpu
-def mpi_sendrecv_xla_encode_xpu(
-    ctx,
-    sendbuf,
-    recvbuf,
-    token,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        token,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
-
-
-@translation_rule_cuda
-def mpi_sendrecv_xla_encode_cuda(
-    ctx,
-    sendbuf,
-    recvbuf,
-    token,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        token,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
+mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(mpi_sendrecv_xla_encode_device)
+mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(mpi_sendrecv_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction

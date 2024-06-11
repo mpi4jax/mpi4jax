@@ -178,8 +178,8 @@ def mpi_bcast_xla_encode_device(ctx, x, token, root, comm):
     ).results
 
 
-mpi_bcast_xla_encode_xpu = translation_rule_xpu(mpi_bcast_xla_encode_device)
 mpi_bcast_xla_encode_cuda = translation_rule_cuda(mpi_bcast_xla_encode_device)
+mpi_bcast_xla_encode_xpu = translation_rule_xpu(mpi_bcast_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
