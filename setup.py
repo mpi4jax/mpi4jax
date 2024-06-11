@@ -102,11 +102,14 @@ def get_cuda_paths_from_nvidia_pypi():
     # we need to get the site-packages of this install. to do so we use
     # mpi4py which must be installed
     mpi4py_spec = importlib.util.find_spec("mpi4py")
+
+    # This should never happen, because we already checked it can be imported
+    # But to be on the safe side, we throw this informative error.
     if mpi4py_spec is None:
         raise RuntimeError(
             "When building mpi4jax with --no-build-isolation"
             "you must install the dependencies, such as mpi4py and Cython,"
-            "yourself."
+            "yourself.\n\n"
             "Just run ``pip install cython mpi4py`` to fix this error."
         )
 
