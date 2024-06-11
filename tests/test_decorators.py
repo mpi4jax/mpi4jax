@@ -27,7 +27,7 @@ def test_ensure_cuda_ext(monkeypatch):
         assert "GPU extensions could not be imported" in str(excinfo.value)
 
 
-def test_ensure_gpu_hip_ext(monkeypatch):
+def test_ensure_hip_ext(monkeypatch):
     from mpi4jax._src import xla_bridge
     from mpi4jax._src.decorators import ensure_gpu_ext
 

@@ -170,7 +170,7 @@ def has_hip_support() -> bool:
     """
     from . import xla_bridge
 
-    return xla_bridge.HAS_GPU_HIP_EXT
+    return xla_bridge.HAS_HIP_EXT
 
 
 def has_sycl_support() -> bool:
