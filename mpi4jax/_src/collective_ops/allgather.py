@@ -24,6 +24,7 @@ from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -180,57 +181,9 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
     )
 
 
-@translation_rule_gpu
-def mpi_allgather_xla_encode_hip(ctx, sendbuf, token, comm):
-    from ..xla_bridge.mpi_xla_bridge_hip import build_allgather_descriptor
-
-    comm = unpack_hashable(comm)
-
-    sendbuf_aval, *_ = ctx.avals_in
-    send_nptype = sendbuf_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dtype = send_type.element_type
-    send_dims = send_type.shape
-
-    # compute total number of elements in send array
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    size = comm.Get_size()
-    out_shape = (size, *send_dims)
-
-    out_types = [
-        ir.RankedTensorType.get(out_shape, send_dtype),
-        *token_type(),
-    ]
-
-    descriptor = build_allgather_descriptor(
-        send_nitems,
-        send_dtype_handle,
-        # we only support matching input and output arrays
-        send_nitems,
-        send_dtype_handle,
-        #
-        to_mpi_handle(comm),
-    )
-
-    operands = (sendbuf, token)
-
-    return custom_call(
-        b"mpi_allgather",
-        result_types=out_types,
-        operands=operands,
-        # layout matters here, because the first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
-        backend_config=descriptor,
-        has_side_effect=True,
-    ).results
-
-
-mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
 mpi_allgather_xla_encode_cuda = translation_rule_cuda(mpi_allgather_xla_encode_device)
+mpi_allgather_xla_encode_rocm = translation_rule_rocm(mpi_allgather_xla_encode_device)
+mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -250,7 +203,5 @@ mpi_allgather_p.def_effectful_abstract_eval(mpi_allgather_abstract_eval)
 
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(
-    mpi_allgather_p, mpi_allgather_xla_encode_hip, platform="rocm"
-)

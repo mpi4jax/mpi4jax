@@ -19,11 +19,11 @@ else:
     HAS_XPU_EXT = True
 
 try:
-    from . import mpi_xla_bridge_hip
+    from . import mpi_xla_bridge_rocm
 except ImportError:
-    HAS_HIP_EXT = False
+    HAS_ROCM_EXT = False
 else:
-    HAS_HIP_EXT = True
+    HAS_ROCM_EXT = True
 
 
 # setup logging
@@ -48,6 +48,6 @@ if HAS_XPU_EXT:
     for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="SYCL")
 
-if HAS_HIP_EXT:
-    for name, fn in mpi_xla_bridge_hip.custom_call_targets.items():
+if HAS_ROCM_EXT:
+    for name, fn in mpi_xla_bridge_rocm.custom_call_targets.items():
         xla_client.register_custom_call_target(name, fn, platform="ROCM")

@@ -26,6 +26,7 @@ from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
+    translation_rule_rocm,
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -173,58 +174,9 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
     )
 
 
-@translation_rule_gpu
-def mpi_allreduce_xla_encode_hip(ctx, x, token, op, comm, transpose):
-    from ..xla_bridge.mpi_xla_bridge_hip import build_allreduce_descriptor
-
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    if transpose:
-        assert op == _MPI.SUM
-        return [x, token]
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_allreduce_descriptor(
-        _np.intc(nitems),
-        to_mpi_handle(op),
-        to_mpi_handle(comm),
-        to_dtype_handle(x_nptype),
-    )
-
-    return custom_call(
-        b"mpi_allreduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
-
-
 mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
+mpi_allreduce_xla_encode_rocm = translation_rule_rocm(mpi_allreduce_xla_encode_device)
 mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
-
 
 # This function evaluates only the shapes during AST construction
 def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):
@@ -285,7 +237,5 @@ ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(
-    mpi_allreduce_p, mpi_allreduce_xla_encode_hip, platform="rocm"
-)

@@ -24,6 +24,7 @@ from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -185,61 +186,8 @@ def mpi_reduce_xla_encode_device(ctx, x, token, op, root, comm):
     )
 
 
-@translation_rule_gpu
-def mpi_reduce_xla_encode_hip(ctx, x, token, op, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_hip import build_reduce_descriptor
-
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    # output is only used on root, so prevent memory allocation
-    rank = comm.Get_rank()
-
-    if rank != root:
-        dims = (0,)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
-    ]
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_reduce_descriptor(
-        nitems,
-        to_mpi_handle(op),
-        root,
-        to_mpi_handle(comm),
-        dtype_handle,
-    )
-
-    return custom_call(
-        b"mpi_reduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    ).results
-
-
 mpi_reduce_xla_encode_cuda = translation_rule_cuda(mpi_reduce_xla_encode_device)
+mpi_reduce_xla_encode_rocm = translation_rule_rocm(mpi_reduce_xla_encode_device)
 mpi_reduce_xla_encode_xpu = translation_rule_xpu(mpi_reduce_xla_encode_device)
 
 
@@ -266,5 +214,5 @@ mpi_reduce_p.def_effectful_abstract_eval(mpi_reduce_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_reduce_p, mpi_reduce_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_reduce_p, mpi_reduce_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_reduce_p, mpi_reduce_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_reduce_p, mpi_reduce_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(mpi_reduce_p, mpi_reduce_xla_encode_hip, platform="rocm")
