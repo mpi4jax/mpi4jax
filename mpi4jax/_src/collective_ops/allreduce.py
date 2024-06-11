@@ -174,8 +174,8 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
 
 
 @translation_rule_gpu
-def mpi_allreduce_xla_encode_gpu_hip(ctx, x, token, op, comm, transpose):
-    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_allreduce_descriptor
+def mpi_allreduce_xla_encode_hip(ctx, x, token, op, comm, transpose):
+    from ..xla_bridge.mpi_xla_bridge_hip import build_allreduce_descriptor
 
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
@@ -287,5 +287,5 @@ mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")
 mlir.register_lowering(
-    mpi_allreduce_p, mpi_allreduce_xla_encode_gpu_hip, platform="rocm"
+    mpi_allreduce_p, mpi_allreduce_xla_encode_hip, platform="rocm"
 )

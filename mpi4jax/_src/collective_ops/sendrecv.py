@@ -298,7 +298,7 @@ def mpi_sendrecv_xla_encode_device(
 
 
 @translation_rule_gpu
-def mpi_sendrecv_xla_encode_gpu_hip(
+def mpi_sendrecv_xla_encode_hip(
     ctx,
     sendbuf,
     recvbuf,
@@ -320,7 +320,7 @@ def mpi_sendrecv_xla_encode_gpu_hip(
         )
 
     from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_sendrecv_descriptor
+    from ..xla_bridge.mpi_xla_bridge_hip import build_sendrecv_descriptor
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -514,4 +514,4 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_gpu_hip, platform="rocm")
+mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_hip, platform="rocm")

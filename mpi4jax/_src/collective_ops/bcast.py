@@ -179,8 +179,8 @@ def mpi_bcast_xla_encode_device(ctx, x, token, root, comm):
 
 
 @translation_rule_gpu
-def mpi_bcast_xla_encode_gpu_hip(ctx, x, token, root, comm):
-    from ..xla_bridge.mpi_xla_bridge_gpu_hip import build_bcast_descriptor
+def mpi_bcast_xla_encode_hip(ctx, x, token, root, comm):
+    from ..xla_bridge.mpi_xla_bridge_hip import build_bcast_descriptor
 
     comm = unpack_hashable(comm)
 
@@ -256,4 +256,4 @@ mpi_bcast_p.def_effectful_abstract_eval(mpi_bcast_abstract_eval)
 mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_cuda, platform="cuda")
 mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_xpu, platform="xpu")
-mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_gpu_hip, platform="rocm")
+mlir.register_lowering(mpi_bcast_p, mpi_bcast_xla_encode_hip, platform="rocm")
