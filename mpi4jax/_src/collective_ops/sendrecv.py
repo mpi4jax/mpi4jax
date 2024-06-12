@@ -287,15 +287,16 @@ def mpi_sendrecv_xla_encode_device(
         status_ptr,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_sendrecv",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
+
 
 mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(mpi_sendrecv_xla_encode_device)
 mpi_sendrecv_xla_encode_rocm = translation_rule_rocm(mpi_sendrecv_xla_encode_device)

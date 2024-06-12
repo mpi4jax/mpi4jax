@@ -175,15 +175,15 @@ def mpi_reduce_xla_encode_device(ctx, x, token, op, root, comm):
         dtype_handle,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_reduce",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 mpi_reduce_xla_encode_cuda = translation_rule_cuda(mpi_reduce_xla_encode_device)

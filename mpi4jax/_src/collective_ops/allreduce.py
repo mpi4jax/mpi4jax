@@ -163,20 +163,21 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         to_dtype_handle(x_nptype),
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_allreduce",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
 mpi_allreduce_xla_encode_rocm = translation_rule_rocm(mpi_allreduce_xla_encode_device)
 mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
+
 
 # This function evaluates only the shapes during AST construction
 def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):

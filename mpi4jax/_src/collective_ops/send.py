@@ -141,18 +141,15 @@ def mpi_send_xla_encode_device(ctx, x, token, dest, tag, comm):
         dtype_handle,
     )
 
-    # JAX insists on outputs being iterable
-    return [
-        hlo_custom_call(
-            b"mpi_send",
-            out_types=out_types,
-            operands=operands,
-            operand_layouts=get_default_layouts(operands),
-            result_layouts=get_default_layouts(out_types),
-            has_side_effect=True,
-            backend_config=descriptor,
-        )
-    ]
+    return custom_call(
+        b"mpi_send",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    ).results
 
 
 mpi_send_xla_encode_cuda = translation_rule_cuda(mpi_send_xla_encode_device)
