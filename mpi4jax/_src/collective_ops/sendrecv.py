@@ -26,6 +26,7 @@ from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -297,62 +298,9 @@ def mpi_sendrecv_xla_encode_device(
     ).results
 
 
-@translation_rule_xpu
-def mpi_sendrecv_xla_encode_xpu(
-    ctx,
-    sendbuf,
-    recvbuf,
-    token,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        token,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
-
-
-@translation_rule_cuda
-def mpi_sendrecv_xla_encode_cuda(
-    ctx,
-    sendbuf,
-    recvbuf,
-    token,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        token,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
+mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(mpi_sendrecv_xla_encode_device)
+mpi_sendrecv_xla_encode_rocm = translation_rule_rocm(mpi_sendrecv_xla_encode_device)
+mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(mpi_sendrecv_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -482,4 +430,5 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")

@@ -30,7 +30,11 @@ from .collective_ops.scatter import scatter  # noqa: F401, E402
 from .collective_ops.send import send  # noqa: F401, E402
 from .collective_ops.sendrecv import sendrecv  # noqa: F401, E402
 
-from .utils import has_cuda_support, has_sycl_support  # noqa: F401, E402
+from .utils import (  # noqa: F401, E402
+    has_cuda_support as has_cuda_support,
+    has_sycl_support as has_sycl_support,
+    has_rocm_support as has_rocm_support,
+)
 
 # sanitize namespace
 del jax_compat, xla_bridge, MPI, atexit, flush

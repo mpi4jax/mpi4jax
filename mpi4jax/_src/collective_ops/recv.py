@@ -25,6 +25,7 @@ from ..jax_compat import custom_call, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -196,8 +197,9 @@ def mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status):
     ).results
 
 
-mpi_recv_xla_encode_xpu = translation_rule_xpu(mpi_recv_xla_encode_device)
 mpi_recv_xla_encode_cuda = translation_rule_cuda(mpi_recv_xla_encode_device)
+mpi_recv_xla_encode_rocm = translation_rule_rocm(mpi_recv_xla_encode_device)
+mpi_recv_xla_encode_xpu = translation_rule_xpu(mpi_recv_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
@@ -215,4 +217,5 @@ mpi_recv_p.def_effectful_abstract_eval(mpi_recv_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_recv_p, mpi_recv_xla_encode_xpu, platform="xpu")
