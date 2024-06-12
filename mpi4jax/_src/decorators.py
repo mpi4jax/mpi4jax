@@ -28,7 +28,7 @@ def ensure_xpu_ext():
         )
 
 
-def ensure_hip_ext():
+def ensure_rocm_ext():
     from .xla_bridge import HAS_ROCM_EXT
 
     if not HAS_ROCM_EXT:
@@ -163,7 +163,7 @@ def translation_rule_cuda(func):
     # functions to call before running the translation rule
     setup_funcs = (
         ensure_cuda_ext,
-        ensure_hip_ext,
+        ensure_rocm_ext,
         setup_cuda_mpi,
         setup_hip_mpi,
     )

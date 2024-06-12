@@ -27,15 +27,15 @@ def test_ensure_cuda_ext(monkeypatch):
         assert "GPU extensions could not be imported" in str(excinfo.value)
 
 
-def test_ensure_hip_ext(monkeypatch):
+def test_ensure_rocm_ext(monkeypatch):
     from mpi4jax._src import xla_bridge
-    from mpi4jax._src.decorators import ensure_gpu_ext
+    from mpi4jax._src.decorators import ensure_rocm_ext
 
     with monkeypatch.context() as m:
         m.setattr(xla_bridge, "HAS_ROCM_EXT", False)
 
         with pytest.raises(ImportError) as excinfo:
-            ensure_gpu_ext()
+            ensure_rocm_ext()
 
         assert "GPU extensions could not be imported" in str(excinfo.value)
 
