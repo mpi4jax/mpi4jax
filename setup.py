@@ -319,13 +319,15 @@ def get_extensions():
 
     extensions.append(
         Extension(
-        f"{CYTHON_DIRECTGPU_SUBMODULE_NAME}",
-        sources=[f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware_checker.pyx", 
-                 f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware.cc"],
-        language="c++",
-        #libraries=["mpi"],  # Link against the MPI library
-    ))
-
+            f"{CYTHON_DIRECTGPU_SUBMODULE_NAME}",
+            sources=[
+                f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware_checker.pyx",
+                f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware.cc",
+            ],
+            language="c++",
+            # libraries=["mpi"],  # Link against the MPI library
+        )
+    )
 
     sycl_info = get_sycl_info()
     if sycl_info["compile"] and sycl_info["libdirs"]:

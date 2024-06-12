@@ -33,7 +33,7 @@ from .collective_ops.sendrecv import sendrecv  # noqa: F401, E402
 from .utils import has_cuda_support, has_sycl_support  # noqa: F401, E402
 
 # import GPU
-from .mpi_direct_gpu import is_gpu_aware_mpi
+from .mpi_direct_gpu import is_gpu_aware_mpi  # noqa: F401, E402
 
 # sanitize namespace
 del jax_compat, xla_bridge, MPI, atexit, flush
