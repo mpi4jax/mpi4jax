@@ -9,12 +9,12 @@ _rocm_mpi_setup_done = False
 
 
 def ensure_cuda_ext():
-    from .xla_bridge import HAS_CUDA_EXT, HAS_ROCM_EXT
+    from .xla_bridge import HAS_CUDA_EXT
 
-    if not HAS_CUDA_EXT or not HAS_ROCM_EXT:
+    if not HAS_CUDA_EXT:
         raise ImportError(
             "The mpi4jax GPU extensions could not be imported. "
-            "Please re-build mpi4jax with CUDA or HIP support and try again."
+            "Please re-build mpi4jax with CUDA support and try again."
         )
 
 
