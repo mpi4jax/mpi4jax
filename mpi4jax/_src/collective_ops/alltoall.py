@@ -181,8 +181,8 @@ def mpi_alltoall_xla_encode_device(ctx, x, token, comm):
     ).results
 
 
-mpi_alltoall_xla_encode_xpu = translation_rule_xpu(mpi_alltoall_xla_encode_device)
 mpi_alltoall_xla_encode_cuda = translation_rule_cuda(mpi_alltoall_xla_encode_device)
+mpi_alltoall_xla_encode_xpu = translation_rule_xpu(mpi_alltoall_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
