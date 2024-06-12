@@ -170,16 +170,16 @@ def mpi_alltoall_xla_encode_device(ctx, x, token, comm):
         to_mpi_handle(comm),
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_alltoall",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         # force c order because first axis is special
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 mpi_alltoall_xla_encode_cuda = translation_rule_cuda(mpi_alltoall_xla_encode_device)

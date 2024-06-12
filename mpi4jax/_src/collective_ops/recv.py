@@ -186,15 +186,15 @@ def mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status):
         status_ptr,
     )
 
-    return hlo_custom_call(
+    return custom_call(
         b"mpi_recv",
-        out_types=out_types,
+        result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    )
+    ).results
 
 
 mpi_recv_xla_encode_cuda = translation_rule_cuda(mpi_recv_xla_encode_device)

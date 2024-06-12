@@ -104,18 +104,15 @@ def mpi_barrier_xla_encode_device(ctx, token, comm):
 
     descriptor = build_barrier_descriptor(to_mpi_handle(comm))
 
-    # JAX insists on outputs being iterable
-    return [
-        hlo_custom_call(
-            b"mpi_barrier",
-            out_types=out_types,
-            operands=operands,
-            operand_layouts=get_default_layouts(operands),
-            result_layouts=get_default_layouts(out_types),
-            has_side_effect=True,
-            backend_config=descriptor,
-        )
-    ]
+    return custom_call(
+        b"mpi_barrier",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        backend_config=descriptor,
+    ).results
 
 
 mpi_barrier_xla_encode_cuda = translation_rule_cuda(mpi_barrier_xla_encode_device)
