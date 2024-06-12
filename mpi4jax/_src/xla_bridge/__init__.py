@@ -30,17 +30,12 @@ mpi_xla_bridge.set_logging(_is_truthy(os.getenv("MPI4JAX_DEBUG", "")))
 
 # register custom call targets
 for name, fn in mpi_xla_bridge_cpu.custom_call_targets.items():
-    name = name.decode("utf-8")
     xla_client.register_custom_call_target(name, fn, platform="cpu")
 
 if HAS_CUDA_EXT:
     for name, fn in mpi_xla_bridge_cuda.custom_call_targets.items():
-        # PJRT Client only supports standard strings, not bytes strings
-        # See https://github.com/google/jax/issues/21807
-        name = name.decode("utf-8")
         xla_client.register_custom_call_target(name, fn, platform="CUDA")
 
 if HAS_XPU_EXT:
     for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
-        name = name.decode("utf-8")
         xla_client.register_custom_call_target(name, fn, platform="SYCL")
