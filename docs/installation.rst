@@ -68,17 +68,16 @@ Installation with NVIDIA GPU support (CUDA)
 .. note::
 
    There are 3 ways to install jax with CUDA support:
-   - using a pypi-distributed CUDA installation (suggested by jax developers) ``pip install -U 'jax[cuda12_pip]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`` 
-   - using the locally-installed CUDA version, which must be compatible with jax. ``pip install -U 'jax[cuda12_local]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html`` 
+   - using a pypi-distributed CUDA installation (suggested by jax developers) ``pip install -U 'jax[cuda12]'`` 
+   - using the locally-installed CUDA version, which must be compatible with jax. ``pip install -U 'jax[cuda12_local]'`` 
    The procedure to install ``mpi4jax`` for the two situations is different.
-   - using pip install -U 'jax[cuda12]', but this is not supported yet by ``mpi4jax``
 
 To use ``mpi4jax`` with pypi-distributed nvidia packages, which is the preferred way to install jax, you **must** install ``mpi4jax`` disabling
 the build-time-isolation in order for it to link to the libraries in the nvidia-cuda-nvcc-cu12 package. To do so, run the following command:
 
 .. code:: bash
 
-   # assuming pip install -U 'jax[cuda12_pip]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html has been run
+   # assuming pip install -U 'jax[cuda12]' has been run
    $ pip install cython
    $ pip install mpi4jax --no-build-isolation
 
