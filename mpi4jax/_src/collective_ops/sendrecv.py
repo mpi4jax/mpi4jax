@@ -163,10 +163,9 @@ def mpi_sendrecv_xla_encode_cpu(
     status = unpack_hashable(status)
 
     send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
 
     send_type = ir.RankedTensorType(sendbuf.type)
+    send_dtype = send_type.element_type
     send_dims = send_type.shape
 
     recv_type = ir.RankedTensorType(recvbuf.type)
@@ -175,10 +174,10 @@ def mpi_sendrecv_xla_encode_cpu(
 
     # compute total number of elements in arrays
     send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
+    recv_dtype_handle = to_dtype_handle(recv_dtype)
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
@@ -241,10 +240,9 @@ def mpi_sendrecv_xla_encode_device(
     status = unpack_hashable(status)
 
     send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
 
     send_type = ir.RankedTensorType(sendbuf.type)
+    send_dtype = send_type.element_type
     send_dims = send_type.shape
 
     recv_type = ir.RankedTensorType(recvbuf.type)
@@ -253,10 +251,10 @@ def mpi_sendrecv_xla_encode_device(
 
     # compute total number of elements in arrays
     send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
+    recv_dtype_handle = to_dtype_handle(recv_dtype)
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
