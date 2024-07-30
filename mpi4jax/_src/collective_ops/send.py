@@ -90,7 +90,7 @@ def mpi_send_xla_encode_cpu(ctx, x, token, dest, tag, comm):
     nitems = _np.prod(dims, dtype=int)
     dtype_handle = to_dtype_handle(x_nptype)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),

@@ -94,7 +94,7 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     token = ctx.tokens_in.get(ordered_effect)[0]
@@ -145,7 +145,7 @@ def mpi_bcast_xla_encode_device(ctx, x, root, comm):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     token = ctx.tokens_in.get(ordered_effect)[0]

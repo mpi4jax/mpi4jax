@@ -78,7 +78,7 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
     nitems = _np.prod(dims, dtype=int)
     dtype_handle = to_dtype_handle(x_nptype)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     token = ctx.tokens_in.get(ordered_effect)[0]
 

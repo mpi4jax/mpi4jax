@@ -57,7 +57,7 @@ def barrier(*, comm=None):
 def mpi_barrier_xla_encode_cpu(ctx, comm):
     comm = unpack_hashable(comm)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     token = ctx.tokens_in.get(ordered_effect)[0]
 

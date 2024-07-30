@@ -5,7 +5,7 @@ import warnings
 import jax
 import jaxlib
 
-from jax.interpreters.mlir import token_type  # noqa: F401
+from jax.interpreters.mlir import token_type as jax_token_type
 
 
 def versiontuple(verstr):
@@ -45,6 +45,13 @@ def check_jax_version():
             f"    $ pip install -U mpi4jax\n\n"
             f"You can set the environment variable `{warn_envvar}=1` to silence this warning."
         )
+
+
+# TODO: remove the other path once we require jax >= 0.4.31
+if versiontuple(jax.__version__) >= (0, 4, 31):
+    token_type = jax_token_type
+else:
+    token_type = lambda: jax_token_type()[0]
 
 
 # TODO: remove the other path once we require jax/lib > 0.4.16

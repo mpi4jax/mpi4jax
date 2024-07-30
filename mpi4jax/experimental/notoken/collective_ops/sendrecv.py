@@ -157,7 +157,7 @@ def mpi_sendrecv_xla_encode_cpu(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -245,7 +245,7 @@ def mpi_sendrecv_xla_encode_device(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
