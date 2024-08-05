@@ -108,7 +108,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -163,7 +163,7 @@ def mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status):
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (token,)
 

@@ -80,7 +80,7 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
 
     out_types = [token_type()]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -123,7 +123,7 @@ def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
 
     out_types = token_type()
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         x,

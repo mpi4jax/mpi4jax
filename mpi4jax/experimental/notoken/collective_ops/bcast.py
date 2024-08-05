@@ -97,7 +97,7 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
         token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -148,7 +148,7 @@ def mpi_bcast_xla_encode_device(ctx, x, root, comm):
         token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         x,

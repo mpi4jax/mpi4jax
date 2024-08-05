@@ -96,7 +96,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -148,7 +148,7 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         x,

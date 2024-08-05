@@ -59,7 +59,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
 
     out_types = [token_type()]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
@@ -87,7 +87,7 @@ def mpi_barrier_xla_encode_device(ctx, comm):
 
     out_types = token_type()
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (token,)
 

@@ -91,7 +91,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
         token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
@@ -154,7 +154,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
         to_mpi_handle(comm),
     )
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
 
     operands = (sendbuf, token)
 
