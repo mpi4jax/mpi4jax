@@ -95,10 +95,13 @@ def mpi_reduce_xla_encode_cpu(ctx, x, op, root, comm):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -150,10 +153,13 @@ def mpi_reduce_xla_encode_device(ctx, x, op, root, comm):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
 
     operands = (
         x,

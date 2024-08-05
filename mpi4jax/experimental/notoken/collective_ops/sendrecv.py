@@ -157,7 +157,7 @@ def mpi_sendrecv_xla_encode_cpu(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -165,7 +165,10 @@ def mpi_sendrecv_xla_encode_cpu(
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
 
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
@@ -245,7 +248,7 @@ def mpi_sendrecv_xla_encode_device(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -253,7 +256,10 @@ def mpi_sendrecv_xla_encode_device(
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
 
     operands = (
         sendbuf,

@@ -47,7 +47,7 @@ def as_mhlo_constant(val, dtype):
 
 
 def get_default_layouts(operands, order="c"):
-    (token,) = token_type()
+    token = token_type()
     layouts = []
 
     if order == "c":

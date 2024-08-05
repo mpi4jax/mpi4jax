@@ -77,7 +77,7 @@ def barrier(*, comm=None, token=None):
 def mpi_barrier_xla_encode_cpu(ctx, token, comm):
     comm = unpack_hashable(comm)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     operands = (
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),

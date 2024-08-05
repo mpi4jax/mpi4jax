@@ -105,7 +105,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     operands = (
@@ -147,7 +147,7 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     operands = (
