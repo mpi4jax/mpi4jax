@@ -166,6 +166,10 @@ def mpi_sendrecv_xla_encode_cpu(
         status_ptr = to_mpi_ptr(status)
 
     token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
+
 
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
@@ -254,6 +258,10 @@ def mpi_sendrecv_xla_encode_device(
         status_ptr = to_mpi_ptr(status)
 
     token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
+
 
     operands = (
         sendbuf,

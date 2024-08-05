@@ -93,6 +93,10 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
     ]
 
     token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
+
 
     operands = (
         as_mhlo_constant(nitems_per_proc, _np.intc),
@@ -145,6 +149,10 @@ def mpi_alltoall_xla_encode_device(ctx, x, comm):
     ]
 
     token = ctx.tokens_in.get(ordered_effect)
+    if isinstance(token, tuple):
+        assert len(token) == 1
+        token = token[0]
+
 
     operands = (
         x,
