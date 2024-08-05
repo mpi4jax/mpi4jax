@@ -113,7 +113,6 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
         assert len(token) == 1
         token = token[0]
 
-
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         as_mhlo_constant(source, _np.intc),
@@ -171,7 +170,6 @@ def mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status):
     if isinstance(token, tuple):
         assert len(token) == 1
         token = token[0]
-
 
     operands = (token,)
 

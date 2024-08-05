@@ -101,7 +101,6 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         assert len(token) == 1
         token = token[0]
 
-
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
@@ -156,7 +155,6 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
     if isinstance(token, tuple):
         assert len(token) == 1
         token = token[0]
-
 
     operands = (
         x,

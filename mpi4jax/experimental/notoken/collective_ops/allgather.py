@@ -96,7 +96,6 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
         assert len(token) == 1
         token = token[0]
 
-
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
@@ -162,7 +161,6 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
     if isinstance(token, tuple):
         assert len(token) == 1
         token = token[0]
-
 
     operands = (sendbuf, token)
 

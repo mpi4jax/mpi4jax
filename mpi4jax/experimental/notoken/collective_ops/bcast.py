@@ -102,7 +102,6 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
         assert len(token) == 1
         token = token[0]
 
-
     operands = (
         as_mhlo_constant(nitems, _np.intc),
         x,
@@ -156,7 +155,6 @@ def mpi_bcast_xla_encode_device(ctx, x, root, comm):
     if isinstance(token, tuple):
         assert len(token) == 1
         token = token[0]
-
 
     operands = (
         x,

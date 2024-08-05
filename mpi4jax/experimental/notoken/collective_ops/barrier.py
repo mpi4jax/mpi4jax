@@ -64,7 +64,6 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
         assert len(token) == 1
         token = token[0]
 
-
     operands = (
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
         token,
@@ -95,7 +94,6 @@ def mpi_barrier_xla_encode_device(ctx, comm):
     if isinstance(token, tuple):
         assert len(token) == 1
         token = token[0]
-
 
     operands = (token,)
 
