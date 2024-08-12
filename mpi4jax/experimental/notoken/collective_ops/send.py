@@ -17,7 +17,7 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     ordered_effect,
 )
-from mpi4jax._src.jax_compat import custom_call, token_type
+from mpi4jax._src.jax_compat import custom_call, token_type, get_token_effect
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -80,10 +80,7 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
 
     out_types = [token_type()]
 
-    token = ctx.tokens_in.get(ordered_effect)
-    if isinstance(token, tuple):
-        assert len(token) == 1
-        token = token[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -126,10 +123,7 @@ def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
 
     out_types = token_type()
 
-    token = ctx.tokens_in.get(ordered_effect)
-    if isinstance(token, tuple):
-        assert len(token) == 1
-        token = token[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         x,

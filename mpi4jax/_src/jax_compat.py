@@ -50,8 +50,10 @@ def check_jax_version():
 # TODO: remove the other path once we require jax >= 0.4.31
 if versiontuple(jax.__version__) >= (0, 4, 31):
     token_type = jax_token_type
+    get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
 else:
     token_type = lambda: jax_token_type()[0]
+    get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)[0]
 
 
 # TODO: remove the other path once we require jax/lib > 0.4.16
