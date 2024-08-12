@@ -5,7 +5,7 @@ import warnings
 import jax
 import jaxlib
 
-from jax.interpreters.mlir import token_type as jax_token_type
+from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
 
 
 def versiontuple(verstr):
@@ -51,9 +51,15 @@ def check_jax_version():
 if versiontuple(jax.__version__) >= (0, 4, 31):
     token_type = jax_token_type
     get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
+    set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
+        TokenSet({effect: token})
+    )
 else:
     token_type = lambda: jax_token_type()[0]
     get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)[0]
+    set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
+        TokenSet({effect: (token,)})
+    )
 
 
 # TODO: remove the other path once we require jax/lib > 0.4.16
