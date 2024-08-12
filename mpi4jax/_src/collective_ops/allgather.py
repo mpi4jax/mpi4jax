@@ -108,7 +108,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
 
     out_types = [
         ir.RankedTensorType.get(out_shape, send_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     operands = (
@@ -153,7 +153,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
 
     out_types = [
         ir.RankedTensorType.get(out_shape, send_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     descriptor = build_allgather_descriptor(

@@ -119,7 +119,7 @@ def mpi_recv_xla_encode_cpu(ctx, x, token, source, tag, comm, status):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -166,7 +166,7 @@ def mpi_recv_xla_encode_device(ctx, x, token, source, tag, comm, status):
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:

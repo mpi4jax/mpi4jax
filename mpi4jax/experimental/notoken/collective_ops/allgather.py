@@ -17,7 +17,13 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     ordered_effect,
 )
-from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
+from mpi4jax._src.jax_compat import (
+    custom_call,
+    token_type,
+    ShapedArray,
+    get_token_effect,
+    set_token_effect,
+)
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -88,10 +94,10 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
 
     out_types = [
         ir.RankedTensorType.get(out_shape, send_dtype),
-        *token_type(),
+        token_type(),
     ]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
@@ -117,7 +123,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 
@@ -141,7 +147,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
 
     out_types = [
         ir.RankedTensorType.get(out_shape, send_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     descriptor = build_allgather_descriptor(
@@ -154,7 +160,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
         to_mpi_handle(comm),
     )
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (sendbuf, token)
 
@@ -171,7 +177,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 

@@ -14,7 +14,12 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     ordered_effect,
 )
-from mpi4jax._src.jax_compat import custom_call, token_type
+from mpi4jax._src.jax_compat import (
+    custom_call,
+    token_type,
+    get_token_effect,
+    set_token_effect,
+)
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -57,9 +62,9 @@ def barrier(*, comm=None):
 def mpi_barrier_xla_encode_cpu(ctx, comm):
     comm = unpack_hashable(comm)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
@@ -77,7 +82,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 
@@ -87,7 +92,7 @@ def mpi_barrier_xla_encode_device(ctx, comm):
 
     out_types = token_type()
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (token,)
 
@@ -105,7 +110,7 @@ def mpi_barrier_xla_encode_device(ctx, comm):
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 

@@ -20,7 +20,13 @@ from mpi4jax._src.utils import (
     get_default_layouts,
     ordered_effect,
 )
-from mpi4jax._src.jax_compat import custom_call, token_type, ShapedArray
+from mpi4jax._src.jax_compat import (
+    custom_call,
+    token_type,
+    ShapedArray,
+    get_token_effect,
+    set_token_effect,
+)
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -157,7 +163,7 @@ def mpi_sendrecv_xla_encode_cpu(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -165,7 +171,7 @@ def mpi_sendrecv_xla_encode_cpu(
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
@@ -193,7 +199,7 @@ def mpi_sendrecv_xla_encode_cpu(
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 
@@ -245,7 +251,7 @@ def mpi_sendrecv_xla_encode_device(
 
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
-        *token_type(),
+        token_type(),
     ]
 
     if status is None:
@@ -253,7 +259,7 @@ def mpi_sendrecv_xla_encode_device(
     else:
         status_ptr = to_mpi_ptr(status)
 
-    token = ctx.tokens_in.get(ordered_effect)[0]
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         sendbuf,
@@ -285,7 +291,7 @@ def mpi_sendrecv_xla_encode_device(
 
     results = list(result_obj.results)
     token = results.pop(-1)
-    ctx.set_tokens_out(mlir.TokenSet({ordered_effect: (token,)}))
+    set_token_effect(ctx, ordered_effect, token)
 
     return results
 
