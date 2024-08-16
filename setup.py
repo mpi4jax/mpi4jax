@@ -1,6 +1,7 @@
 import os
 import sys
 import shlex
+import shutil
 
 import importlib.util
 import pathlib
@@ -23,20 +24,13 @@ except ImportError:
 else:
     HAS_CYTHON = True
 
-try:
-    import mpi4py
-except ImportError:
-    HAS_MPI4PY = False
-else:
-    HAS_MPI4PY = True
-
 
 ##############
 # Requirements
 
 JAX_MINIMUM_VERSION = "0.4.5"
 
-BASE_DEPENDENCIES = ["mpi4py>=3.0.1,<4", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
+BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
 DEV_DEPENDENCIES = [
     "pytest>=6",
@@ -79,8 +73,12 @@ def print_warning(*lines):
 
 class custom_build_ext(build_ext):
     def build_extensions(self):
-        config = mpi4py.get_config()
-        mpi_compiler = os.environ.get("MPI4JAX_BUILD_MPICC", config["mpicc"])
+        mpi_compiler = os.environ.get("MPI4JAX_BUILD_MPICC", shutil.which("mpicc"))
+        if mpi_compiler is None or not os.path.exists(mpi_compiler):
+            raise RuntimeError(
+                "MPI4JAX_BUILD_MPICC invalid and no MPI compiler found in PATH."
+                "Please set MPI4JAX_BUILD_MPICC to the path of the MPI compiler."
+            )
         mpi_cmd = shlex.split(mpi_compiler)
 
         for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
@@ -100,20 +98,19 @@ class custom_build_ext(build_ext):
 def get_cuda_paths_from_nvidia_pypi():
     # try to check if nvidia-cuda-nvcc-cu* is installed
     # we need to get the site-packages of this install. to do so we use
-    # mpi4py which must be installed
-    mpi4py_spec = importlib.util.find_spec("mpi4py")
+    # cython which must be installed
+    cython_spec = importlib.util.find_spec("cython")
 
     # This should never happen, because we already checked it can be imported
     # But to be on the safe side, we throw this informative error.
-    if mpi4py_spec is None:
+    if cython_spec is None:
         raise RuntimeError(
             "When building mpi4jax with --no-build-isolation"
-            "you must install the dependencies, such as mpi4py and Cython,"
-            "yourself.\n\n"
-            "Just run ``pip install cython mpi4py`` to fix this error."
+            "you must install the build dependencies yourself.\n\n"
+            "Just run ``pip install cython`` to fix this error."
         )
 
-    depot_path = pathlib.Path(os.path.dirname(mpi4py_spec.origin)).parent
+    depot_path = pathlib.Path(os.path.dirname(cython_spec.origin)).parent
 
     # If the pip package nvidia-cuda-nvcc-cu11 is installed, it should have
     # both of the things XLA looks for in the cuda path, namely bin/ptxas and
@@ -298,18 +295,18 @@ def get_extensions():
         cmd.startswith(subcmd) for subcmd in ("install", "build", "bdist", "develop")
     )
 
-    if not HAS_MPI4PY or not HAS_CYTHON:
+    if not HAS_CYTHON:
         # this should only happen when using python setup.py
         # or pip install --no-build-isolation
         if require_extensions:
             print_warning(
-                "mpi4py and/or Cython are not installed.",
+                "Some build dependencies are not installed.",
                 "When using pip install --no-build-isolation or python setup.py, ",
                 "they MUST be installed BEFORE attempting to install mpi4jax.",
                 "",
-                "To fix this error, install mpi4py and Cython.",
+                "To fix this error, install Cython.",
             )
-            raise RuntimeError("Building mpi4jax requires Cython and mpi4py")
+            raise RuntimeError("Building mpi4jax requires Cython")
         else:
             return []
 
