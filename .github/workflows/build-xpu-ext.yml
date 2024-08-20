@@ -34,7 +34,7 @@ jobs:
       shell: bash
 
     - name: Setup MPI (mpich)
-      uses: mpi4py/setup-mpi@v1
+      uses: mpi4py/setup-mpi@v1.2.4
       with:
         mpi: mpich
 
