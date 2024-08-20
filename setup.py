@@ -1,6 +1,7 @@
 import os
 import sys
 import shlex
+import shutil
 
 import importlib.util
 import pathlib
@@ -24,7 +25,7 @@ else:
     HAS_CYTHON = True
 
 try:
-    import mpi4py
+    import mpi4py  # noqa: F401
 except ImportError:
     HAS_MPI4PY = False
 else:
@@ -36,7 +37,7 @@ else:
 
 JAX_MINIMUM_VERSION = "0.4.5"
 
-BASE_DEPENDENCIES = ["mpi4py>=3.0.1,<4", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
+BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
 DEV_DEPENDENCIES = [
     "pytest>=6",
@@ -79,11 +80,27 @@ def print_warning(*lines):
 
 class custom_build_ext(build_ext):
     def build_extensions(self):
-        config = mpi4py.get_config()
-        mpi_compiler = os.environ.get("MPI4JAX_BUILD_MPICC", config["mpicc"])
+        mpi_compiler = os.environ.get("MPI4JAX_BUILD_MPICC", shutil.which("mpicc"))
+        if mpi_compiler is None or not os.path.exists(mpi_compiler):
+            raise RuntimeError(
+                "MPI4JAX_BUILD_MPICC invalid and no MPI compiler found in PATH."
+                "Please set MPI4JAX_BUILD_MPICC to the path of the MPI compiler."
+            )
         mpi_cmd = shlex.split(mpi_compiler)
 
-        for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
+        for exe in (
+            "compiler",
+            "compiler_so",
+            "compiler_cxx",
+            "compiler_so_cxx",
+            "linker_so",
+            "linker_so_cxx",
+        ):
+            if not hasattr(self.compiler, exe):
+                # compatiblity with older setuptools
+                # cxx options require >=72.2.0
+                continue
+
             # peel off compiler executable but keep flags
             current_flags = getattr(self.compiler, exe)[1:]
             self.compiler.set_executable(exe, [*mpi_cmd, *current_flags])
