@@ -88,7 +88,19 @@ class custom_build_ext(build_ext):
             )
         mpi_cmd = shlex.split(mpi_compiler)
 
-        for exe in ("compiler", "compiler_so", "compiler_cxx", "linker_so"):
+        for exe in (
+            "compiler",
+            "compiler_so",
+            "compiler_cxx",
+            "compiler_so_cxx",
+            "linker_so",
+            "linker_so_cxx",
+        ):
+            if not hasattr(self.compiler, exe):
+                # compatiblity with older setuptools
+                # cxx options require >=72.2.0
+                continue
+
             # peel off compiler executable but keep flags
             current_flags = getattr(self.compiler, exe)[1:]
             self.compiler.set_executable(exe, [*mpi_cmd, *current_flags])
