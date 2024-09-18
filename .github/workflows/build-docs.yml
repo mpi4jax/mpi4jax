@@ -14,7 +14,11 @@ jobs:
   # - use `setup.py install`
 
   build-docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
       - uses: actions/checkout@v2
@@ -28,10 +32,10 @@ jobs:
           activate-environment: mpi4jax-docs
           environment-file: docs/environment.yml
           auto-activate-base: false
-
-      - name: Add conda env to PATH
-        run: |
-          echo "/usr/share/miniconda/envs/mpi4jax-docs/bin" >> $GITHUB_PATH
+          # same as RTD
+          miniforge-variant: Mambaforge
+          miniforge-version: "23.11.0-0"
+          use-mamba: true
 
       - name: Install mpi4jax
         run: |
