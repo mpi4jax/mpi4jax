@@ -8,7 +8,7 @@ sphinx:
 build:
   os: ubuntu-22.04
   tools:
-    python: "miniconda3-4.7"
+    python: "mambaforge-23.11"
 
 conda:
   environment: docs/environment.yml

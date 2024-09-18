@@ -14,7 +14,7 @@ jobs:
   # - use `setup.py install`
 
   build-docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     defaults:
       run:
