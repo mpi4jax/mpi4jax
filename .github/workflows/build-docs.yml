@@ -30,7 +30,7 @@ jobs:
           auto-activate-base: false
           # same as RTD
           miniforge-variant: Mambaforge
-          miniforge-version: "23.11"
+          miniforge-version: "23.11.0-0"
           use-mamba: true
 
       - name: Add conda env to PATH
