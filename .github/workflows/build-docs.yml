@@ -26,9 +26,12 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: mpi4jax-docs
-          miniconda-version: "4.7"  # same as RTD
           environment-file: docs/environment.yml
           auto-activate-base: false
+          # same as RTD
+          miniforge-variant: Mambaforge
+          miniforge-version: "23.11"
+          use-mamba: true
 
       - name: Add conda env to PATH
         run: |
