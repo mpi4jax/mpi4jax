@@ -16,6 +16,10 @@ jobs:
   build-docs:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        shell: bash -l {0}
+
     steps:
       - uses: actions/checkout@v2
 
@@ -32,10 +36,6 @@ jobs:
           miniforge-variant: Mambaforge
           miniforge-version: "23.11.0-0"
           use-mamba: true
-
-      - name: Add conda env to PATH
-        run: |
-          echo "/usr/share/miniconda/envs/mpi4jax-docs/bin" >> $GITHUB_PATH
 
       - name: Install mpi4jax
         run: |
