@@ -97,7 +97,7 @@ def mpi_barrier_xla_encode_cpu(ctx, token, comm):
 def mpi_barrier_xla_encode_device(ctx, token, comm):
     comm = unpack_hashable(comm)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     operands = (token,)
 

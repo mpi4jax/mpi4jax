@@ -126,7 +126,7 @@ def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
     nitems = _np.prod(dims, dtype=int)
     dtype_handle = to_dtype_handle(x_nptype)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     token = get_token_effect(ctx, ordered_effect)
 

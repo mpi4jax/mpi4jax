@@ -90,7 +90,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
 def mpi_barrier_xla_encode_device(ctx, comm):
     comm = unpack_hashable(comm)
 
-    out_types = token_type()
+    out_types = [token_type()]
 
     token = get_token_effect(ctx, ordered_effect)
 
