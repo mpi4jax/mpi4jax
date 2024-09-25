@@ -24,6 +24,7 @@ from ..jax_compat import custom_call, token_type
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
+    translation_rule_rocm,
     translation_rule_xpu,
 )
 from ..validation import enforce_types
@@ -152,6 +153,7 @@ def mpi_send_xla_encode_device(ctx, x, token, dest, tag, comm):
 
 
 mpi_send_xla_encode_cuda = translation_rule_cuda(mpi_send_xla_encode_device)
+mpi_send_xla_encode_rocm = translation_rule_rocm(mpi_send_xla_encode_device)
 mpi_send_xla_encode_xpu = translation_rule_xpu(mpi_send_xla_encode_device)
 
 
@@ -166,4 +168,5 @@ mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_send_p, mpi_send_xla_encode_xpu, platform="xpu")

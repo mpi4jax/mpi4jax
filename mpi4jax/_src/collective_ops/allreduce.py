@@ -26,6 +26,7 @@ from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
+    translation_rule_rocm,
 )
 from ..validation import enforce_types
 from ..comm import get_default_comm
@@ -174,6 +175,7 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
 
 
 mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
+mpi_allreduce_xla_encode_rocm = translation_rule_rocm(mpi_allreduce_xla_encode_device)
 mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
 
 
@@ -236,4 +238,5 @@ ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cuda, platform="cuda")
+mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_rocm, platform="rocm")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")
