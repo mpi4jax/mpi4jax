@@ -137,4 +137,4 @@ batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cuda, platform="cuda")
-mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")
+# mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")

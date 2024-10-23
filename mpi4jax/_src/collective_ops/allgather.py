@@ -201,4 +201,4 @@ mpi_allgather_p.def_effectful_abstract_eval(mpi_allgather_abstract_eval)
 
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_cuda, platform="cuda")
-mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_xpu, platform="xpu")
+# mlir.register_lowering(mpi_allgather_p, mpi_allgather_xla_encode_xpu, platform="xpu")
