@@ -57,4 +57,4 @@ if HAS_CUDA_EXT:
 
 # if HAS_XPU_EXT:
 #    for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
-#        register_custom_call_target(name, fn, platform="SYCL")
+#        register_custom_call_target(name, fn, platform="SYCL", api_version=0)
