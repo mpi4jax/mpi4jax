@@ -201,12 +201,10 @@ def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
         )
 
     val, token = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
-
-    # throw away return token to work around jax#6285
     jvp, token_jvp = mpi_allreduce_p.bind(
         x_tan, token, op=op, comm=comm, transpose=transpose
     )
-    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
+    return (val, token), (jvp, token_jvp)
 
 
 def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
@@ -236,4 +234,4 @@ ad.primitive_transposes[mpi_allreduce_p] = mpi_allreduce_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_cuda, platform="cuda")
-mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")
+# mlir.register_lowering(mpi_allreduce_p, mpi_allreduce_xla_encode_xpu, platform="xpu")

@@ -1,8 +1,7 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax.lax import create_token
-from jax.core import Primitive
+from jax.core import Primitive, get_aval
 from jax.interpreters import ad, batching
 
 from jax.interpreters import mlir
@@ -93,12 +92,9 @@ def sendrecv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    token = create_token()
-
     return mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -115,7 +111,6 @@ def mpi_sendrecv_xla_encode_cpu(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -137,8 +132,6 @@ def mpi_sendrecv_xla_encode_cpu(
             "the gradient might be located on a different mpi rank than the "
             "desired one. Use reverse-mode (jvp) differentiation instead."
         )
-
-    del token  # unused
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -208,7 +201,6 @@ def mpi_sendrecv_xla_encode_device(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -225,8 +217,6 @@ def mpi_sendrecv_xla_encode_device(
         )
 
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    del token  # unused
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -301,7 +291,6 @@ def mpi_sendrecv_xla_encode_xpu(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -314,7 +303,6 @@ def mpi_sendrecv_xla_encode_xpu(
         ctx,
         sendbuf,
         recvbuf,
-        token,
         source,
         dest,
         sendtag,
@@ -330,7 +318,6 @@ def mpi_sendrecv_xla_encode_cuda(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -343,7 +330,6 @@ def mpi_sendrecv_xla_encode_cuda(
         ctx,
         sendbuf,
         recvbuf,
-        token,
         source,
         dest,
         sendtag,
@@ -358,7 +344,6 @@ def mpi_sendrecv_xla_encode_cuda(
 def mpi_sendrecv_abstract_eval(
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -381,7 +366,7 @@ def mpi_sendrecv_batch_eval(
     status,
     _must_transpose=False,
 ):
-    sendbuf, recvbuf, token = in_args
+    sendbuf, recvbuf = in_args
 
     assert batch_axes[0] == batch_axes[1]
     ax = batch_axes[0]
@@ -389,7 +374,6 @@ def mpi_sendrecv_batch_eval(
     res = mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -412,13 +396,12 @@ def mpi_sendrecv_value_and_jvp(
     status,
     _must_transpose=False,
 ):
-    sendbuf, recvbuf, token = in_args
-    send_tan, recv_tan, _ = tan_args
+    sendbuf, recvbuf = in_args
+    send_tan, recv_tan = tan_args
 
     val = mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -431,7 +414,6 @@ def mpi_sendrecv_value_and_jvp(
     jvp = mpi_sendrecv_p.bind(
         send_tan,
         recv_tan,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -447,13 +429,10 @@ def mpi_sendrecv_value_and_jvp(
 def mpi_sendrecv_transpose_rule(
     out_tan, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
 ):
-    _, _, token = x_args
-
     # swap the sender and receiver
     res = mpi_sendrecv_p.bind(
         out_tan,
         out_tan,
-        token,
         source=dest,
         dest=source,
         sendtag=sendtag,
@@ -462,7 +441,7 @@ def mpi_sendrecv_transpose_rule(
         status=status,
         _must_transpose=not _must_transpose,
     )
-    return (res, ad.Zero.from_value(res), ad.Zero.from_value(token))
+    return (res, ad.Zero(get_aval(res)))
 
 
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
@@ -476,4 +455,4 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cuda, platform="cuda")
-mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")
+# mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")

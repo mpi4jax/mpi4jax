@@ -2,7 +2,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import core
-from jax.core import Primitive, Tracer, Token
+from jax.core import Primitive, Tracer, Token, get_aval
 from jax.interpreters import ad, batching
 from jax.lax import create_token
 
@@ -377,7 +377,6 @@ def mpi_sendrecv_value_and_jvp(
         _must_transpose=_must_transpose,
     )
 
-    # throw away return token to work around jax#6285
     jvp, token_jvp = mpi_sendrecv_p.bind(
         send_tan,
         recv_tan,
@@ -391,7 +390,7 @@ def mpi_sendrecv_value_and_jvp(
         _must_transpose=not _must_transpose,
     )
 
-    return (val, token), (jvp, ad.Zero.from_value(token_jvp))
+    return (val, token), (jvp, token_jvp)
 
 
 def mpi_sendrecv_transpose_rule(
@@ -413,7 +412,7 @@ def mpi_sendrecv_transpose_rule(
         status=status,
         _must_transpose=not _must_transpose,
     )
-    return res, ad.Zero.from_value(res), token_tan
+    return res, ad.Zero(get_aval(res)), token_tan
 
 
 mpi_sendrecv_p.multiple_results = True
@@ -428,4 +427,4 @@ ad.primitive_transposes[mpi_sendrecv_p] = mpi_sendrecv_transpose_rule
 # assign to the primitive the correct encoder
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cpu, platform="cpu")
 mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_cuda, platform="cuda")
-mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")
+# mlir.register_lowering(mpi_sendrecv_p, mpi_sendrecv_xla_encode_xpu, platform="xpu")
