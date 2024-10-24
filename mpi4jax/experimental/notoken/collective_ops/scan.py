@@ -72,7 +72,6 @@ def mpi_scan_xla_encode_cpu(ctx, x, op, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -80,8 +79,6 @@ def mpi_scan_xla_encode_cpu(ctx, x, op, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -95,7 +92,7 @@ def mpi_scan_xla_encode_cpu(ctx, x, op, comm):
         x,
         as_mhlo_constant(to_mpi_handle(op), _np.uintp),
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(dtype_handle, _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         token,
     )
 
@@ -120,7 +117,6 @@ def mpi_scan_xla_encode_device(ctx, x, op, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -128,8 +124,6 @@ def mpi_scan_xla_encode_device(ctx, x, op, comm):
 
     # compute total number of elements in array
     nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [
         ir.RankedTensorType.get(dims, dtype),
@@ -147,7 +141,7 @@ def mpi_scan_xla_encode_device(ctx, x, op, comm):
         nitems,
         to_mpi_handle(op),
         to_mpi_handle(comm),
-        dtype_handle,
+        to_dtype_handle(dtype),
     )
 
     result_obj = custom_call(
