@@ -5,6 +5,7 @@ import warnings
 import jax
 import jaxlib
 
+from jax.interpreters import mlir
 from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
 
 
@@ -45,6 +46,15 @@ def check_jax_version():
             f"    $ pip install -U mpi4jax\n\n"
             f"You can set the environment variable `{warn_envvar}=1` to silence this warning."
         )
+
+
+def register_lowering(prim, rule, platform="cpu"):
+    try:
+        return mlir.register_lowering(prim, rule, platform=platform)
+    except NotImplementedError:
+        # Raised if the platform is supplied by a non-installed plugin
+        assert platform != "cpu"
+        return None
 
 
 # TODO: remove the other path once we require jax >= 0.4.31
@@ -118,7 +128,6 @@ else:
     EffectType = object
 
     def register_effect(EffectType, ordered=False):
-        from jax.interpreters import mlir
         from jax._src.lax import control_flow as lcf
         import jax._src.custom_derivatives as custom_derivatives
 

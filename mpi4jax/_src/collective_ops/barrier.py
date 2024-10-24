@@ -6,7 +6,6 @@ from jax.core import Primitive, Tracer, Token
 from jax.interpreters import batching
 from jax.lax import create_token
 
-from jax.interpreters import mlir
 
 from ..utils import (
     HashableMPIType,
@@ -19,7 +18,7 @@ from ..utils import (
     effect,
     prefer_notoken,
 )
-from ..jax_compat import custom_call, token_type
+from ..jax_compat import custom_call, register_lowering, token_type
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -135,6 +134,6 @@ mpi_barrier_p.def_effectful_abstract_eval(mpi_barrier_abstract_eval)
 batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 
 # assign to the primitive the correct encoder
-mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cuda, platform="cuda")
-# mlir.register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cuda, platform="cuda")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")

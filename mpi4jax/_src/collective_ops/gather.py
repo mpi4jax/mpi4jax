@@ -5,7 +5,7 @@ from jax import core
 from jax.core import Primitive, Tracer, Token
 from jax.lax import create_token
 
-from jax.interpreters import mlir
+
 import jaxlib.mlir.ir as ir
 
 from ..utils import (
@@ -20,7 +20,7 @@ from ..utils import (
     effect,
     prefer_notoken,
 )
-from ..jax_compat import custom_call, token_type, ShapedArray
+from ..jax_compat import custom_call, register_lowering, token_type, ShapedArray
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -237,6 +237,6 @@ mpi_gather_p.def_impl(mpi_gather_impl)
 mpi_gather_p.def_effectful_abstract_eval(mpi_gather_abstract_eval)
 
 # assign to the primitive the correct encoder
-mlir.register_lowering(mpi_gather_p, mpi_gather_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_gather_p, mpi_gather_xla_encode_cuda, platform="cuda")
-# mlir.register_lowering(mpi_gather_p, mpi_gather_xla_encode_xpu, platform="xpu")
+register_lowering(mpi_gather_p, mpi_gather_xla_encode_cpu, platform="cpu")
+register_lowering(mpi_gather_p, mpi_gather_xla_encode_cuda, platform="cuda")
+register_lowering(mpi_gather_p, mpi_gather_xla_encode_xpu, platform="xpu")
