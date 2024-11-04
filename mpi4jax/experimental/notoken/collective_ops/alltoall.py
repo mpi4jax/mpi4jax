@@ -3,7 +3,7 @@ from mpi4py import MPI as _MPI
 
 from jax.core import Primitive
 
-from jax.interpreters import mlir
+
 import jaxlib.mlir.ir as ir
 
 from mpi4jax._src.utils import (
@@ -18,6 +18,7 @@ from mpi4jax._src.utils import (
     ordered_effect,
 )
 from mpi4jax._src.jax_compat import (
+    register_lowering,
     custom_call,
     token_type,
     ShapedArray,
@@ -197,6 +198,6 @@ mpi_alltoall_p.def_impl(mpi_alltoall_impl)
 mpi_alltoall_p.def_effectful_abstract_eval(mpi_alltoall_abstract_eval)
 
 # assign to the primitive the correct encoder
-mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cpu, platform="cpu")
-mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cuda, platform="cuda")
-# mlir.register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_xpu, platform="xpu")
+register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cpu, platform="cpu")
+register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_cuda, platform="cuda")
+register_lowering(mpi_alltoall_p, mpi_alltoall_xla_encode_xpu, platform="xpu")
