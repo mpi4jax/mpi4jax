@@ -85,7 +85,6 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
         return [x]
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -106,7 +105,7 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
         x,
         as_mhlo_constant(to_mpi_handle(op), _np.uintp),
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(to_dtype_handle(x_nptype), _np.uintp),
+        as_mhlo_constant(to_dtype_handle(dtype), _np.uintp),
         token,
     )
 
@@ -135,7 +134,6 @@ def mpi_allreduce_xla_encode_device(ctx, x, op, comm, transpose):
         return [x]
 
     x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
 
     x_type = ir.RankedTensorType(x.type)
     dtype = x_type.element_type
@@ -160,7 +158,7 @@ def mpi_allreduce_xla_encode_device(ctx, x, op, comm, transpose):
         _np.intc(nitems),
         to_mpi_handle(op),
         to_mpi_handle(comm),
-        to_dtype_handle(x_nptype),
+        to_dtype_handle(dtype),
     )
 
     result_obj = custom_call(

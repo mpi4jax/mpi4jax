@@ -38,13 +38,14 @@ def check_jax_version():
 
     if not nowarn and versiontuple(jax.__version__) > versiontuple(jax_maxversion):
         warnings.warn(
-            f"\nThe latest supported JAX version with this release of mpi4jax is {jax_maxversion}, "
-            f"but you have {jax.__version__}. If you encounter problems consider downgrading JAX, "
-            f"for example via:\n\n"
+            "\nThe latest supported JAX version with this release of mpi4jax is "
+            f"{jax_maxversion}, but you have {jax.__version__}. If you encounter "
+            f"problems consider downgrading JAX, for example via:\n\n"
             f"    $ pip install jax[cpu]=={jax_maxversion}\n\n"
             f"Or try upgrading mpi4jax via\n\n"
             f"    $ pip install -U mpi4jax\n\n"
-            f"You can set the environment variable `{warn_envvar}=1` to silence this warning."
+            f"You can set the environment variable `{warn_envvar}=1` to silence "
+            "this warning."
         )
 
 

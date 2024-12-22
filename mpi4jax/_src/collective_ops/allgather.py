@@ -94,7 +94,6 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
-    send_nptype = sendbuf_aval.dtype
 
     send_type = ir.RankedTensorType(sendbuf.type)
     send_dtype = send_type.element_type
@@ -114,10 +113,10 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
+        as_mhlo_constant(to_dtype_handle(send_dtype), _np.uintp),
         # we only support matching input and output arrays
         as_mhlo_constant(send_nitems, _np.intc),
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
+        as_mhlo_constant(to_dtype_handle(send_dtype), _np.uintp),
         #
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
         token,
@@ -138,7 +137,6 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
-    send_nptype = sendbuf_aval.dtype
 
     send_type = ir.RankedTensorType(sendbuf.type)
     send_dtype = send_type.element_type
@@ -146,7 +144,7 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
 
     # compute total number of elements in send array
     send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
+    send_dtype_handle = to_dtype_handle(send_dtype)
 
     size = comm.Get_size()
     out_shape = (size, *send_dims)

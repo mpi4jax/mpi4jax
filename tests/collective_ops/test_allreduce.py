@@ -31,6 +31,13 @@ def test_allreduce_jit():
     assert jnp.array_equal(res, arr * size)
     assert jnp.array_equal(_arr, arr)
 
+    arr = jnp.ones((3, 2), dtype=jnp.complex64)
+    _arr = arr.copy()
+
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
+    assert jnp.array_equal(res, arr * size)
+    assert jnp.array_equal(_arr, arr)
+
 
 def test_allreduce_scalar():
     from mpi4jax import allreduce
