@@ -1,6 +1,7 @@
 import os
 import functools
 import hashlib
+import warnings
 
 from mpi4py import MPI as _MPI
 
@@ -175,4 +176,14 @@ def has_sycl_support() -> bool:
 
 def prefer_notoken() -> bool:
     """Returns True if primitive implementations should prefer not to use tokens."""
-    return os.environ.get("MPI4JAX_PREFER_NOTOKEN", "0").lower() in ("1", "true", "on")
+    use_notoken = os.environ.get("MPI4JAX_PREFER_NOTOKEN", "1").lower() in (
+        "1",
+        "true",
+        "on",
+    )
+    if not use_notoken:
+        warnings.warn(
+            "Token mode is deprecated and may be incompatible with recent JAX versions. "
+            "Consider setting the environment variable MPI4JAX_PREFER_NOTOKEN=1 to suppress this warning."
+        )
+    return use_notoken

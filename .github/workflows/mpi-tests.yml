@@ -19,7 +19,6 @@ jobs:
         python-version: ["3.11"]
         mpi: [mpich, openmpi]
         jax-version: ["latest"]
-        mode: ["token", "notoken"]
 
         include:
           # test intelmpi on Linux
@@ -27,17 +26,14 @@ jobs:
             python-version: "3.11"
             mpi: intelmpi
             jax-version: "latest"
-            mode: "token"
           # test minimum JAX and Python versions
           - os: ubuntu-latest
             python-version: "3.8"
             mpi: openmpi
             jax-version: "0.4.5"
-            mode: "token"
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
-       MPI4JAX_PREFER_NOTOKEN: ${{ matrix.mode == 'notoken' }}
 
     steps:
       - uses: actions/checkout@v2

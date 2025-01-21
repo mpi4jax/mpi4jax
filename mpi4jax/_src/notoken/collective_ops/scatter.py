@@ -1,10 +1,10 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax.core import Primitive
-
 
 import jaxlib.mlir.ir as ir
+from jax.interpreters.mlir import custom_call
+from jax.core import ShapedArray
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -19,11 +19,10 @@ from mpi4jax._src.utils import (
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    custom_call,
     token_type,
-    ShapedArray,
     get_token_effect,
     set_token_effect,
+    Primitive,
 )
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
