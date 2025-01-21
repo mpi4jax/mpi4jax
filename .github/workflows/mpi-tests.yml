@@ -16,19 +16,19 @@ jobs:
 
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.11"]
+        python-version: ["3.12"]
         mpi: [mpich, openmpi]
         jax-version: ["latest"]
 
         include:
           # test intelmpi on Linux
           - os: ubuntu-latest
-            python-version: "3.11"
+            python-version: "3.12"
             mpi: intelmpi
             jax-version: "latest"
           # test minimum JAX and Python versions
           - os: ubuntu-latest
-            python-version: "3.8"
+            python-version: "3.9"
             mpi: openmpi
             jax-version: "0.4.35"
 
