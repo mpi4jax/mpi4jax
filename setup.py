@@ -35,7 +35,7 @@ else:
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.4.5"
+JAX_MINIMUM_VERSION = "0.4.35"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
