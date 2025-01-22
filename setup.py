@@ -35,7 +35,7 @@ else:
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.4.5"
+JAX_MINIMUM_VERSION = "0.4.35"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
@@ -422,7 +422,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=BASE_DEPENDENCIES,
     extras_require={
         "dev": DEV_DEPENDENCIES,

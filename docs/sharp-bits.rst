@@ -26,13 +26,20 @@ This means that you *have* to use proper token management to prevent reordering 
 
 Those functions will then be executed in the same order as the sequence of tokens, from first to last.
 
-.. note::
+Automatic token management
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    You can also try to use the :func:`~mpi4jax.experimental.auto_tokenize` transform
-    from the ``mpi4jax.experimental`` module to automatically manage tokens for you on
-    any given Python function. This method is still in the early stages of development,
-    so use with caution.
+An alternative to manual token management is to use the primitives from :mod:`mpi4jax.notoken`, which automatically manage tokens for you. For example, the following code is equivalent to the previous example:
 
+.. code:: python
+
+    import mpi4jax.notoken
+
+    mpi4jax.notoken.send(arr, comm=comm)
+    new_arr = mpi4jax.notoken.recv(arr, comm=comm)
+
+
+This will likely become the default behavior in the future.
 
 No in-place operations in JAX
 -----------------------------

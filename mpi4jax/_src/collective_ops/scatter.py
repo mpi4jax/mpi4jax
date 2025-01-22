@@ -2,8 +2,10 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax import core
-from jax.core import Primitive, Tracer, Token
+from jax.core import Tracer
 from jax.lax import create_token
+from jax.interpreters.mlir import custom_call
+from jax.core import ShapedArray
 
 
 import jaxlib.mlir.ir as ir
@@ -20,7 +22,7 @@ from ..utils import (
     effect,
     prefer_notoken,
 )
-from ..jax_compat import custom_call, register_lowering, token_type, ShapedArray
+from ..jax_compat import register_lowering, token_type, Primitive, Token
 from ..decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
@@ -80,7 +82,7 @@ def scatter(
         token = create_token(x)
 
     if prefer_notoken():
-        from mpi4jax.experimental.notoken import scatter
+        from mpi4jax._src.notoken import scatter
 
         return scatter(x, root, comm=comm), token
 

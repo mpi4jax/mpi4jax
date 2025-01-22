@@ -3,7 +3,6 @@ import re
 import warnings
 
 import jax
-import jaxlib
 
 from jax.interpreters import mlir
 from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
@@ -57,88 +56,49 @@ def register_lowering(prim, rule, platform="cpu"):
         return None
 
 
-# TODO: remove the other path once we require jax >= 0.4.31
-if versiontuple(jax.__version__) >= (0, 4, 31):
-    token_type = jax_token_type
-    get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
-    set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
-        TokenSet({effect: token})
-    )
-else:
-    token_type = lambda: jax_token_type()[0]
-    get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)[0]
-    set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
-        TokenSet({effect: (token,)})
-    )
+if versiontuple(jax.__version__) >= (0, 5, 0):
+    from jax.extend.core import Primitive, Token  # noqa: F401
 
-
-# TODO: remove the other path once we require jax/lib > 0.4.16
-if versiontuple(jax.__version__) >= (0, 4, 16):
-    from jax.interpreters.mlir import custom_call  # noqa: F401
-else:
-    from jaxlib.hlo_helpers import custom_call as _custom_call
-
-    # Recent versions return a structure with a field 'results'. We mock it on
-    # older versions
-    from collections import namedtuple
-
-    MockResult = namedtuple("MockResult", ["results"])
-
-    def custom_call(*args, result_types, **kwargs):
-        results = _custom_call(*args, out_types=result_types, **kwargs)
-        # TODO: remove this path once we require jax>=0.4.10
-        if versiontuple(jaxlib.__version__) < (0, 4, 10):
-            if not isinstance(results, list):
-                results = [results]
-        return MockResult(results)
-
-
-# TODO: remove this code once we only support jax > 0.4.14
-if versiontuple(jax.__version__) >= (0, 4, 14):
-    from jax.core import ShapedArray  # noqa: F401
-else:
-    from jax.abstract_arrays import ShapedArray  # noqa: F401
-
-
-# TODO: remove this code once we only support jax >= 0.4.16
-if versiontuple(jax.__version__) >= (0, 4, 16):
-    EffectType = jax._src.effects.Effect
-
-    def register_effect(EffectType, ordered=False):
-        from jax._src.effects import (
-            lowerable_effects,
-            ordered_effects,
-            control_flow_allowed_effects,
-            custom_derivatives_allowed_effects,
+    def register_custom_call_target(name, fn, *, platform: str, api_version: int):
+        return jax.ffi.register_ffi_target(
+            name, fn, platform=platform, api_version=api_version
         )
 
-        effect = EffectType()
-        lowerable_effects.add_type(EffectType)
-
-        if ordered:
-            ordered_effects.add_type(EffectType)
-
-        control_flow_allowed_effects.add_type(EffectType)
-        # Effects must be added to the allow_effects list in order to work within
-        # custom_vjp. See google/jax#11916
-        custom_derivatives_allowed_effects.add_type(EffectType)
-        return effect
-
 else:
-    EffectType = object
+    import jax.extend as jex
+    from jax.core import Primitive, Token  # noqa: F401
 
-    def register_effect(EffectType, ordered=False):
-        from jax._src.lax import control_flow as lcf
-        import jax._src.custom_derivatives as custom_derivatives
+    def register_custom_call_target(name, fn, *, platform: str, api_version: int):
+        return jex.ffi.register_ffi_target(
+            name, fn, platform=platform, api_version=api_version
+        )
 
-        if ordered:
-            # orderd effects are not supported, ensure that it is not used
-            return None
 
-        effect = EffectType()
-        mlir.lowerable_effects.add_type(EffectType)
-        lcf.allowed_effects.add_type(EffectType)
-        # Effects must be added to the allow_effects list in order to work within
-        # custom_vjp. See google/jax#11916
-        custom_derivatives.allowed_effects.add_type(EffectType)
-        return effect
+token_type = jax_token_type
+get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
+set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
+    TokenSet({effect: token})
+)
+
+EffectType = jax._src.effects.Effect
+
+
+def register_effect(EffectType, ordered=False):
+    from jax._src.effects import (
+        lowerable_effects,
+        ordered_effects,
+        control_flow_allowed_effects,
+        custom_derivatives_allowed_effects,
+    )
+
+    effect = EffectType()
+    lowerable_effects.add_type(EffectType)
+
+    if ordered:
+        ordered_effects.add_type(EffectType)
+
+    control_flow_allowed_effects.add_type(EffectType)
+    # Effects must be added to the allow_effects list in order to work within
+    # custom_vjp. See google/jax#11916
+    custom_derivatives_allowed_effects.add_type(EffectType)
+    return effect

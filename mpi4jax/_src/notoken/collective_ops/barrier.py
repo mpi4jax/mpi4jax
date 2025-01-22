@@ -1,15 +1,12 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax.core import Primitive
-
-
-import jaxlib.mlir.ir as ir
+from jax.interpreters import batching
+from jax.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
-    to_dtype_handle,
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
@@ -19,10 +16,10 @@ from mpi4jax._src.utils import (
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    custom_call,
     token_type,
     get_token_effect,
     set_token_effect,
+    Primitive,
 )
 from mpi4jax._src.decorators import (
     translation_rule_cpu,
@@ -32,32 +29,22 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
-from mpi4jax._src.xla_bridge.device_descriptors import build_send_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_barrier_descriptor
+
 
 # The Jax primitive
-mpi_send_p = Primitive("send_mpi")  # Create the primitive
-mpi_send_impl = default_primitive_impl(mpi_send_p)
+mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
+mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
 
 
 # This function applies the primitive to an AST
 @enforce_types(
-    dest=_np.integer,
-    tag=_np.integer,
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
 )
-def send(
-    x,
-    dest,
-    *,
-    tag=0,
-    comm=None,
-):
-    """Perform a send operation.
+def barrier(*, comm=None):
+    """Perform a barrier operation.
 
     Arguments:
-        x: Array or scalar input to send.
-        dest (int): Rank of the destination MPI process.
-        tag (int): Tag of this message.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
 
@@ -66,40 +53,27 @@ def send(
         comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
-    return mpi_send_p.bind(x, dest=dest, tag=tag, comm=comm)
+    return mpi_barrier_p.bind(comm=comm)
 
 
 # This function compiles the operation
+# transpose is a boolean flag that signals whever this is the forward pass
+# performing the MPI reduction, or the transposed pass, which is trivial
 @translation_rule_cpu
-def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
+def mpi_barrier_xla_encode_cpu(ctx, comm):
     comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [token_type()]
 
     token = get_token_effect(ctx, ordered_effect)
 
     operands = (
-        as_mhlo_constant(nitems, _np.intc),
-        x,
-        as_mhlo_constant(dest, _np.intc),
-        as_mhlo_constant(tag, _np.intc),
         as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(dtype_handle, _np.uintp),
         token,
     )
 
     result_obj = custom_call(
-        b"mpi_send",
+        b"mpi_barrier",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
@@ -114,38 +88,19 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
     return results
 
 
-def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
+def mpi_barrier_xla_encode_device(ctx, comm):
     comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
 
     out_types = [token_type()]
 
     token = get_token_effect(ctx, ordered_effect)
 
-    operands = (
-        x,
-        token,
-    )
+    operands = (token,)
 
-    descriptor = build_send_descriptor(
-        nitems,
-        dest,
-        tag,
-        to_mpi_handle(comm),
-        dtype_handle,
-    )
+    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
 
     result_obj = custom_call(
-        b"mpi_send",
+        b"mpi_barrier",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
@@ -161,20 +116,27 @@ def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
     return results
 
 
-mpi_send_xla_encode_xpu = translation_rule_xpu(mpi_send_xla_encode_device)
-mpi_send_xla_encode_cuda = translation_rule_cuda(mpi_send_xla_encode_device)
+mpi_barrier_xla_encode_xpu = translation_rule_xpu(mpi_barrier_xla_encode_device)
+mpi_barrier_xla_encode_cuda = translation_rule_cuda(mpi_barrier_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_send_abstract_eval(xs, dest, tag, comm):
+def mpi_barrier_abstract_eval(comm):
     return (), {ordered_effect}
 
 
-mpi_send_p.multiple_results = True
-mpi_send_p.def_impl(mpi_send_impl)
-mpi_send_p.def_effectful_abstract_eval(mpi_send_abstract_eval)
+def mpi_barrier_batch_eval(in_args, batch_axes, comm):
+    res = mpi_barrier_p.bind(comm=comm)
+    return res, batch_axes
+
+
+mpi_barrier_p.multiple_results = True
+mpi_barrier_p.def_impl(mpi_barrier_impl)
+mpi_barrier_p.def_effectful_abstract_eval(mpi_barrier_abstract_eval)
+
+batching.primitive_batchers[mpi_barrier_p] = mpi_barrier_batch_eval
 
 # assign to the primitive the correct encoder
-register_lowering(mpi_send_p, mpi_send_xla_encode_cpu, platform="cpu")
-register_lowering(mpi_send_p, mpi_send_xla_encode_cuda, platform="cuda")
-register_lowering(mpi_send_p, mpi_send_xla_encode_xpu, platform="xpu")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cpu, platform="cpu")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_cuda, platform="cuda")
+register_lowering(mpi_barrier_p, mpi_barrier_xla_encode_xpu, platform="xpu")
