@@ -422,7 +422,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=BASE_DEPENDENCIES,
     extras_require={
         "dev": DEV_DEPENDENCIES,
