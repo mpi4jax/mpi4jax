@@ -5,7 +5,7 @@ on:
 
   push:
     branches:
-      - master
+      - main
 
 jobs:
   # emulate the readthedocs build system:

@@ -112,4 +112,4 @@ Installation with Intel GPU/XPU support
 - Optionally, `Intel MPI <https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/mpi-library.html>`__ with Intel XPU/GPU support.
   To leverage this, you also need to rebuild `mpi4py <https://mpi4py.readthedocs.io/en/stable/install.html>`__ to ensure it is linked to the XPU/GPU aware MPI implementation.
 
-An example setup is found in the `mpi4jax test suite <https://github.com/mpi4jax/mpi4jax/tree/master/.github/workflows/build-xpu-ext.yml>`__.
+An example setup is found in the `mpi4jax test suite <https://github.com/mpi4jax/mpi4jax/tree/main/.github/workflows/build-xpu-ext.yml>`__.

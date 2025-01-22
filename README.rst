@@ -117,8 +117,8 @@ If you use ``mpi4jax`` in your work, please consider citing the following articl
   }
 
 .. |Tests| image:: https://github.com/mpi4jax/mpi4jax/workflows/Tests/badge.svg
-   :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amaster
-.. |codecov| image:: https://codecov.io/gh/mpi4jax/mpi4jax/branch/master/graph/badge.svg
+   :target: https://github.com/mpi4jax/mpi4jax/actions?query=branch%3Amain
+.. |codecov| image:: https://codecov.io/gh/mpi4jax/mpi4jax/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/mpi4jax/mpi4jax
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/mpi4jax
    :target: https://pypi.org/project/mpi4jax/
