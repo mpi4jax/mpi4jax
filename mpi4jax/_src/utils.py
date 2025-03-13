@@ -7,11 +7,13 @@ from mpi4py import MPI as _MPI
 
 import numpy as _np
 
+import jax
+
 from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 
-from .jax_compat import token_type, register_effect, EffectType
+from .jax_compat import token_type, register_effect, EffectType, versiontuple
 
 
 class MPIEffect(EffectType):
@@ -176,12 +178,31 @@ def has_sycl_support() -> bool:
 
 def prefer_notoken() -> bool:
     """Returns True if primitive implementations should prefer not to use tokens."""
-    use_notoken = os.environ.get("MPI4JAX_PREFER_NOTOKEN", "1").lower() in (
-        "1",
-        "true",
-        "on",
-    )
-    if not use_notoken:
+
+    # No-token mode only works with JAX >= 0.5.1. See:
+    # - https://github.com/mpi4jax/mpi4jax/issues/274
+    # - https://github.com/jax-ml/jax/issues/26087
+    jax_ver_sufficient = versiontuple(jax.__version__) >= (0, 5, 1)
+    env_var = os.environ.get("MPI4JAX_PREFER_NOTOKEN")
+
+    if env_var is None:
+        use_notoken = jax_ver_sufficient
+    else:
+        use_notoken = env_var.lower() in ("1", "true", "on")
+
+    if use_notoken is False and env_var is None:
+        warnings.warn(
+            "Defaulting to the deprecated token mode. "
+            "No-token mode fully works only for JAX version >= 0.5.1 but you have {jax.__version__}."
+            "You can set the environment variable `MPI4JAX_PREFER_NOTOKEN=0` to silence this warning."
+        )
+
+    if use_notoken and not jax_ver_sufficient:
+        warnings.warn(
+            f"No-token mode fully works only for JAX version >= 0.5.1 but you have {jax.__version__}."
+        )
+
+    if not use_notoken and jax_ver_sufficient:
         warnings.warn(
             "Token mode is deprecated and may be incompatible with recent JAX versions. "
             "Consider setting the environment variable MPI4JAX_PREFER_NOTOKEN=1 to suppress this warning."
