@@ -114,7 +114,7 @@ def test_allreduce_transpose2():
         return jax.linear_transpose(lambda x: allreduce(x, op=MPI.SUM), arr)(y)[0]
 
     (res,) = jax.linear_transpose(lt, _arr)(_arr2)
-    expected, _ = allreduce(_arr2, op=MPI.SUM)
+    expected = allreduce(_arr2, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
@@ -134,7 +134,7 @@ def test_allreduce_transpose2_jit():
         return res
 
     res = jax.jit(f)(_arr2)
-    expected, _ = allreduce(_arr2, op=MPI.SUM)
+    expected = allreduce(_arr2, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
 
 
@@ -173,9 +173,9 @@ def test_allreduce_jvp():
 
     res, jvp = jax.jvp(lambda x: allreduce(x, op=MPI.SUM), (arr,), (_arr,))
 
-    expected, _ = allreduce(arr, op=MPI.SUM)
+    expected = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
-    expected, _ = allreduce(_arr, op=MPI.SUM)
+    expected = allreduce(_arr, op=MPI.SUM)
     assert jnp.array_equal(expected, jvp)
 
 
@@ -188,7 +188,7 @@ def test_allreduce_vjp():
     res, vjp_fun = jax.vjp(lambda x: allreduce(x, op=MPI.SUM), arr)
     (vjp,) = vjp_fun(_arr)
 
-    expected, _ = allreduce(arr, op=MPI.SUM)
+    expected = allreduce(arr, op=MPI.SUM)
     assert jnp.array_equal(expected, res)
     assert jnp.array_equal(_arr, vjp)
 
