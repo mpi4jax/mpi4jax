@@ -35,7 +35,7 @@ def test_barrier(capsys):
 
     # without a barrier here, some ranks would start writing
     # "done" before everyone has writen "start"
-    barrier()  # noqa: F841
+    barrier()
     flush()
 
     print(f"r{rank} | done")
@@ -44,6 +44,9 @@ def test_barrier(capsys):
     cap_to_file(capsys, write_to)
 
     time.sleep(size * 0.2)
+
+    barrier()
+    flush()
 
     with open(write_to) as f:
         outputs = f.readlines()
