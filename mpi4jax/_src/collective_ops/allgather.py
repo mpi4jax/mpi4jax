@@ -1,15 +1,11 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax.core import Tracer
-from jax.lax import create_token
-from jax.interpreters.mlir import custom_call
 from jax.core import ShapedArray
-
+from jax.interpreters.mlir import custom_call
 import jaxlib.mlir.ir as ir
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -18,19 +14,24 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
-    prefer_notoken,
+    ordered_effect,
 )
-from ..jax_compat import register_lowering, token_type, Primitive, Token
-from ..decorators import (
+from mpi4jax._src.jax_compat import (
+    register_lowering,
+    token_type,
+    get_token_effect,
+    set_token_effect,
+    Primitive,
+)
+from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
 )
-from ..validation import enforce_types
-from ..comm import get_default_comm
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
 
-from ..xla_bridge.device_descriptors import build_allgather_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_allgather_descriptor
 
 # The Jax primitive
 mpi_allgather_p = Primitive("allgather_mpi")  # Create the primitive
@@ -40,13 +41,11 @@ mpi_allgather_impl = default_primitive_impl(mpi_allgather_p)
 # This function applies the primitive to an AST
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), Token, Tracer),
 )
 def allgather(
     x,
     *,
     comm=None,
-    token=None,
 ):
     """Perform an allgather operation.
 
@@ -58,40 +57,25 @@ def allgather(
         x: Array or scalar input to send.
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
-        token (Token): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Received data.
-            - A new, modified token, that depends on this operation.
+        DeviceArray: Received data.
 
     """
-    if token is None:
-        token = create_token(x)
-
-    if prefer_notoken():
-        from mpi4jax._src.notoken import allgather
-
-        return allgather(x, comm=comm), token
-
     if comm is None:
         comm = get_default_comm()
 
     comm = wrap_as_hashable(comm)
 
-    return tuple(
-        mpi_allgather_p.bind(
-            x,
-            token,
-            comm=comm,
-        )
+    return mpi_allgather_p.bind(
+        x,
+        comm=comm,
     )
 
 
 # This function compiles the operation
 @translation_rule_cpu
-def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
+def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
@@ -112,6 +96,8 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         token_type(),
     ]
 
+    token = get_token_effect(ctx, ordered_effect)
+
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
@@ -124,7 +110,7 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         token,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -132,10 +118,16 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, token, comm):
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
+def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
@@ -167,9 +159,11 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
         to_mpi_handle(comm),
     )
 
+    token = get_token_effect(ctx, ordered_effect)
+
     operands = (sendbuf, token)
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_allgather",
         result_types=out_types,
         operands=operands,
@@ -178,7 +172,13 @@ def mpi_allgather_xla_encode_device(ctx, sendbuf, token, comm):
         result_layouts=get_default_layouts(out_types, order="c"),
         backend_config=descriptor,
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
 mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
@@ -186,17 +186,13 @@ mpi_allgather_xla_encode_cuda = translation_rule_cuda(mpi_allgather_xla_encode_d
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_allgather_abstract_eval(x, token, comm):
+def mpi_allgather_abstract_eval(x, comm):
     comm = unpack_hashable(comm)
     size = comm.Get_size()
     out_shape = (size, *x.shape)
-    return (
-        ShapedArray(out_shape, x.dtype),
-        core.abstract_token,
-    ), {effect}
+    return ShapedArray(out_shape, x.dtype), {ordered_effect}
 
 
-mpi_allgather_p.multiple_results = True
 mpi_allgather_p.def_impl(mpi_allgather_impl)
 mpi_allgather_p.def_effectful_abstract_eval(mpi_allgather_abstract_eval)
 

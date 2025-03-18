@@ -1,16 +1,12 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax.core import Tracer
-from jax.lax import create_token
+
+import jaxlib.mlir.ir as ir
 from jax.interpreters.mlir import custom_call
 from jax.core import ShapedArray
 
-
-import jaxlib.mlir.ir as ir
-
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -19,18 +15,24 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
-    prefer_notoken,
+    ordered_effect,
 )
-from ..jax_compat import register_lowering, token_type, Primitive, Token
-from ..decorators import (
+from mpi4jax._src.jax_compat import (
+    register_lowering,
+    token_type,
+    get_token_effect,
+    set_token_effect,
+    Primitive,
+)
+from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
 )
-from ..validation import enforce_types
-from ..comm import get_default_comm
-from ..xla_bridge.device_descriptors import build_scan_descriptor
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_scan_descriptor
 
 
 # The Jax primitive
@@ -42,9 +44,8 @@ mpi_scan_impl = default_primitive_impl(mpi_scan_p)
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), Token, Tracer),
 )
-def scan(x, op, *, comm=None, token=None):
+def scan(x, op, *, comm=None):
     """Perform a scan operation.
 
     Arguments:
@@ -52,34 +53,21 @@ def scan(x, op, *, comm=None, token=None):
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
-        token (Token): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Result of the scan operation.
-            - A new, modified token, that depends on this operation.
-
+        DeviceArray: Result of the scan operation.
     """
-    if token is None:
-        token = create_token(x)
-
-    if prefer_notoken():
-        from mpi4jax._src.notoken import scan
-
-        return scan(x, op, comm=comm), token
-
     if comm is None:
         comm = get_default_comm()
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return tuple(mpi_scan_p.bind(x, token, op=op, comm=comm))
+    return mpi_scan_p.bind(x, op=op, comm=comm)
 
 
 # This function compiles the operation
 @translation_rule_cpu
-def mpi_scan_xla_encode_cpu(ctx, x, token, op, comm):
+def mpi_scan_xla_encode_cpu(ctx, x, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -99,6 +87,8 @@ def mpi_scan_xla_encode_cpu(ctx, x, token, op, comm):
         ir.RankedTensorType.get(dims, dtype),
         token_type(),
     ]
+
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -109,17 +99,23 @@ def mpi_scan_xla_encode_cpu(ctx, x, token, op, comm):
         token,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_scan",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-def mpi_scan_xla_encode_device(ctx, x, token, op, comm):
+def mpi_scan_xla_encode_device(ctx, x, op, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -139,6 +135,8 @@ def mpi_scan_xla_encode_device(ctx, x, token, op, comm):
         ir.RankedTensorType.get(dims, dtype),
         token_type(),
     ]
+
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         x,
@@ -152,7 +150,7 @@ def mpi_scan_xla_encode_device(ctx, x, token, op, comm):
         dtype_handle,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_scan",
         result_types=out_types,
         operands=operands,
@@ -160,22 +158,24 @@ def mpi_scan_xla_encode_device(ctx, x, token, op, comm):
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-mpi_scan_xla_encode_cuda = translation_rule_cuda(mpi_scan_xla_encode_device)
 mpi_scan_xla_encode_xpu = translation_rule_xpu(mpi_scan_xla_encode_device)
+mpi_scan_xla_encode_cuda = translation_rule_cuda(mpi_scan_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_scan_abstract_eval(xs, token, op, comm):
-    return (
-        ShapedArray(xs.shape, xs.dtype),
-        core.abstract_token,
-    ), {effect}
+def mpi_scan_abstract_eval(xs, op, comm):
+    return ShapedArray(xs.shape, xs.dtype), {ordered_effect}
 
 
-mpi_scan_p.multiple_results = True
 mpi_scan_p.def_impl(mpi_scan_impl)
 mpi_scan_p.def_effectful_abstract_eval(mpi_scan_abstract_eval)
 

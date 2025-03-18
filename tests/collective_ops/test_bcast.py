@@ -17,7 +17,7 @@ def test_bcast():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = bcast(_arr, root=0)
+    res = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
@@ -32,7 +32,7 @@ def test_bcast_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: bcast(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: bcast(x, root=0))(arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
@@ -47,7 +47,7 @@ def test_bcast_scalar():
     if rank != 0:
         _arr = _arr * 0
 
-    res, token = bcast(_arr, root=0)
+    res = bcast(_arr, root=0)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)
@@ -62,7 +62,7 @@ def test_bcast_scalar_jit():
     if rank != 0:
         _arr = _arr * 0
 
-    res = jax.jit(lambda x: bcast(x, root=0)[0])(_arr)
+    res = jax.jit(lambda x: bcast(x, root=0))(_arr)
     assert jnp.array_equal(res, arr)
     if rank == 0:
         assert jnp.array_equal(_arr, arr)

@@ -19,7 +19,7 @@ def test_send_recv():
 
     if rank == 0:
         for proc in range(1, size):
-            res, token = recv(arr, source=proc, tag=proc)
+            res = recv(arr, source=proc, tag=proc)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -36,7 +36,7 @@ def test_send_recv_scalar():
 
     if rank == 0:
         for proc in range(1, size):
-            res, token = recv(arr, source=proc, tag=proc)
+            res = recv(arr, source=proc, tag=proc)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -58,7 +58,7 @@ def test_send_recv_scalar_jit():
 
     if rank == 0:
         for proc in range(1, size):
-            res = jax.jit(lambda x: recv(x, source=proc, tag=proc)[0])(arr)
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc))(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -80,7 +80,7 @@ def test_send_recv_jit():
 
     if rank == 0:
         for proc in range(1, size):
-            res = jax.jit(lambda x: recv(x, source=proc, tag=proc)[0])(arr)
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc))(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
     else:
@@ -97,12 +97,12 @@ def test_send_recv_deadlock():
     def deadlock(arr):
         if rank == 0:
             # send, then receive
-            token = send(arr, 1)
-            newarr, _ = recv(arr, 1, token=token)
+            send(arr, 1)
+            newarr = recv(arr, 1)
         else:
             # receive, then send
-            newarr, token = recv(arr, 0)
-            send(arr, 0, token=token)
+            newarr = recv(arr, 0)
+            send(arr, 0)
         return newarr
 
     arr = jnp.ones(10) * rank
@@ -120,7 +120,7 @@ def test_send_recv_status():
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res, token = recv(arr, source=proc, tag=proc, status=status)
+            res = recv(arr, source=proc, tag=proc, status=status)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
             assert status.Get_source() == proc
@@ -144,9 +144,7 @@ def test_send_recv_status_jit():
     if rank == 0:
         for proc in range(1, size):
             status = MPI.Status()
-            res = jax.jit(lambda x: recv(x, source=proc, tag=proc, status=status)[0])(
-                arr
-            )
+            res = jax.jit(lambda x: recv(x, source=proc, tag=proc, status=status))(arr)
             assert jnp.array_equal(res, jnp.ones_like(arr) * proc)
             assert jnp.array_equal(_arr, arr)
             assert status.Get_source() == proc

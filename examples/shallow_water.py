@@ -162,16 +162,15 @@ def get_initial_conditions():
     u0_local = u0_global[local_slice]
     v0_local = v0_global[local_slice]
 
-    token = jax.lax.create_token()
-    h0_local, token = enforce_boundaries(h0_local, "h", token)
-    u0_local, token = enforce_boundaries(u0_local, "u", token)
-    v0_local, token = enforce_boundaries(v0_local, "v", token)
+    h0_local = enforce_boundaries(h0_local, "h")
+    u0_local = enforce_boundaries(u0_local, "u")
+    v0_local = enforce_boundaries(v0_local, "v")
 
     return h0_local, u0_local, v0_local
 
 
 @partial(jax.jit, static_argnums=(1,))
-def enforce_boundaries(arr, grid, token=None):
+def enforce_boundaries(arr, grid):
     """Handle boundary exchange between processors.
 
     This is where mpi4jax comes in!
@@ -222,9 +221,6 @@ def enforce_boundaries(arr, grid, token=None):
         if proc_idx[1] == nproc_x - 1:
             proc_neighbors["east"] = (proc_idx[0], 0)
 
-    if token is None:
-        token = jax.lax.create_token()
-
     for send_dir, recv_dir in zip(send_order, recv_order):
         send_proc = proc_neighbors[send_dir]
         recv_proc = proc_neighbors[recv_dir]
@@ -245,20 +241,17 @@ def enforce_boundaries(arr, grid, token=None):
         send_arr = arr[send_idx]
 
         if send_proc is None:
-            recv_arr, token = mpi4jax.recv(
-                recv_arr, source=recv_proc, comm=mpi_comm, token=token
-            )
+            recv_arr = mpi4jax.recv(recv_arr, source=recv_proc, comm=mpi_comm)
             arr = arr.at[recv_idx].set(recv_arr)
         elif recv_proc is None:
-            token = mpi4jax.send(send_arr, dest=send_proc, comm=mpi_comm, token=token)
+            mpi4jax.send(send_arr, dest=send_proc, comm=mpi_comm)
         else:
-            recv_arr, token = mpi4jax.sendrecv(
+            recv_arr = mpi4jax.sendrecv(
                 send_arr,
                 recv_arr,
                 source=recv_proc,
                 dest=send_proc,
                 comm=mpi_comm,
-                token=token,
             )
             arr = arr.at[recv_idx].set(recv_arr)
 
@@ -268,7 +261,7 @@ def enforce_boundaries(arr, grid, token=None):
     if grid == "v" and proc_idx[0] == nproc_y - 1:
         arr = arr.at[-2, :].set(0.0)
 
-    return arr, token
+    return arr
 
 
 ModelState = namedtuple("ModelState", "h, u, v, dh, du, dv")
@@ -280,20 +273,18 @@ def shallow_water_step(state, is_first_step):
 
     Returns modified model state.
     """
-    token = jax.lax.create_token()
-
     h, u, v, dh, du, dv = state
 
     hc = jnp.pad(h[1:-1, 1:-1], 1, "edge")
-    hc, token = enforce_boundaries(hc, "h", token)
+    hc = enforce_boundaries(hc, "h")
 
     fe = jnp.empty_like(u)
     fn = jnp.empty_like(u)
 
     fe = fe.at[1:-1, 1:-1].set(0.5 * (hc[1:-1, 1:-1] + hc[1:-1, 2:]) * u[1:-1, 1:-1])
     fn = fn.at[1:-1, 1:-1].set(0.5 * (hc[1:-1, 1:-1] + hc[2:, 1:-1]) * v[1:-1, 1:-1])
-    fe, token = enforce_boundaries(fe, "u", token)
-    fn, token = enforce_boundaries(fn, "v", token)
+    fe = enforce_boundaries(fe, "u")
+    fn = enforce_boundaries(fn, "v")
 
     dh_new = dh.at[1:-1, 1:-1].set(
         -(fe[1:-1, 1:-1] - fe[1:-1, :-2]) / dx - (fn[1:-1, 1:-1] - fn[:-2, 1:-1]) / dy
@@ -312,7 +303,7 @@ def shallow_water_step(state, is_first_step):
     q = q.at[1:-1, 1:-1].mul(
         1.0 / (0.25 * (hc[1:-1, 1:-1] + hc[1:-1, 2:] + hc[2:, 1:-1] + hc[2:, 2:]))
     )
-    q, token = enforce_boundaries(q, "h", token)
+    q = enforce_boundaries(q, "h")
 
     du_new = du.at[1:-1, 1:-1].set(
         -GRAVITY * (h[1:-1, 2:] - h[1:-1, 1:-1]) / dx
@@ -337,7 +328,7 @@ def shallow_water_step(state, is_first_step):
             + 0.5 * (v[1:-1, 1:-1] ** 2 + v[:-2, 1:-1] ** 2)
         )
     )
-    ke, token = enforce_boundaries(ke, "h", token)
+    ke = enforce_boundaries(ke, "h")
 
     du_new = du_new.at[1:-1, 1:-1].add(-(ke[1:-1, 2:] - ke[1:-1, 1:-1]) / dx)
     dv_new = dv_new.at[1:-1, 1:-1].add(-(ke[2:, 1:-1] - ke[1:-1, 1:-1]) / dy)
@@ -369,9 +360,9 @@ def shallow_water_step(state, is_first_step):
             )
         )
 
-    h, token = enforce_boundaries(h, "h", token)
-    u, token = enforce_boundaries(u, "u", token)
-    v, token = enforce_boundaries(v, "v", token)
+    h = enforce_boundaries(h, "h")
+    u = enforce_boundaries(u, "u")
+    v = enforce_boundaries(v, "v")
 
     if LATERAL_VISCOSITY > 0:
         # lateral friction
@@ -381,8 +372,8 @@ def shallow_water_step(state, is_first_step):
         fn = fn.at[1:-1, 1:-1].set(
             LATERAL_VISCOSITY * (u[2:, 1:-1] - u[1:-1, 1:-1]) / dy
         )
-        fe, token = enforce_boundaries(fe, "u", token)
-        fn, token = enforce_boundaries(fn, "v", token)
+        fe = enforce_boundaries(fe, "u")
+        fn = enforce_boundaries(fn, "v")
 
         u = u.at[1:-1, 1:-1].add(
             dt
@@ -398,8 +389,8 @@ def shallow_water_step(state, is_first_step):
         fn = fn.at[1:-1, 1:-1].set(
             LATERAL_VISCOSITY * (v[2:, 1:-1] - u[1:-1, 1:-1]) / dy
         )
-        fe, token = enforce_boundaries(fe, "u", token)
-        fn, token = enforce_boundaries(fn, "v", token)
+        fe = enforce_boundaries(fe, "u")
+        fn = enforce_boundaries(fn, "v")
 
         v = v.at[1:-1, 1:-1].add(
             dt

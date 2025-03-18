@@ -3,44 +3,6 @@
 
 Read ahead for some pitfalls, counter-intuitive behavior, and sharp edges that we had to introduce in order to make this work.
 
-.. _tokens:
-
-Token management
-----------------
-
-The compiler behind JAX, XLA, is not aware of the fact that MPI function calls such as :func:`~mpi4jax.send` or :func:`~mpi4jax.recv` must be performed in a specific order (in jargon, that they have *side-effects*). It is therefore free to reorder those calls. Reordering of MPI calls usually leads to deadlocks, e.g. when both processes end up receiving before sending (instead of send-receive, receive-send).
-
-*Tokens* are JAX's way to ensure that XLA does not re-order statements with side effects by injecting a fake data dependency between them.
-
-This means that you *have* to use proper token management to prevent reordering from occurring. Every communication primitive in ``mpi4jax`` returns a token as the last return object, which you have to pass to subsequent primitives within the same JIT block, like this:
-
-.. code:: python
-
-    # DO NOT DO THIS
-    mpi4jax.send(arr, comm=comm)
-    new_arr, _ = mpi4jax.recv(arr, comm=comm)
-
-    # INSTEAD, DO THIS
-    token = mpi4jax.send(arr, comm=comm)
-    new_arr, token = mpi4jax.recv(arr, comm=comm, token=token)
-
-Those functions will then be executed in the same order as the sequence of tokens, from first to last.
-
-Automatic token management
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-An alternative to manual token management is to use the primitives from :mod:`mpi4jax.notoken`, which automatically manage tokens for you. For example, the following code is equivalent to the previous example:
-
-.. code:: python
-
-    import mpi4jax.notoken
-
-    mpi4jax.notoken.send(arr, comm=comm)
-    new_arr = mpi4jax.notoken.recv(arr, comm=comm)
-
-
-This will likely become the default behavior in the future.
-
 No in-place operations in JAX
 -----------------------------
 
