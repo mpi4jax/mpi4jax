@@ -9,8 +9,7 @@ def test_custom_linear_solver():
     import mpi4jax
 
     if versiontuple(jax.__version__) < versiontuple("0.5.1"):
-        # We need no-token mode for JAX>=0.5.0 but the code below
-        # does not work for JAX<0.5.1 in no-token mode.
+        # see jax-ml/jax#26087
         pytest.xfail("JAX<0.5.1 does not support linear solves in no-token mode")
 
     k = jax.random.key(1)
