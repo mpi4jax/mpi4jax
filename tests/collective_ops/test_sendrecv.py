@@ -19,7 +19,7 @@ def test_sendrecv():
 
     other = 1 - rank
 
-    res, token = sendrecv(arr, arr, source=other, dest=other)
+    res = sendrecv(arr, arr, source=other, dest=other)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -35,7 +35,7 @@ def test_sendrecv_status():
     other = 1 - rank
 
     status = MPI.Status()
-    res, token = sendrecv(arr, arr, source=other, dest=other, status=status)
+    res = sendrecv(arr, arr, source=other, dest=other, status=status)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -52,9 +52,9 @@ def test_sendrecv_status_jit():
     other = 1 - rank
 
     status = MPI.Status()
-    res = jax.jit(
-        lambda x, y: sendrecv(x, y, source=other, dest=other, status=status)[0]
-    )(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other, status=status))(
+        arr, arr
+    )
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -70,7 +70,7 @@ def test_sendrecv_scalar():
 
     other = 1 - rank
 
-    res, token = sendrecv(arr, arr, source=other, dest=other)
+    res = sendrecv(arr, arr, source=other, dest=other)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -85,7 +85,7 @@ def test_sendrecv_jit():
 
     other = 1 - rank
 
-    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other))(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -100,7 +100,7 @@ def test_sendrecv_scalar_jit():
 
     other = 1 - rank
 
-    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other)[0])(arr, arr)
+    res = jax.jit(lambda x, y: sendrecv(x, y, source=other, dest=other))(arr, arr)
 
     assert jnp.array_equal(res, jnp.ones_like(arr) * other)
     assert jnp.array_equal(_arr, arr)
@@ -115,10 +115,10 @@ def test_sendrecv_vmap():
 
     other = 1 - rank
 
-    res = sendrecv(arr, arr, source=other, dest=other)[0]
+    res = sendrecv(arr, arr, source=other, dest=other)
 
     def fun(x, y):
-        return sendrecv(x, y, source=other, dest=other)[0]
+        return sendrecv(x, y, source=other, dest=other)
 
     vfun = jax.vmap(fun, in_axes=(0, 0))
     res = vfun(_arr, arr)
@@ -137,7 +137,7 @@ def test_sendrecv_grad():
     other = 1 - rank
 
     def f(x):
-        x, token = sendrecv(x, x, source=other, dest=other)
+        x = sendrecv(x, x, source=other, dest=other)
         x = x * (rank + 1)
         return x.sum()
 
@@ -157,9 +157,9 @@ def test_sendrecv_grad_2():
     other = 1 - rank
 
     def f(x):
-        x, token = sendrecv(x, x, source=other, dest=other)
+        x = sendrecv(x, x, source=other, dest=other)
         x = x * (rank + 1) * 5
-        x, token = sendrecv(x, x, source=other, dest=other, token=token)
+        x = sendrecv(x, x, source=other, dest=other)
         x = x * (rank + 1) ** 2
         return x.sum()
 
@@ -181,7 +181,7 @@ def test_sendrecv_jacfwd():
     other = 1 - rank
 
     def f(x):
-        x, token = sendrecv(x, x, source=other, dest=other)
+        x = sendrecv(x, x, source=other, dest=other)
         x = x * (rank + 1)
         return x.sum()
 
@@ -202,7 +202,7 @@ def test_sendrecv_jacrev():
     other = 1 - rank
 
     def f(x):
-        x, token = sendrecv(x, x, source=other, dest=other)
+        x = sendrecv(x, x, source=other, dest=other)
         x = x * (rank + 1)
         return x.sum()
 
