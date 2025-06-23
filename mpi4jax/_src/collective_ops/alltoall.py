@@ -15,6 +15,8 @@ from mpi4jax._src.utils import (
     as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
@@ -47,6 +49,7 @@ def alltoall(
     x,
     *,
     comm=None,
+    token=NOTSET,
 ):
     """Perform an alltoall operation.
 
@@ -59,6 +62,8 @@ def alltoall(
         DeviceArray: Received data.
 
     """
+    raise_if_token_is_set(token)
+
     if comm is None:
         comm = get_default_comm()
 

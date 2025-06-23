@@ -13,6 +13,8 @@ from mpi4jax._src.utils import (
     as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
@@ -41,7 +43,7 @@ mpi_barrier_impl = default_primitive_impl(mpi_barrier_p)
 @enforce_types(
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
 )
-def barrier(*, comm=None):
+def barrier(*, comm=None, token=NOTSET):
     """Perform a barrier operation.
 
     Arguments:
@@ -49,6 +51,8 @@ def barrier(*, comm=None):
             a clone of :obj:`COMM_WORLD`).
 
     """
+    raise_if_token_is_set(token)
+
     if comm is None:
         comm = get_default_comm()
 

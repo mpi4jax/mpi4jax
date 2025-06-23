@@ -16,6 +16,8 @@ from mpi4jax._src.utils import (
     as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
@@ -45,7 +47,7 @@ mpi_bcast_impl = default_primitive_impl(mpi_bcast_p)
     root=(_np.integer),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
 )
-def bcast(x, root, *, comm=None):
+def bcast(x, root, *, comm=None, token=NOTSET):
     """Perform a bcast (broadcast) operation.
 
     .. warning::
@@ -63,6 +65,8 @@ def bcast(x, root, *, comm=None):
         DeviceArray: Received data.
 
     """
+    raise_if_token_is_set(token)
+
     if comm is None:
         comm = get_default_comm()
 

@@ -12,6 +12,25 @@ from jaxlib.mlir.dialects import mhlo
 from .jax_compat import token_type, register_effect, EffectType
 
 
+# Sentinel value for default arguments
+NOTSET = object()
+
+
+def raise_if_token_is_set(token):
+    """Raises an error if the token is set."""
+    if token is not NOTSET:
+        raise RuntimeError(
+            "Explicit token management is not supported for mpi4jax>=0.8.0. "
+            "Tokens are now managed automatically and must not be passed "
+            "as arguments to collective operations anymore.\n"
+            "That is, please adjust your code like this:\n"
+            "     # For mpi4jax<0.8.0:\n"
+            "     result, token = mpi4jax.allgather(x, token=token)\n"
+            "     # For mpi4jax>=0.8.0:\n"
+            "     result = mpi4jax.allgather(x)"
+        )
+
+
 class MPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash

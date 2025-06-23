@@ -16,6 +16,8 @@ from mpi4jax._src.utils import (
     as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
@@ -45,7 +47,7 @@ mpi_scan_impl = default_primitive_impl(mpi_scan_p)
     op=(_MPI.Op, HashableMPIType),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
 )
-def scan(x, op, *, comm=None):
+def scan(x, op, *, comm=None, token=NOTSET):
     """Perform a scan operation.
 
     Arguments:
@@ -57,6 +59,8 @@ def scan(x, op, *, comm=None):
     Returns:
         DeviceArray: Result of the scan operation.
     """
+    raise_if_token_is_set()
+
     if comm is None:
         comm = get_default_comm()
 
