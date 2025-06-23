@@ -13,7 +13,7 @@ def test_gather():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res, _ = gather(arr, root=0)
+    res = gather(arr, root=0)
     if rank == 0:
         for p in range(size):
             assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
@@ -26,7 +26,7 @@ def test_gather_jit():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: gather(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: gather(x, root=0))(arr)
     if rank == 0:
         for p in range(size):
             assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
@@ -38,7 +38,7 @@ def test_gather_scalar():
     from mpi4jax import gather
 
     arr = rank
-    res, _ = gather(arr, root=0)
+    res = gather(arr, root=0)
     if rank == 0:
         assert jnp.array_equal(res, jnp.arange(size))
     else:
@@ -49,7 +49,7 @@ def test_gather_scalar_jit():
     from mpi4jax import gather
 
     arr = rank
-    res = jax.jit(lambda x: gather(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: gather(x, root=0))(arr)
     if rank == 0:
         assert jnp.array_equal(res, jnp.arange(size))
     else:

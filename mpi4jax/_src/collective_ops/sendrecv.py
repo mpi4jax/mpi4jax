@@ -1,17 +1,15 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax.core import Tracer, get_aval
+from jax.core import get_aval
 from jax.interpreters import ad, batching
-from jax.lax import create_token
-from jax.interpreters.mlir import custom_call
 from jax.core import ShapedArray
 
 
 import jaxlib.mlir.ir as ir
+from jax.interpreters.mlir import custom_call
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -21,18 +19,26 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
-    prefer_notoken,
+    ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
-from ..jax_compat import register_lowering, token_type, Primitive, Token
-from ..decorators import (
+from mpi4jax._src.jax_compat import (
+    register_lowering,
+    token_type,
+    get_token_effect,
+    set_token_effect,
+    Primitive,
+)
+from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
 )
-from ..validation import enforce_types
-from ..comm import get_default_comm
-from ..xla_bridge.device_descriptors import build_sendrecv_descriptor
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
+
+from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
 
 
 # The Jax primitive
@@ -48,7 +54,6 @@ mpi_sendrecv_impl = default_primitive_impl(mpi_sendrecv_p)
     recvtag=_np.integer,
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
     status=(type(None), _MPI.Status, HashableMPIType),
-    token=(type(None), Token, Tracer),
 )
 def sendrecv(
     sendbuf,
@@ -60,7 +65,7 @@ def sendrecv(
     recvtag=_MPI.ANY_TAG,
     comm=None,
     status=None,
-    token=None,
+    token=NOTSET,
 ):
     """Perform a sendrecv operation.
 
@@ -79,34 +84,12 @@ def sendrecv(
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
         status (mpi4py.MPI.Status): Status object, can be used for introspection.
-        token (Token): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Received data.
-            - A new, modified token, that depends on this operation.
+        DeviceArray: Received data.
 
     """
-    if token is None:
-        token = create_token(sendbuf)
-
-    if prefer_notoken():
-        from mpi4jax._src.notoken import sendrecv
-
-        return (
-            sendrecv(
-                sendbuf,
-                recvbuf,
-                source,
-                dest,
-                sendtag=sendtag,
-                recvtag=recvtag,
-                status=status,
-                comm=comm,
-            ),
-            token,
-        )
+    raise_if_token_is_set(token)
 
     if comm is None:
         comm = get_default_comm()
@@ -116,19 +99,16 @@ def sendrecv(
     if status is not None:
         status = wrap_as_hashable(status)
 
-    return tuple(
-        mpi_sendrecv_p.bind(
-            sendbuf,
-            recvbuf,
-            token,
-            source=source,
-            dest=dest,
-            sendtag=sendtag,
-            recvtag=recvtag,
-            comm=comm,
-            status=status,
-            _must_transpose=False,
-        )
+    return mpi_sendrecv_p.bind(
+        sendbuf,
+        recvbuf,
+        source=source,
+        dest=dest,
+        sendtag=sendtag,
+        recvtag=recvtag,
+        comm=comm,
+        status=status,
+        _must_transpose=False,
     )
 
 
@@ -138,7 +118,6 @@ def mpi_sendrecv_xla_encode_cpu(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -147,7 +126,7 @@ def mpi_sendrecv_xla_encode_cpu(
     status,
     _must_transpose=False,
 ):
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     # when performing forward diff, the gradient will follow the sent message.
     # so if you do a sendrecv from rank 0 to 1, the gradient wrt the inputs of rank 0
@@ -192,6 +171,8 @@ def mpi_sendrecv_xla_encode_cpu(
     else:
         status_ptr = to_mpi_ptr(status)
 
+    token = get_token_effect(ctx, ordered_effect)
+
     operands = (
         as_mhlo_constant(send_nitems, _np.intc),
         sendbuf,
@@ -207,21 +188,26 @@ def mpi_sendrecv_xla_encode_cpu(
         token,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_sendrecv",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
 def mpi_sendrecv_xla_encode_device(
     ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -237,7 +223,7 @@ def mpi_sendrecv_xla_encode_device(
             "desired one. Use reverse-mode (jvp) differentiation instead."
         )
 
-    from ..xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
     status = unpack_hashable(status)
@@ -270,6 +256,8 @@ def mpi_sendrecv_xla_encode_device(
     else:
         status_ptr = to_mpi_ptr(status)
 
+    token = get_token_effect(ctx, ordered_effect)
+
     operands = (
         sendbuf,
         token,
@@ -288,7 +276,7 @@ def mpi_sendrecv_xla_encode_device(
         status_ptr,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_sendrecv",
         result_types=out_types,
         operands=operands,
@@ -296,18 +284,20 @@ def mpi_sendrecv_xla_encode_device(
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(mpi_sendrecv_xla_encode_device)
-mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(mpi_sendrecv_xla_encode_device)
-
-
-# This function evaluates only the shapes during AST construction
-def mpi_sendrecv_abstract_eval(
+@translation_rule_xpu
+def mpi_sendrecv_xla_encode_xpu(
+    ctx,
     sendbuf,
     recvbuf,
-    token,
     source,
     dest,
     sendtag,
@@ -316,10 +306,60 @@ def mpi_sendrecv_abstract_eval(
     status,
     _must_transpose=False,
 ):
-    return (
-        ShapedArray(recvbuf.shape, recvbuf.dtype),
-        core.abstract_token,
-    ), {effect}
+    return mpi_sendrecv_xla_encode_device(
+        ctx,
+        sendbuf,
+        recvbuf,
+        source,
+        dest,
+        sendtag,
+        recvtag,
+        comm,
+        status,
+        _must_transpose,
+    )
+
+
+@translation_rule_cuda
+def mpi_sendrecv_xla_encode_cuda(
+    ctx,
+    sendbuf,
+    recvbuf,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
+):
+    return mpi_sendrecv_xla_encode_device(
+        ctx,
+        sendbuf,
+        recvbuf,
+        source,
+        dest,
+        sendtag,
+        recvtag,
+        comm,
+        status,
+        _must_transpose,
+    )
+
+
+# This function evaluates only the shapes during AST construction
+def mpi_sendrecv_abstract_eval(
+    sendbuf,
+    recvbuf,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
+):
+    return ShapedArray(recvbuf.shape, recvbuf.dtype), {ordered_effect}
 
 
 def mpi_sendrecv_batch_eval(
@@ -333,14 +373,14 @@ def mpi_sendrecv_batch_eval(
     status,
     _must_transpose=False,
 ):
-    sendbuf, recvbuf, token = in_args
+    sendbuf, recvbuf = in_args
 
     assert batch_axes[0] == batch_axes[1]
+    ax = batch_axes[0]
 
     res = mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -349,7 +389,7 @@ def mpi_sendrecv_batch_eval(
         status=status,
         _must_transpose=_must_transpose,
     )
-    return res, (batch_axes[0], batch_axes[2])
+    return res, ax
 
 
 def mpi_sendrecv_value_and_jvp(
@@ -363,13 +403,12 @@ def mpi_sendrecv_value_and_jvp(
     status,
     _must_transpose=False,
 ):
-    sendbuf, recvbuf, token = in_args
-    send_tan, recv_tan, token_tan = tan_args
+    sendbuf, recvbuf = in_args
+    send_tan, recv_tan = tan_args
 
-    val, token = mpi_sendrecv_p.bind(
+    val = mpi_sendrecv_p.bind(
         sendbuf,
         recvbuf,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -379,10 +418,9 @@ def mpi_sendrecv_value_and_jvp(
         _must_transpose=_must_transpose,
     )
 
-    jvp, token_jvp = mpi_sendrecv_p.bind(
+    jvp = mpi_sendrecv_p.bind(
         send_tan,
         recv_tan,
-        token,
         source=source,
         dest=dest,
         sendtag=sendtag,
@@ -392,20 +430,16 @@ def mpi_sendrecv_value_and_jvp(
         _must_transpose=not _must_transpose,
     )
 
-    return (val, token), (jvp, token_jvp)
+    return val, jvp
 
 
 def mpi_sendrecv_transpose_rule(
-    tan_args, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
+    out_tan, *x_args, source, dest, sendtag, recvtag, comm, status, _must_transpose
 ):
-    _, _, token = x_args
-    out_tan, token_tan = tan_args
-
     # swap the sender and receiver
-    res, token = mpi_sendrecv_p.bind(
+    res = mpi_sendrecv_p.bind(
         out_tan,
         out_tan,
-        token,
         source=dest,
         dest=source,
         sendtag=sendtag,
@@ -414,10 +448,9 @@ def mpi_sendrecv_transpose_rule(
         status=status,
         _must_transpose=not _must_transpose,
     )
-    return res, ad.Zero(get_aval(res)), token_tan
+    return (res, ad.Zero(get_aval(res)))
 
 
-mpi_sendrecv_p.multiple_results = True
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)
 mpi_sendrecv_p.def_effectful_abstract_eval(mpi_sendrecv_abstract_eval)
 

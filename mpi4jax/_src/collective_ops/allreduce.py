@@ -1,17 +1,14 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
-from jax.core import Tracer
 from jax.interpreters import ad, batching
-from jax.lax import create_token
-from jax.interpreters.mlir import custom_call
 from jax.core import ShapedArray
 
 
 import jaxlib.mlir.ir as ir
+from jax.interpreters.mlir import custom_call
 
-from ..utils import (
+from mpi4jax._src.utils import (
     HashableMPIType,
     default_primitive_impl,
     to_dtype_handle,
@@ -20,19 +17,26 @@ from ..utils import (
     wrap_as_hashable,
     as_mhlo_constant,
     get_default_layouts,
-    effect,
-    prefer_notoken,
+    ordered_effect,
+    NOTSET,
+    raise_if_token_is_set,
 )
-from ..jax_compat import register_lowering, token_type, Primitive, Token
-from ..decorators import (
+from mpi4jax._src.jax_compat import (
+    register_lowering,
+    token_type,
+    get_token_effect,
+    set_token_effect,
+    Primitive,
+)
+from mpi4jax._src.decorators import (
     translation_rule_cpu,
     translation_rule_cuda,
     translation_rule_xpu,
 )
-from ..validation import enforce_types
-from ..comm import get_default_comm
+from mpi4jax._src.validation import enforce_types
+from mpi4jax._src.comm import get_default_comm
 
-from ..xla_bridge.device_descriptors import build_allreduce_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import build_allreduce_descriptor
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -43,9 +47,8 @@ mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
 @enforce_types(
     op=(_MPI.Op, HashableMPIType),
     comm=(type(None), _MPI.Intracomm, HashableMPIType),
-    token=(type(None), Token, Tracer),
 )
-def allreduce(x, op, *, comm=None, token=None):
+def allreduce(x, op, *, comm=None, token=NOTSET):
     """Perform an allreduce operation.
 
     .. note::
@@ -58,42 +61,32 @@ def allreduce(x, op, *, comm=None, token=None):
         op (mpi4py.MPI.Op): The reduction operator (e.g :obj:`mpi4py.MPI.SUM`).
         comm (mpi4py.MPI.Comm): The MPI communicator to use (defaults to
             a clone of :obj:`COMM_WORLD`).
-        token (Token): XLA token to use to ensure correct execution order.
-            If not given, a new token is generated.
 
     Returns:
-        Tuple[DeviceArray, Token]:
-            - Result of the allreduce operation.
-            - A new, modified token, that depends on this operation.
+        DeviceArray: Result of the allreduce operation.
 
     """
-    if token is None:
-        token = create_token(x)
-
-    if prefer_notoken():
-        from mpi4jax._src.notoken import allreduce
-
-        return allreduce(x, op, comm=comm), token
+    raise_if_token_is_set(token)
 
     if comm is None:
         comm = get_default_comm()
 
     op = wrap_as_hashable(op)
     comm = wrap_as_hashable(comm)
-    return tuple(mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=False))
+    return mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=False)
 
 
 # This function compiles the operation
 # transpose is a boolean flag that signals whever this is the forward pass
 # performing the MPI reduction, or the transposed pass, which is trivial
 @translation_rule_cpu
-def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
+def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     if transpose:
         assert op == _MPI.SUM
-        return [x, token]
+        return [x]
 
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
@@ -109,6 +102,8 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         ir.RankedTensorType.get(dims, dtype),
         token_type(),
     ]
+
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         as_mhlo_constant(nitems, _np.intc),
@@ -119,23 +114,29 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, token, op, comm, transpose):
         token,
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_allreduce",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
+def mpi_allreduce_xla_encode_device(ctx, x, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
     if transpose:
         assert op == _MPI.SUM
-        return [x, token]
+        return [x]
 
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
@@ -151,6 +152,8 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         ir.RankedTensorType.get(dims, dtype),
         token_type(),
     ]
+
+    token = get_token_effect(ctx, ordered_effect)
 
     operands = (
         x,
@@ -164,7 +167,7 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         to_dtype_handle(x_nptype),
     )
 
-    return custom_call(
+    result_obj = custom_call(
         b"mpi_allreduce",
         result_types=out_types,
         operands=operands,
@@ -172,59 +175,58 @@ def mpi_allreduce_xla_encode_device(ctx, x, token, op, comm, transpose):
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         backend_config=descriptor,
-    ).results
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
-mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
 mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
+mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
 
 
 # This function evaluates only the shapes during AST construction
-def mpi_allreduce_abstract_eval(xs, token, op, comm, transpose):
-    return (
-        ShapedArray(xs.shape, xs.dtype),
-        core.abstract_token,
-    ), {effect}
+def mpi_allreduce_abstract_eval(xs, op, comm, transpose):
+    if not transpose:
+        return ShapedArray(xs.shape, xs.dtype), {ordered_effect}
+    else:
+        # The transposition of an allreduce is just the identity, so it can be reordered
+        # and does not come with an ordered effect.
+        return ShapedArray(xs.shape, xs.dtype), {}
 
 
 def mpi_allreduce_batch_eval(in_args, batch_axes, op, comm, transpose):
-    x, token = in_args
-    res = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
-    return res, batch_axes
+    (ax, *_) = batch_axes
+    res = mpi_allreduce_p.bind(*in_args, op=op, comm=comm, transpose=transpose)
+    return res, ax
 
 
 def mpi_allreduce_value_and_jvp(in_args, tan_args, op, comm, transpose):
-    x, token = in_args
-    x_tan, token_tan = tan_args
+    (x,) = in_args
+    (x_tan, *_) = tan_args
 
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The adjoint of allreduce is only defined for op=MPI.SUM"
         )
 
-    val, token = mpi_allreduce_p.bind(x, token, op=op, comm=comm, transpose=transpose)
-    jvp, token_jvp = mpi_allreduce_p.bind(
-        x_tan, token, op=op, comm=comm, transpose=transpose
-    )
-    return (val, token), (jvp, token_jvp)
+    val = mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=transpose)
+    jvp = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=transpose)
+    return val, jvp
 
 
-def mpi_allreduce_transpose_rule(tan_args, *x_args, op, comm, transpose):
-    _, token = x_args
-    x_tan, token_tan = tan_args
-
+def mpi_allreduce_transpose_rule(x_tan, *x_args, op, comm, transpose):
     if unpack_hashable(op) != _MPI.SUM:
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
-
-    res, token = mpi_allreduce_p.bind(
-        x_tan, token, op=op, comm=comm, transpose=(not transpose)
-    )
-    return res, token_tan
+    res = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=(not transpose))
+    return (res,)
 
 
-mpi_allreduce_p.multiple_results = True
 mpi_allreduce_p.def_impl(mpi_allreduce_impl)
 mpi_allreduce_p.def_effectful_abstract_eval(mpi_allreduce_abstract_eval)
 
