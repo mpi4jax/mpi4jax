@@ -59,7 +59,7 @@ def scan(x, op, *, comm=None, token=NOTSET):
     Returns:
         DeviceArray: Result of the scan operation.
     """
-    raise_if_token_is_set()
+    raise_if_token_is_set(token)
 
     if comm is None:
         comm = get_default_comm()
