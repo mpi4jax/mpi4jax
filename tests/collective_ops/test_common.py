@@ -106,7 +106,7 @@ def test_deadlock_on_exit(tmp_path):
 
         # sendrecv to self
         jax.jit(
-            lambda x: sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)[0]
+            lambda x: sendrecv(sendbuf=x, recvbuf=x, source=0, dest=0, comm=comm)
         )(jnp.ones(10))
     """
     )
@@ -123,7 +123,7 @@ def test_debug_logging(capsys):
     arr = jnp.ones((3, 2))
 
     set_logging(True)
-    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM))(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr().out
@@ -137,7 +137,7 @@ def test_debug_logging(capsys):
     )
 
     set_logging(False)
-    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: allreduce(x, op=MPI.SUM))(arr)
     res.block_until_ready()
 
     captured = capsys.readouterr().out

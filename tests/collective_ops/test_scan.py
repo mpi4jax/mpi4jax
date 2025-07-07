@@ -13,7 +13,7 @@ def test_scan():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res, _ = scan(arr, op=MPI.SUM)
+    res = scan(arr, op=MPI.SUM)
     assert jnp.array_equal(res, jnp.ones((3, 2)) * sum(range(rank + 1)))
 
 
@@ -22,7 +22,7 @@ def test_scan_jit():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: scan(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: scan(x, op=MPI.SUM))(arr)
     assert jnp.array_equal(res, jnp.ones((3, 2)) * sum(range(rank + 1)))
 
 
@@ -30,7 +30,7 @@ def test_scan_scalar():
     from mpi4jax import scan
 
     arr = rank
-    res, _ = scan(arr, op=MPI.SUM)
+    res = scan(arr, op=MPI.SUM)
     assert jnp.array_equal(res, sum(range(rank + 1)))
 
 
@@ -38,5 +38,5 @@ def test_scan_scalar_jit():
     from mpi4jax import scan
 
     arr = rank
-    res = jax.jit(lambda x: scan(x, op=MPI.SUM)[0])(arr)
+    res = jax.jit(lambda x: scan(x, op=MPI.SUM))(arr)
     assert jnp.array_equal(res, sum(range(rank + 1)))

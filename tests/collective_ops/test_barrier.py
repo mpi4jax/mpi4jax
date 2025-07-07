@@ -5,8 +5,6 @@ import os
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
 
 
 def cap_to_file(capsys, write_to):
@@ -19,6 +17,9 @@ def test_barrier(capsys):
     """Verify that barrier blocks execution by printing messages before and after"""
     from mpi4jax._src.flush import flush
     from mpi4jax import barrier
+
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
     # pipe all messages to the same file
     tmpdir = tempfile.gettempdir()
@@ -35,7 +36,7 @@ def test_barrier(capsys):
 
     # without a barrier here, some ranks would start writing
     # "done" before everyone has writen "start"
-    token = barrier()  # noqa: F841
+    barrier()
     flush()
 
     print(f"r{rank} | done")
@@ -44,6 +45,9 @@ def test_barrier(capsys):
     cap_to_file(capsys, write_to)
 
     time.sleep(size * 0.2)
+
+    barrier()
+    flush()
 
     with open(write_to) as f:
         outputs = f.readlines()

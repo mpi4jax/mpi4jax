@@ -13,7 +13,7 @@ def test_reduce():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res, _ = reduce(arr, op=MPI.SUM, root=0)
+    res = reduce(arr, op=MPI.SUM, root=0)
     if rank == 0:
         assert jnp.array_equal(res, jnp.ones((3, 2)) * sum(range(size)))
     else:
@@ -25,7 +25,7 @@ def test_reduce_jit():
 
     arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0)[0])(arr)
+    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0))(arr)
     if rank == 0:
         assert jnp.array_equal(res, jnp.ones((3, 2)) * sum(range(size)))
     else:
@@ -36,7 +36,7 @@ def test_reduce_scalar():
     from mpi4jax import reduce
 
     arr = rank
-    res, _ = reduce(arr, op=MPI.SUM, root=0)
+    res = reduce(arr, op=MPI.SUM, root=0)
     if rank == 0:
         assert jnp.array_equal(res, sum(range(size)))
     else:
@@ -47,7 +47,7 @@ def test_reduce_scalar_jit():
     from mpi4jax import reduce
 
     arr = rank
-    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0)[0])(arr)
+    res = jax.jit(lambda x: reduce(x, op=MPI.SUM, root=0))(arr)
     if rank == 0:
         assert jnp.array_equal(res, sum(range(size)))
     else:

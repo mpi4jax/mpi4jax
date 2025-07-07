@@ -39,7 +39,7 @@ ATvprime_local = (A.T @ vprime)[start_local:end_local]
 
 
 def allreduce_sum(x):
-    res, _ = allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
+    res = allreduce(x, op=MPI.SUM, comm=MPI.COMM_WORLD)
     return res
 
 

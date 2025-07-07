@@ -1,19 +1,34 @@
-import os
 import functools
 import hashlib
-import warnings
 
 from mpi4py import MPI as _MPI
 
 import numpy as _np
 
-import jax
-
 from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 
-from .jax_compat import token_type, register_effect, EffectType, versiontuple
+from .jax_compat import token_type, register_effect, EffectType
+
+
+# Sentinel value for default arguments
+NOTSET = object()
+
+
+def raise_if_token_is_set(token):
+    """Raises an error if the token is set."""
+    if token is not NOTSET:
+        raise RuntimeError(
+            "Explicit token management is not supported for mpi4jax>=0.8.0. "
+            "Tokens are now managed automatically and must not be passed "
+            "as arguments to collective operations anymore.\n"
+            "That is, please adjust your code like this:\n"
+            "     # For mpi4jax<0.8.0:\n"
+            "     result, token = mpi4jax.allgather(x, token=token)\n"
+            "     # For mpi4jax>=0.8.0:\n"
+            "     result = mpi4jax.allgather(x)"
+        )
 
 
 class MPIEffect(EffectType):
@@ -174,26 +189,3 @@ def has_sycl_support() -> bool:
     from . import xla_bridge
 
     return xla_bridge.HAS_XPU_EXT
-
-
-def prefer_notoken() -> bool:
-    """Returns True if primitive implementations should prefer not to use tokens."""
-
-    # No-token mode only works with JAX >= 0.5.0 but for JAX < 0.5.1 we need
-    # token-mode. Since the later bug is rarer, we take 0.5.0. See:
-    # - https://github.com/mpi4jax/mpi4jax/issues/274
-    # - https://github.com/jax-ml/jax/issues/26087
-    jax_ver_sufficient = versiontuple(jax.__version__) >= (0, 5, 0)
-    env_var = os.environ.get("MPI4JAX_PREFER_NOTOKEN")
-
-    if env_var is None:
-        use_notoken = jax_ver_sufficient
-    else:
-        use_notoken = env_var.lower() in ("1", "true", "on")
-
-    if not use_notoken and jax_ver_sufficient:
-        warnings.warn(
-            "Token mode is deprecated and may be incompatible with recent JAX versions. "
-            "Consider setting the environment variable MPI4JAX_PREFER_NOTOKEN=1 to suppress this warning."
-        )
-    return use_notoken

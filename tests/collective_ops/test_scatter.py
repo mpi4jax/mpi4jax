@@ -17,7 +17,7 @@ def test_scatter():
     else:
         arr = jnp.ones((3, 2)) * rank
 
-    res, _ = scatter(arr, root=0)
+    res = scatter(arr, root=0)
     assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
 
 
@@ -29,7 +29,7 @@ def test_scatter_jit():
     else:
         arr = jnp.ones((3, 2)) * rank
 
-    res = jax.jit(lambda x: scatter(x, root=0)[0])(arr)
+    res = jax.jit(lambda x: scatter(x, root=0))(arr)
     assert jnp.array_equal(res, jnp.ones((3, 2)) * rank)
 
 

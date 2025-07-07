@@ -15,7 +15,7 @@ def test_alltoall():
 
     arr = jnp.ones((size, 3, 2)) * rank
 
-    res, _ = alltoall(arr)
+    res = alltoall(arr)
     for p in range(size):
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
@@ -25,7 +25,7 @@ def test_alltoall_jit():
 
     arr = jnp.ones((size, 3, 2)) * rank
 
-    res = jax.jit(lambda x: alltoall(x)[0])(arr)
+    res = jax.jit(lambda x: alltoall(x))(arr)
     for p in range(size):
         assert jnp.array_equal(res[p], jnp.ones((3, 2)) * p)
 
@@ -51,10 +51,10 @@ def test_alltoall_transpose():
     def transpose(arr):
         arr = arr.reshape([shape[0] // size, size, shape[1] // size])
         arr = arr.transpose([1, 0, 2])
-        arr, token = alltoall(arr, comm=comm)
+        arr = alltoall(arr, comm=comm)
         arr = arr.reshape([shape[0], shape[1] // size])
         arr = arr.transpose([1, 0])
-        return arr, token
+        return arr
 
     transpose_jit = jax.jit(transpose)
 
@@ -62,4 +62,4 @@ def test_alltoall_transpose():
     key = jax.random.split(master_key, size)[rank]
     arr = jax.random.normal(key, [shape[0] // size, shape[1]])
 
-    assert jnp.array_equal(transpose(arr)[0], transpose_jit(arr)[0])
+    assert jnp.array_equal(transpose(arr), transpose_jit(arr))

@@ -6,6 +6,7 @@ import jax
 
 from jax.interpreters import mlir
 from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
+from jax.extend.core import Primitive, Token  # noqa: F401
 
 
 def versiontuple(verstr):
@@ -56,22 +57,10 @@ def register_lowering(prim, rule, platform="cpu"):
         return None
 
 
-if versiontuple(jax.__version__) >= (0, 5, 0):
-    from jax.extend.core import Primitive, Token  # noqa: F401
-
-    def register_custom_call_target(name, fn, *, platform: str, api_version: int):
-        return jax.ffi.register_ffi_target(
-            name, fn, platform=platform, api_version=api_version
-        )
-
-else:
-    import jax.extend as jex
-    from jax.core import Primitive, Token  # noqa: F401
-
-    def register_custom_call_target(name, fn, *, platform: str, api_version: int):
-        return jex.ffi.register_ffi_target(
-            name, fn, platform=platform, api_version=api_version
-        )
+def register_custom_call_target(name, fn, *, platform: str, api_version: int):
+    return jax.ffi.register_ffi_target(
+        name, fn, platform=platform, api_version=api_version
+    )
 
 
 token_type = jax_token_type
