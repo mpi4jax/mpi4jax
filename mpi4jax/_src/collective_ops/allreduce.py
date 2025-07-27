@@ -223,6 +223,7 @@ def mpi_allreduce_transpose_rule(x_tan, *x_args, op, comm, transpose):
         raise NotImplementedError(
             "The linear transpose of allreduce is only defined for op=MPI.SUM"
         )
+    x_tan = ad.instantiate_zeros(x_tan)
     res = mpi_allreduce_p.bind(x_tan, op=op, comm=comm, transpose=(not transpose))
     return (res,)
 
