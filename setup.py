@@ -52,6 +52,9 @@ DEV_DEPENDENCIES = [
 CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
 CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 
+CYTHON_DIRECTGPU_SUBMODULE_NAME = "mpi4jax._src.mpi_direct_gpu"
+CYTHON_DIRECTGPU_SUBMODULE_PATH = "mpi4jax/_src/mpi_direct_support_checker"
+
 
 #######
 # Utils
@@ -337,6 +340,18 @@ def get_extensions():
         )
         for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu", "device_descriptors")
     ]
+
+    extensions.append(
+        Extension(
+            f"{CYTHON_DIRECTGPU_SUBMODULE_NAME}",
+            sources=[
+                f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware_checker.pyx",
+                f"{CYTHON_DIRECTGPU_SUBMODULE_PATH}/mpi_gpu_aware.cc",
+            ],
+            language="c++",
+            # libraries=["mpi"],  # Link against the MPI library
+        )
+    )
 
     sycl_info = get_sycl_info()
     if sycl_info["compile"] and sycl_info["libdirs"]:
