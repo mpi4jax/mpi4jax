@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  testing-environment:
+    build: .
+    runtime: nvidia
+    environment:
+        NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+        NVIDIA_VISIBLE_DEVICES: "all"
+
+    privileged: true
+    volumes:
+      - ./:/root
