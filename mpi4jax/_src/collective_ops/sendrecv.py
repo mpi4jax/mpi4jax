@@ -7,7 +7,7 @@ from jax.core import ShapedArray
 
 
 import jaxlib.mlir.ir as ir
-from jax.interpreters.mlir import custom_call
+from jax._src.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,

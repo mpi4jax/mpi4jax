@@ -2,7 +2,7 @@ import numpy as _np
 from mpi4py import MPI as _MPI
 
 from jax.core import ShapedArray
-from jax.interpreters.mlir import custom_call
+from jax._src.interpreters.mlir import custom_call
 import jaxlib.mlir.ir as ir
 
 from mpi4jax._src.utils import (
