@@ -335,18 +335,134 @@ def mpi_sendrecv_xla_encode_cuda(
     status,
     _must_transpose=False,
 ):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
+    # Check if the C++ FFI-based CUDA extension is available
+    try:
+        from mpi4jax._src.xla_bridge import HAS_CUDA_CPP_EXT
+    except ImportError:
+        HAS_CUDA_CPP_EXT = False
+
+    if HAS_CUDA_CPP_EXT:
+        # Use the new FFI-based implementation (same as CPU)
+        return mpi_sendrecv_xla_encode_cuda_ffi(
+            ctx,
+            sendbuf,
+            recvbuf,
+            source,
+            dest,
+            sendtag,
+            recvtag,
+            comm,
+            status,
+            _must_transpose,
+        )
+    else:
+        # Fall back to the legacy descriptor-based implementation
+        return mpi_sendrecv_xla_encode_device(
+            ctx,
+            sendbuf,
+            recvbuf,
+            source,
+            dest,
+            sendtag,
+            recvtag,
+            comm,
+            status,
+            _must_transpose,
+        )
+
+
+def mpi_sendrecv_xla_encode_cuda_ffi(
+    ctx,
+    sendbuf,
+    recvbuf,
+    source,
+    dest,
+    sendtag,
+    recvtag,
+    comm,
+    status,
+    _must_transpose=False,
+):
+    """CUDA lowering using the new FFI API (C++ pybind11 implementation)."""
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+
+    if _must_transpose:
+        raise RuntimeError(
+            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
+            "the gradient might be located on a different mpi rank than the "
+            "desired one. Use reverse-mode (jvp) differentiation instead."
+        )
+
+    comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
+
+    send_aval, recv_aval, *_ = ctx.avals_in
+    send_nptype = send_aval.dtype
+    recv_nptype = recv_aval.dtype
+
+    send_type = ir.RankedTensorType(sendbuf.type)
+    send_dims = send_type.shape
+
+    recv_type = ir.RankedTensorType(recvbuf.type)
+    recv_dtype = recv_type.element_type
+    recv_dims = recv_type.shape
+
+    # compute total number of elements in arrays
+    send_nitems = int(_np.prod(send_dims, dtype=int))
+    send_dtype_handle = int(to_dtype_handle(send_nptype))
+
+    recv_nitems = int(_np.prod(recv_dims, dtype=int))
+    recv_dtype_handle = int(to_dtype_handle(recv_nptype))
+
+    if status is None:
+        status_ptr = int(MPI_STATUS_IGNORE_ADDR)
+    else:
+        status_ptr = int(to_mpi_ptr(status))
+
+    comm_handle = int(to_mpi_handle(comm))
+
+    token = get_token_effect(ctx, ordered_effect)
+
+    out_types = [
+        ir.RankedTensorType.get(recv_dims, recv_dtype),
+        token_type(),
+    ]
+
+    operands = (sendbuf, token)
+
+    backend_config = {
+        "sendcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), send_nitems),
+        "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
+        "sendtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(sendtag)),
+        "sendtype": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), send_dtype_handle
+        ),
+        "recvcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), recv_nitems),
+        "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
+        "recvtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(recvtag)),
+        "recvtype": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), recv_dtype_handle
+        ),
+        "comm": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), comm_handle),
+        "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
+    }
+
+    result_obj = custom_call(
+        b"mpi_sendrecv_ffi",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        api_version=4,
+        backend_config=backend_config,
     )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
 
 
 # This function evaluates only the shapes during AST construction
