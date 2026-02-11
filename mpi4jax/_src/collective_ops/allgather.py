@@ -12,7 +12,6 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
     NOTSET,
@@ -34,16 +33,6 @@ from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
 from mpi4jax._src.xla_bridge.device_descriptors import build_allgather_descriptor
-
-
-# Check if FFI-based C++ implementation is available
-def _has_ffi_support():
-    try:
-        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
-
-        return HAS_CPP_EXT and HAS_FFI_TARGETS
-    except ImportError:
-        return False
 
 
 # The Jax primitive
@@ -89,8 +78,9 @@ def allgather(
     )
 
 
-# FFI-based CPU lowering rule using jax.ffi (new typed API)
-def mpi_allgather_xla_encode_cpu_ffi(ctx, sendbuf, comm):
+# CPU lowering rule using FFI
+@translation_rule_cpu
+def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
@@ -142,72 +132,6 @@ def mpi_allgather_xla_encode_cpu_ffi(ctx, sendbuf, comm):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
-
-
-# Legacy CPU lowering rule (api_version=0)
-def mpi_allgather_xla_encode_cpu_legacy(ctx, sendbuf, comm):
-    comm = unpack_hashable(comm)
-
-    sendbuf_aval, *_ = ctx.avals_in
-    send_nptype = sendbuf_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dtype = send_type.element_type
-    send_dims = send_type.shape
-
-    # compute total number of elements in array
-    send_nitems = _np.prod(send_dims, dtype=int)
-
-    size = comm.Get_size()
-    out_shape = (size, *send_dims)
-
-    out_types = [
-        ir.RankedTensorType.get(out_shape, send_dtype),
-        token_type(),
-    ]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        as_mhlo_constant(send_nitems, _np.intc),
-        sendbuf,
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
-        # we only support matching input and output arrays
-        as_mhlo_constant(send_nitems, _np.intc),
-        as_mhlo_constant(to_dtype_handle(send_nptype), _np.uintp),
-        #
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        token,
-    )
-
-    result_obj = custom_call(
-        b"mpi_allgather",
-        result_types=out_types,
-        operands=operands,
-        # layout matters here, because the first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
-        has_side_effect=True,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-# Choose which CPU lowering to use based on FFI availability
-@translation_rule_cpu
-def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
-    import os
-
-    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
-
-    if use_ffi and _has_ffi_support():
-        return mpi_allgather_xla_encode_cpu_ffi(ctx, sendbuf, comm)
-    else:
-        return mpi_allgather_xla_encode_cpu_legacy(ctx, sendbuf, comm)
 
 
 def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):

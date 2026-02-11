@@ -17,7 +17,6 @@ from mpi4jax._src.utils import (
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
     NOTSET,
@@ -39,16 +38,6 @@ from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
 from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
-
-
-# Check if FFI-based C++ implementation is available
-def _has_ffi_support():
-    try:
-        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
-
-        return HAS_CPP_EXT and HAS_FFI_TARGETS
-    except ImportError:
-        return False
 
 
 # The Jax primitive
@@ -122,8 +111,9 @@ def sendrecv(
     )
 
 
-# FFI-based CPU lowering rule using jax.ffi (new typed API)
-def mpi_sendrecv_xla_encode_cpu_ffi(
+# CPU lowering rule using FFI
+@translation_rule_cpu
+def mpi_sendrecv_xla_encode_cpu(
     ctx,
     sendbuf,
     recvbuf,
@@ -214,144 +204,6 @@ def mpi_sendrecv_xla_encode_cpu_ffi(
     set_token_effect(ctx, ordered_effect, token)
 
     return results
-
-
-# Legacy CPU lowering rule (api_version=0)
-def mpi_sendrecv_xla_encode_cpu_legacy(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    # when performing forward diff, the gradient will follow the sent message.
-    # so if you do a sendrecv from rank 0 to 1, the gradient wrt the inputs of rank 0
-    # will end up in rank 1.\
-    # it's maybe possible to fix this by, at the end of the calculation, bringing back
-    # the gradient to the correct rank, but that would require some study.
-    if _must_transpose:
-        raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
-            "the gradient might be located on a different mpi rank than the "
-            "desired one. Use reverse-mode (jvp) differentiation instead."
-        )
-
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
-
-    if status is None:
-        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = to_mpi_ptr(status)
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        as_mhlo_constant(send_nitems, _np.intc),
-        sendbuf,
-        as_mhlo_constant(dest, _np.intc),
-        as_mhlo_constant(sendtag, _np.intc),
-        as_mhlo_constant(send_dtype_handle, _np.uintp),
-        as_mhlo_constant(recv_nitems, _np.intc),
-        as_mhlo_constant(source, _np.intc),
-        as_mhlo_constant(recvtag, _np.intc),
-        as_mhlo_constant(recv_dtype_handle, _np.uintp),
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(status_ptr, _np.uintp),
-        token,
-    )
-
-    result_obj = custom_call(
-        b"mpi_sendrecv",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-# Choose which CPU lowering to use based on FFI availability
-@translation_rule_cpu
-def mpi_sendrecv_xla_encode_cpu(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    import os
-
-    # Check if we should use FFI (default: True if available)
-    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
-
-    if use_ffi and _has_ffi_support():
-        return mpi_sendrecv_xla_encode_cpu_ffi(
-            ctx,
-            sendbuf,
-            recvbuf,
-            source,
-            dest,
-            sendtag,
-            recvtag,
-            comm,
-            status,
-            _must_transpose,
-        )
-    else:
-        return mpi_sendrecv_xla_encode_cpu_legacy(
-            ctx,
-            sendbuf,
-            recvbuf,
-            source,
-            dest,
-            sendtag,
-            recvtag,
-            comm,
-            status,
-            _must_transpose,
-        )
 
 
 def mpi_sendrecv_xla_encode_device(

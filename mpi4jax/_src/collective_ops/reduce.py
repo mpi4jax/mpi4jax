@@ -13,7 +13,6 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
     get_default_layouts,
     ordered_effect,
     NOTSET,
@@ -35,16 +34,6 @@ from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
 from mpi4jax._src.xla_bridge.device_descriptors import build_reduce_descriptor
-
-
-# Check if FFI-based C++ implementation is available
-def _has_ffi_support():
-    try:
-        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
-
-        return HAS_CPP_EXT and HAS_FFI_TARGETS
-    except ImportError:
-        return False
 
 
 # The Jax primitive
@@ -89,8 +78,9 @@ def reduce(x, op, root, *, comm=None, token=NOTSET):
     return res
 
 
-# FFI-based CPU lowering rule using jax.ffi (new typed API)
-def mpi_reduce_xla_encode_cpu_ffi(ctx, x, op, root, comm):
+# CPU lowering rule using FFI
+@translation_rule_cpu
+def mpi_reduce_xla_encode_cpu(ctx, x, op, root, comm):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -150,75 +140,6 @@ def mpi_reduce_xla_encode_cpu_ffi(ctx, x, op, root, comm):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
-
-
-# Legacy CPU lowering rule (api_version=0)
-def mpi_reduce_xla_encode_cpu_legacy(ctx, x, op, root, comm):
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    # output is only used on root, so prevent memory allocation
-    rank = comm.Get_rank()
-
-    if rank != root:
-        dims = (0,)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        token_type(),
-    ]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        as_mhlo_constant(nitems, _np.intc),
-        x,
-        as_mhlo_constant(to_mpi_handle(op), _np.uintp),
-        as_mhlo_constant(root, _np.intc),
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(dtype_handle, _np.uintp),
-        token,
-    )
-
-    result_obj = custom_call(
-        b"mpi_reduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-# Choose which CPU lowering to use based on FFI availability
-@translation_rule_cpu
-def mpi_reduce_xla_encode_cpu(ctx, x, op, root, comm):
-    import os
-
-    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
-
-    if use_ffi and _has_ffi_support():
-        return mpi_reduce_xla_encode_cpu_ffi(ctx, x, op, root, comm)
-    else:
-        return mpi_reduce_xla_encode_cpu_legacy(ctx, x, op, root, comm)
 
 
 def mpi_reduce_xla_encode_device(ctx, x, op, root, comm):

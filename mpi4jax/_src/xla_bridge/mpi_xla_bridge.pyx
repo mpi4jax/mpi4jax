@@ -40,8 +40,8 @@ cpdef void set_logging(bint enable):
     PRINT_DEBUG = enable
     # Also set logging in C++ module if available (for FFI code path)
     try:
-        from . import mpi_xla_bridge_cpu_cpp
-        mpi_xla_bridge_cpu_cpp.set_logging(enable)
+        from . import mpi_xla_bridge_cpu
+        mpi_xla_bridge_cpu.set_logging(enable)
     except ImportError:
         pass
 

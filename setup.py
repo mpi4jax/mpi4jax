@@ -342,7 +342,7 @@ def get_extensions():
             name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
             sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
         )
-        for mod in ("mpi_xla_bridge", "mpi_xla_bridge_cpu", "device_descriptors")
+        for mod in ("mpi_xla_bridge", "device_descriptors")
     ]
 
     sycl_info = get_sycl_info()
@@ -410,8 +410,8 @@ def get_extensions():
             include_dirs.append(jaxlib_include)
 
         cpp_extension = Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu_cpp",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cpu_cpp.cpp"],
+            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu",
+            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cpu.cpp"],
             include_dirs=include_dirs,
             language="c++",
             extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
