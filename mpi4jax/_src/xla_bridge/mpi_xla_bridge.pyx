@@ -38,6 +38,12 @@ cdef bint PRINT_DEBUG = False
 cpdef void set_logging(bint enable):
     global PRINT_DEBUG
     PRINT_DEBUG = enable
+    # Also set logging in C++ module if available (for FFI code path)
+    try:
+        from . import mpi_xla_bridge_cpu_cpp
+        mpi_xla_bridge_cpu_cpp.set_logging(enable)
+    except ImportError:
+        pass
 
 
 cpdef bint get_logging():

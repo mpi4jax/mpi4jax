@@ -33,6 +33,18 @@ from mpi4jax._src.comm import get_default_comm
 
 from mpi4jax._src.xla_bridge.device_descriptors import build_barrier_descriptor
 
+import jaxlib.mlir.ir as ir
+
+
+# Check if FFI-based C++ implementation is available
+def _has_ffi_support():
+    try:
+        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
+
+        return HAS_CPP_EXT and HAS_FFI_TARGETS
+    except ImportError:
+        return False
+
 
 # The Jax primitive
 mpi_barrier_p = Primitive("barrier_mpi")  # Create the primitive
@@ -60,11 +72,42 @@ def barrier(*, comm=None, token=NOTSET):
     return mpi_barrier_p.bind(comm=comm)
 
 
-# This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
-@translation_rule_cpu
-def mpi_barrier_xla_encode_cpu(ctx, comm):
+# FFI-based CPU lowering rule using jax.ffi (new typed API)
+def mpi_barrier_xla_encode_cpu_ffi(ctx, comm):
+    comm = unpack_hashable(comm)
+
+    token = get_token_effect(ctx, ordered_effect)
+
+    # barrier has no buffer outputs, but we need token for ordering
+    out_types = [token_type()]
+    operands = (token,)
+
+    backend_config = {
+        "comm": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+        ),
+    }
+
+    result_obj = custom_call(
+        b"mpi_barrier_ffi",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        api_version=4,
+        backend_config=backend_config,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
+
+
+# Legacy CPU lowering rule (api_version=0)
+def mpi_barrier_xla_encode_cpu_legacy(ctx, comm):
     comm = unpack_hashable(comm)
 
     out_types = [token_type()]
@@ -90,6 +133,19 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
+
+
+# Choose which CPU lowering to use based on FFI availability
+@translation_rule_cpu
+def mpi_barrier_xla_encode_cpu(ctx, comm):
+    import os
+
+    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
+
+    if use_ffi and _has_ffi_support():
+        return mpi_barrier_xla_encode_cpu_ffi(ctx, comm)
+    else:
+        return mpi_barrier_xla_encode_cpu_legacy(ctx, comm)
 
 
 def mpi_barrier_xla_encode_device(ctx, comm):

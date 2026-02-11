@@ -38,6 +38,16 @@ from mpi4jax._src.comm import get_default_comm
 from mpi4jax._src.xla_bridge.device_descriptors import build_recv_descriptor
 
 
+# Check if FFI-based C++ implementation is available
+def _has_ffi_support():
+    try:
+        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
+
+        return HAS_CPP_EXT and HAS_FFI_TARGETS
+    except ImportError:
+        return False
+
+
 # The Jax primitive
 mpi_recv_p = Primitive("recv_mpi")  # Create the primitive
 mpi_recv_impl = default_primitive_impl(mpi_recv_p)
@@ -90,9 +100,70 @@ def recv(
     return mpi_recv_p.bind(x, source=source, tag=tag, comm=comm, status=status)
 
 
-# This function compiles the operation
-@translation_rule_cpu
-def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
+# FFI-based CPU lowering rule using jax.ffi (new typed API)
+def mpi_recv_xla_encode_cpu_ffi(ctx, x, source, tag, comm, status):
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+
+    comm = unpack_hashable(comm)
+    status = unpack_hashable(status)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = int(_np.prod(dims, dtype=int))
+    dtype_handle = int(to_dtype_handle(x_nptype))
+
+    if status is None:
+        status_ptr = int(MPI_STATUS_IGNORE_ADDR)
+    else:
+        status_ptr = int(to_mpi_ptr(status))
+
+    token = get_token_effect(ctx, ordered_effect)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        token_type(),
+    ]
+
+    # recv needs token for ordering
+    operands = (token,)
+
+    backend_config = {
+        "nitems": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), nitems),
+        "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
+        "tag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(tag)),
+        "comm": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+        ),
+        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
+    }
+
+    result_obj = custom_call(
+        b"mpi_recv_ffi",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        api_version=4,
+        backend_config=backend_config,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
+
+
+# Legacy CPU lowering rule (api_version=0)
+def mpi_recv_xla_encode_cpu_legacy(ctx, x, source, tag, comm, status):
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     comm = unpack_hashable(comm)
@@ -145,6 +216,19 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
+
+
+# Choose which CPU lowering to use based on FFI availability
+@translation_rule_cpu
+def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
+    import os
+
+    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
+
+    if use_ffi and _has_ffi_support():
+        return mpi_recv_xla_encode_cpu_ffi(ctx, x, source, tag, comm, status)
+    else:
+        return mpi_recv_xla_encode_cpu_legacy(ctx, x, source, tag, comm, status)
 
 
 def mpi_recv_xla_encode_device(ctx, x, source, tag, comm, status):

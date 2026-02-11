@@ -2,6 +2,7 @@
 testpaths = [
     "tests",
 ]
+timeout = 60
 
 
 [tool.coverage.run]

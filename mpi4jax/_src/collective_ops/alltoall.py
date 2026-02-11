@@ -36,6 +36,16 @@ from mpi4jax._src.comm import get_default_comm
 from mpi4jax._src.xla_bridge.device_descriptors import build_alltoall_descriptor
 
 
+# Check if FFI-based C++ implementation is available
+def _has_ffi_support():
+    try:
+        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
+
+        return HAS_CPP_EXT and HAS_FFI_TARGETS
+    except ImportError:
+        return False
+
+
 # The Jax primitive
 mpi_alltoall_p = Primitive("alltoall_mpi")  # Create the primitive
 mpi_alltoall_impl = default_primitive_impl(mpi_alltoall_p)
@@ -79,9 +89,66 @@ def alltoall(
     )
 
 
-# This function compiles the operation
-@translation_rule_cpu
-def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
+# FFI-based CPU lowering rule using jax.ffi (new typed API)
+def mpi_alltoall_xla_encode_cpu_ffi(ctx, x, comm):
+    comm = unpack_hashable(comm)
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    size = comm.Get_size()
+    assert dims[0] == size
+    nitems_per_proc = int(_np.prod(dims[1:], dtype=int))
+    dtype_handle = int(to_dtype_handle(x_nptype))
+
+    token = get_token_effect(ctx, ordered_effect)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        token_type(),
+    ]
+
+    operands = (x, token)
+
+    backend_config = {
+        "sendcount": ir.IntegerAttr.get(
+            ir.IntegerType.get_signless(64), nitems_per_proc
+        ),
+        "sendtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "recvcount": ir.IntegerAttr.get(
+            ir.IntegerType.get_signless(64), nitems_per_proc
+        ),
+        "recvtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "comm": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+        ),
+    }
+
+    result_obj = custom_call(
+        b"mpi_alltoall_ffi",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands, order="c"),
+        result_layouts=get_default_layouts(out_types, order="c"),
+        has_side_effect=True,
+        api_version=4,
+        backend_config=backend_config,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
+
+
+# Legacy CPU lowering rule (api_version=0)
+def mpi_alltoall_xla_encode_cpu_legacy(ctx, x, comm):
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -131,6 +198,19 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
+
+
+# Choose which CPU lowering to use based on FFI availability
+@translation_rule_cpu
+def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
+    import os
+
+    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
+
+    if use_ffi and _has_ffi_support():
+        return mpi_alltoall_xla_encode_cpu_ffi(ctx, x, comm)
+    else:
+        return mpi_alltoall_xla_encode_cpu_legacy(ctx, x, comm)
 
 
 def mpi_alltoall_xla_encode_device(ctx, x, comm):

@@ -174,17 +174,13 @@ def mpi_sendrecv_xla_encode_cpu_ffi(
 
     token = get_token_effect(ctx, ordered_effect)
 
-    # For FFI, we only return the data buffer, not a token
-    # The token is handled separately by JAX's effect system
     out_types = [
         ir.RankedTensorType.get(recv_dims, recv_dtype),
+        token_type(),
     ]
 
-    # Build the operands - just sendbuf for FFI (no token in FFI API)
-    operands = (sendbuf,)
+    operands = (sendbuf, token)
 
-    # For FFI API (api_version=4), backend_config must be a dict of ir.Attribute
-    # We need to create MLIR attributes for each parameter
     backend_config = {
         "sendcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), send_nitems),
         "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
@@ -202,7 +198,6 @@ def mpi_sendrecv_xla_encode_cpu_ffi(
         "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
     }
 
-    # Use custom_call with api_version=4 for FFI
     result_obj = custom_call(
         b"mpi_sendrecv_ffi",
         result_types=out_types,
@@ -210,15 +205,12 @@ def mpi_sendrecv_xla_encode_cpu_ffi(
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
-        api_version=4,  # FFI API version
+        api_version=4,
         backend_config=backend_config,
     )
 
     results = list(result_obj.results)
-
-    # For FFI with effects, we need to still manage the token
-    # The token is passed through unchanged since has_side_effect=True
-    # ensures proper ordering
+    token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results

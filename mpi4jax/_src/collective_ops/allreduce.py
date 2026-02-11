@@ -38,6 +38,17 @@ from mpi4jax._src.comm import get_default_comm
 
 from mpi4jax._src.xla_bridge.device_descriptors import build_allreduce_descriptor
 
+
+# Check if FFI-based C++ implementation is available
+def _has_ffi_support():
+    try:
+        from mpi4jax._src.xla_bridge import HAS_CPP_EXT, HAS_FFI_TARGETS
+
+        return HAS_CPP_EXT and HAS_FFI_TARGETS
+    except ImportError:
+        return False
+
+
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
 mpi_allreduce_impl = default_primitive_impl(mpi_allreduce_p)
@@ -76,11 +87,67 @@ def allreduce(x, op, *, comm=None, token=NOTSET):
     return mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=False)
 
 
-# This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
-@translation_rule_cpu
-def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
+# FFI-based CPU lowering rule using jax.ffi (new typed API)
+def mpi_allreduce_xla_encode_cpu_ffi(ctx, x, op, comm, transpose):
+    op = unpack_hashable(op)
+    comm = unpack_hashable(comm)
+
+    if transpose:
+        assert op == _MPI.SUM
+        return [x]
+
+    x_aval, *_ = ctx.avals_in
+    x_nptype = x_aval.dtype
+
+    x_type = ir.RankedTensorType(x.type)
+    dtype = x_type.element_type
+    dims = x_type.shape
+
+    # compute total number of elements in array
+    nitems = int(_np.prod(dims, dtype=int))
+
+    token = get_token_effect(ctx, ordered_effect)
+
+    out_types = [
+        ir.RankedTensorType.get(dims, dtype),
+        token_type(),
+    ]
+
+    operands = (x, token)
+
+    backend_config = {
+        "nitems": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), nitems),
+        "op": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(op))
+        ),
+        "comm": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+        ),
+        "dtype": ir.IntegerAttr.get(
+            ir.IntegerType.get_unsigned(64), int(to_dtype_handle(x_nptype))
+        ),
+    }
+
+    result_obj = custom_call(
+        b"mpi_allreduce_ffi",
+        result_types=out_types,
+        operands=operands,
+        operand_layouts=get_default_layouts(operands),
+        result_layouts=get_default_layouts(out_types),
+        has_side_effect=True,
+        api_version=4,
+        backend_config=backend_config,
+    )
+
+    results = list(result_obj.results)
+    token = results.pop(-1)
+    set_token_effect(ctx, ordered_effect, token)
+
+    return results
+
+
+# Legacy CPU lowering rule (api_version=0)
+def mpi_allreduce_xla_encode_cpu_legacy(ctx, x, op, comm, transpose):
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -128,6 +195,19 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
     set_token_effect(ctx, ordered_effect, token)
 
     return results
+
+
+# Choose which CPU lowering to use based on FFI availability
+@translation_rule_cpu
+def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
+    import os
+
+    use_ffi = os.getenv("MPI4JAX_USE_FFI", "true").lower() in ("true", "1", "on")
+
+    if use_ffi and _has_ffi_support():
+        return mpi_allreduce_xla_encode_cpu_ffi(ctx, x, op, comm, transpose)
+    else:
+        return mpi_allreduce_xla_encode_cpu_legacy(ctx, x, op, comm, transpose)
 
 
 def mpi_allreduce_xla_encode_device(ctx, x, op, comm, transpose):
