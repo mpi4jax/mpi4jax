@@ -415,12 +415,17 @@ def get_extensions():
         if len(cuda_info["rpaths"]) > 0:
             cuda_cpp_extra_args["runtime_library_dirs"] = cuda_info["rpaths"]
 
+        # On Linux, we need to explicitly link against libstdc++ when using mpicc
+        cuda_cpp_libs = list(cuda_info["libs"])
+        if sys.platform.startswith("linux"):
+            cuda_cpp_libs.append("stdc++")
+
         cuda_cpp_extension = Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cuda_cpp",
             sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cuda.cpp"],
             include_dirs=cuda_cpp_include_dirs,
             library_dirs=cuda_info["libdirs"],
-            libraries=cuda_info["libs"],
+            libraries=cuda_cpp_libs,
             language="c++",
             extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
             # This macro instructs C++ compiler to ignore potential existence of
@@ -441,10 +446,17 @@ def get_extensions():
     else:
         include_dirs = [pybind11.get_include(), jaxlib_include]
 
+        # On Linux, we need to explicitly link against libstdc++ when using mpicc
+        # as the compiler (which is typically a C compiler wrapper)
+        cpp_libraries = []
+        if sys.platform.startswith("linux"):
+            cpp_libraries = ["stdc++"]
+
         cpp_extension = Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu",
             sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cpu.cpp"],
             include_dirs=include_dirs,
+            libraries=cpp_libraries,
             language="c++",
             extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
             # This macro instructs C++ compiler to ignore potential existence of

@@ -9,6 +9,8 @@
 #include <random>
 #include <string>
 #include <cstdlib>
+#include <type_traits>
+#include <cstring>
 
 // CUDA headers
 #include <cuda_runtime.h>
@@ -143,6 +145,28 @@ static void checked_cuda_stream_synchronize(cudaStream_t stream, MPI_Comm comm) 
 }
 
 // ============================================================================
+// MPI handle conversion utilities
+// ============================================================================
+// MPI implementations differ in how they define handle types:
+// - OpenMPI: MPI_Comm, MPI_Datatype, MPI_Op are pointers (e.g., ompi_communicator_t*)
+// - MPICH: MPI_Comm, MPI_Datatype, MPI_Op are integers (int)
+// We use memcpy for type-safe conversion that works with both implementations.
+
+template<typename MPI_Handle>
+inline MPI_Handle from_handle(uint64_t handle) {
+    MPI_Handle result;
+    std::memcpy(&result, &handle, sizeof(result));
+    return result;
+}
+
+template<typename MPI_Handle>
+inline uint64_t to_handle(MPI_Handle handle) {
+    uint64_t result = 0;
+    std::memcpy(&result, &handle, sizeof(handle));
+    return result;
+}
+
+// ============================================================================
 // MPI_STATUS_IGNORE address
 // ============================================================================
 uintptr_t get_mpi_status_ignore_addr() {
@@ -211,10 +235,10 @@ ffi::Error mpi_sendrecv_ffi_impl(
     uint64_t comm_handle,
     uint64_t status_ptr
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Status* status = reinterpret_cast<MPI_Status*>(status_ptr);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Status* status = from_handle<MPI_Status*>(status_ptr);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
