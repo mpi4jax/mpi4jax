@@ -322,18 +322,18 @@ def get_extensions():
         cmd.startswith(subcmd) for subcmd in ("install", "build", "bdist", "develop")
     )
 
-    if not HAS_MPI4PY or not HAS_CYTHON:
+    if not HAS_MPI4PY or not HAS_CYTHON or not HAS_PYBIND11:
         # this should only happen when using python setup.py
         # or pip install --no-build-isolation
         if require_extensions:
             print_warning(
-                "mpi4py and/or Cython are not installed.",
+                "mpi4py, pybind11, and/or Cython are not installed.",
                 "When using pip install --no-build-isolation or python setup.py, ",
                 "they MUST be installed BEFORE attempting to install mpi4jax.",
                 "",
-                "To fix this error, install mpi4py and Cython.",
+                "To fix this error, install mpi4py, pybind11, and Cython.",
             )
-            raise RuntimeError("Building mpi4jax requires Cython and mpi4py")
+            raise RuntimeError("Building mpi4jax requires Cython, mpi4py, and pybind11")
         else:
             return []
 
