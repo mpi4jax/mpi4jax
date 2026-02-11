@@ -3,10 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.c
-*.cpp
-*.so
+# Built C extensions and Cython remnants
+mpi4jax/_src/xla_bridge/*.c
+mpi4jax/_src/xla_bridge/*.so
 
 # OS generated files #
 ######################

@@ -25,6 +25,13 @@ else:
     HAS_CYTHON = True
 
 try:
+    import pybind11  # noqa: F401
+
+    HAS_PYBIND11 = True
+except ImportError:
+    HAS_PYBIND11 = False
+
+try:
     import mpi4py  # noqa: F401
 except ImportError:
     HAS_MPI4PY = False
@@ -382,6 +389,41 @@ def get_extensions():
         extensions = cythonize(
             extensions,
             language_level=3,
+        )
+
+    # Add pybind11-based C++ extension for CPU with XLA FFI support
+    if HAS_PYBIND11:
+        # Get jaxlib include directory for XLA FFI headers
+        try:
+            import jax.ffi
+
+            jaxlib_include = jax.ffi.include_dir()
+        except (ImportError, AttributeError):
+            jaxlib_include = None
+            print_warning(
+                "jax.ffi.include_dir() not available",
+                "(FFI support may be limited)",
+            )
+
+        include_dirs = [pybind11.get_include()]
+        if jaxlib_include:
+            include_dirs.append(jaxlib_include)
+
+        cpp_extension = Extension(
+            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu_cpp",
+            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cpu_cpp.cpp"],
+            include_dirs=include_dirs,
+            language="c++",
+            extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
+            # This macro instructs C++ compiler to ignore potential existence of
+            # OpenMPI C++ bindings which are deprecated
+            define_macros=[("OMPI_SKIP_MPICXX", "1")],
+        )
+        extensions.append(cpp_extension)
+    else:
+        print_warning(
+            "pybind11 not found",
+            "(C++ extensions will not be built)",
         )
 
     return extensions
