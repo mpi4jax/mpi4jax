@@ -48,5 +48,6 @@ requires = [
   "cython>=0.21",
   "mpi4py>=3.0.1",
   "pybind11>=3.0.0",
+  "jax>=0.9.0",
 ]
 build-backend = "setuptools.build_meta"

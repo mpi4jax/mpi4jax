@@ -391,23 +391,49 @@ def get_extensions():
             language_level=3,
         )
 
+    # Get jaxlib include directory for XLA FFI headers (required for C++ extensions)
+    jaxlib_include = None
+    try:
+        import jax.ffi
+
+        jaxlib_include = jax.ffi.include_dir()
+    except (ImportError, AttributeError):
+        pass
+
+    # Add pybind11-based C++ extension for CUDA with XLA FFI support
+    if (
+        HAS_PYBIND11
+        and jaxlib_include
+        and cuda_info["compile"]
+        and cuda_info["libdirs"]
+    ):
+        cuda_cpp_include_dirs = [pybind11.get_include(), jaxlib_include] + cuda_info[
+            "compile"
+        ]
+
+        cuda_cpp_extra_args = {}
+        if len(cuda_info["rpaths"]) > 0:
+            cuda_cpp_extra_args["runtime_library_dirs"] = cuda_info["rpaths"]
+
+        cuda_cpp_extension = Extension(
+            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cuda_cpp",
+            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cuda.cpp"],
+            include_dirs=cuda_cpp_include_dirs,
+            library_dirs=cuda_info["libdirs"],
+            libraries=cuda_info["libs"],
+            language="c++",
+            extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
+            # This macro instructs C++ compiler to ignore potential existence of
+            # OpenMPI C++ bindings which are deprecated
+            define_macros=[("OMPI_SKIP_MPICXX", "1")],
+            **cuda_cpp_extra_args,
+        )
+        extensions.append(cuda_cpp_extension)
+
     # Add pybind11-based C++ extension for CPU with XLA FFI support
-    if HAS_PYBIND11:
-        # Get jaxlib include directory for XLA FFI headers
-        try:
-            import jax.ffi
 
-            jaxlib_include = jax.ffi.include_dir()
-        except (ImportError, AttributeError):
-            jaxlib_include = None
-            print_warning(
-                "jax.ffi.include_dir() not available",
-                "(FFI support may be limited)",
-            )
-
-        include_dirs = [pybind11.get_include()]
-        if jaxlib_include:
-            include_dirs.append(jaxlib_include)
+    if HAS_PYBIND11 and jaxlib_include:
+        include_dirs = [pybind11.get_include(), jaxlib_include]
 
         cpp_extension = Extension(
             name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu",
@@ -422,8 +448,8 @@ def get_extensions():
         extensions.append(cpp_extension)
     else:
         print_warning(
-            "pybind11 not found",
-            "(C++ extensions will not be built)",
+            "pybind11 and/or jax.ffi.include_dir() not available",
+            "(C++ CPU extension will not be built)",
         )
 
     return extensions
