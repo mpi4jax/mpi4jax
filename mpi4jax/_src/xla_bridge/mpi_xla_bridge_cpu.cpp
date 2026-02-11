@@ -8,6 +8,8 @@
 #include <chrono>
 #include <random>
 #include <string>
+#include <type_traits>
+#include <cstring>
 
 // XLA FFI headers from jaxlib
 #include "xla/ffi/api/ffi.h"
@@ -80,6 +82,28 @@ static int abort_on_error(int ierr, MPI_Comm comm, const char* mpi_op) {
     std::cerr.flush();
 
     return MPI_Abort(comm, ierr);
+}
+
+// ============================================================================
+// MPI handle conversion utilities
+// ============================================================================
+// MPI implementations differ in how they define handle types:
+// - OpenMPI: MPI_Comm, MPI_Datatype, MPI_Op are pointers (e.g., ompi_communicator_t*)
+// - MPICH: MPI_Comm, MPI_Datatype, MPI_Op are integers (int)
+// We use memcpy for type-safe conversion that works for both cases.
+
+template<typename MPI_Handle>
+inline MPI_Handle from_handle(uint64_t handle) {
+    MPI_Handle result;
+    std::memcpy(&result, &handle, sizeof(result));
+    return result;
+}
+
+template<typename MPI_Handle>
+inline uint64_t to_handle(MPI_Handle handle) {
+    uint64_t result = 0;
+    std::memcpy(&result, &handle, sizeof(handle));
+    return result;
 }
 
 // ============================================================================
@@ -463,7 +487,7 @@ ffi::Error mpi_barrier_ffi_impl(
     ffi::Result<ffi::Token> token_out,
     uint64_t comm_handle
 ) {
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     mpi_barrier(comm);
     return ffi::Error::Success();
 }
@@ -489,9 +513,9 @@ ffi::Error mpi_allgather_ffi_impl(
     uint64_t recvtype_handle,
     uint64_t comm_handle
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -528,9 +552,9 @@ ffi::Error mpi_allreduce_ffi_impl(
     uint64_t comm_handle,
     uint64_t dtype_handle
 ) {
-    MPI_Op op = reinterpret_cast<MPI_Op>(op_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
+    MPI_Op op = from_handle<MPI_Op>(op_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -566,9 +590,9 @@ ffi::Error mpi_alltoall_ffi_impl(
     uint64_t recvtype_handle,
     uint64_t comm_handle
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -606,8 +630,8 @@ ffi::Error mpi_bcast_ffi_impl(
     uint64_t comm_handle,
     uint64_t dtype_handle
 ) {
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
     int rank;
     int ierr = MPI_Comm_rank(comm, &rank);
@@ -652,9 +676,9 @@ ffi::Error mpi_gather_ffi_impl(
     int64_t root,
     uint64_t comm_handle
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -695,9 +719,9 @@ ffi::Error mpi_scatter_ffi_impl(
     int64_t root,
     uint64_t comm_handle
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -737,9 +761,9 @@ ffi::Error mpi_reduce_ffi_impl(
     uint64_t comm_handle,
     uint64_t dtype_handle
 ) {
-    MPI_Op op = reinterpret_cast<MPI_Op>(op_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
+    MPI_Op op = from_handle<MPI_Op>(op_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -776,9 +800,9 @@ ffi::Error mpi_scan_ffi_impl(
     uint64_t comm_handle,
     uint64_t dtype_handle
 ) {
-    MPI_Op op = reinterpret_cast<MPI_Op>(op_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
+    MPI_Op op = from_handle<MPI_Op>(op_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
@@ -814,8 +838,8 @@ ffi::Error mpi_send_ffi_impl(
     uint64_t comm_handle,
     uint64_t dtype_handle
 ) {
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
     void* send_data = sendbuf.untyped_data();
 
@@ -851,9 +875,9 @@ ffi::Error mpi_recv_ffi_impl(
     uint64_t dtype_handle,
     uint64_t status_ptr
 ) {
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Datatype dtype = reinterpret_cast<MPI_Datatype>(dtype_handle);
-    MPI_Status* status = reinterpret_cast<MPI_Status*>(status_ptr);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
+    MPI_Status* status = from_handle<MPI_Status*>(status_ptr);
 
     void* recv_data = recvbuf->untyped_data();
 
@@ -895,10 +919,10 @@ ffi::Error mpi_sendrecv_ffi_impl(
     uint64_t comm_handle,
     uint64_t status_ptr
 ) {
-    MPI_Datatype sendtype = reinterpret_cast<MPI_Datatype>(sendtype_handle);
-    MPI_Datatype recvtype = reinterpret_cast<MPI_Datatype>(recvtype_handle);
-    MPI_Comm comm = reinterpret_cast<MPI_Comm>(comm_handle);
-    MPI_Status* status = reinterpret_cast<MPI_Status*>(status_ptr);
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
+    MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    MPI_Status* status = from_handle<MPI_Status*>(status_ptr);
 
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
