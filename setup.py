@@ -431,8 +431,14 @@ def get_extensions():
         extensions.append(cuda_cpp_extension)
 
     # Add pybind11-based C++ extension for CPU with XLA FFI support
-
-    if HAS_PYBIND11 and jaxlib_include:
+    # This is required - fail the build if not available
+    if not jaxlib_include:
+        if require_extensions:
+            raise RuntimeError(
+                "Building mpi4jax requires jax.ffi.include_dir() to be available. "
+                "Please ensure jax >= 0.5.1 is installed."
+            )
+    else:
         include_dirs = [pybind11.get_include(), jaxlib_include]
 
         cpp_extension = Extension(
@@ -446,11 +452,6 @@ def get_extensions():
             define_macros=[("OMPI_SKIP_MPICXX", "1")],
         )
         extensions.append(cpp_extension)
-    else:
-        print_warning(
-            "pybind11 and/or jax.ffi.include_dir() not available",
-            "(C++ CPU extension will not be built)",
-        )
 
     return extensions
 
