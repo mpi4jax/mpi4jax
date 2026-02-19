@@ -97,14 +97,26 @@ def get_default_layouts(operands, order="c"):
 
 def to_mpi_handle(mpi_obj):
     """
-    Returns the handle of the underlying C mpi object.
+    Returns the handle of the underlying C mpi object as an unsigned 64-bit integer.
 
     Only defined for some MPI types (such as MPI_Comm), throws NotImplementedError
     otherwise.
 
     Note: This is not a pointer, but the actual C integer representation of the object.
+    MPI implementations differ in handle types:
+    - OpenMPI: handles are pointers (64-bit on 64-bit systems)
+    - MPICH: handles are signed 32-bit integers
+
+    We convert to uint64 to have a consistent representation that can be passed
+    through the XLA FFI interface. The C++ side uses memcpy to convert back to
+    the correct MPI handle type.
     """
-    return _np.uintp(_MPI._handleof(mpi_obj))
+    handle = _MPI._handleof(mpi_obj)
+    # Handle negative values from MPICH (which uses signed 32-bit handles)
+    # by masking with 0xFFFFFFFFFFFFFFFF to get the unsigned representation
+    if handle < 0:
+        handle = handle & 0xFFFFFFFFFFFFFFFF
+    return _np.uint64(handle)
 
 
 def to_mpi_ptr(mpi_obj):
