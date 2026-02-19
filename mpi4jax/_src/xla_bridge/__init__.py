@@ -41,8 +41,8 @@ if HAS_CUDA_CPP_EXT:
     mpi_xla_bridge_cuda_cpp.set_logging(_debug_enabled)
 
 
-# List of all primitives that have FFI implementations
-_ffi_primitives = {
+# List of primitives that use attribute-based FFI (individual params in backend_config)
+_ffi_attr_primitives = {
     "mpi_barrier",
     "mpi_allgather",
     "mpi_allreduce",
@@ -54,11 +54,24 @@ _ffi_primitives = {
     "mpi_scan",
     "mpi_send",
     "mpi_recv",
-    "mpi_sendrecv",
 }
 
-# register custom call targets for CPU using C++ FFI implementation
-for name in _ffi_primitives:
+# Register attribute-based FFI targets for CPU
+for name in _ffi_attr_primitives:
+    register_custom_call_target(
+        f"{name}_ffi",
+        mpi_xla_bridge_cpu.ffi_targets[name],
+        platform="cpu",
+    )
+
+# List of primitives that use descriptor-based FFI (params passed as buffer)
+# This enables unified code paths between CPU and CUDA
+_ffi_desc_primitives = {
+    "mpi_sendrecv_desc",
+}
+
+# Register descriptor-based FFI targets for CPU
+for name in _ffi_desc_primitives:
     register_custom_call_target(
         f"{name}_ffi",
         mpi_xla_bridge_cpu.ffi_targets[name],

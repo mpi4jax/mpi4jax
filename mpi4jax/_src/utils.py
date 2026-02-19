@@ -64,6 +64,18 @@ def as_mhlo_constant(val, dtype):
     ).result
 
 
+def as_mhlo_constant_array(arr):
+    """Convert a numpy array to an MHLO constant.
+
+    This is useful for passing descriptor buffers to custom calls.
+    The array is embedded as a constant in the HLO graph.
+    """
+    arr = _np.asarray(arr)
+    return mhlo.ConstantOp(
+        ir.DenseElementsAttr.get(arr, type=mlir.dtype_to_ir_type(arr.dtype))
+    ).result
+
+
 def get_default_layouts(operands, order="c"):
     token = token_type()
     layouts = []

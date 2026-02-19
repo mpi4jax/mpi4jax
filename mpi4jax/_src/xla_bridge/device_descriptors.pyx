@@ -1,4 +1,4 @@
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 
 from mpi4py.libmpi cimport (
     MPI_Comm,
@@ -128,4 +128,33 @@ cpdef bytes build_sendrecv_descriptor(
         <MPI_Comm> comm_handle, <MPI_Status*> status_addr
     )
     return bytes((<char*> &desc)[:sizeof(SendrecvDescriptor)])
+
+
+# V2 descriptor builders use int64 for all fields for FFI compatibility
+# These match the C++ structs in mpi_descriptors.h
+
+cpdef bytes build_sendrecv_descriptor_v2(
+    int64_t sendcount, int64_t dest, int64_t sendtag, int64_t sendtype,
+    int64_t recvcount, int64_t source, int64_t recvtag, int64_t recvtype,
+    int64_t comm, int64_t status
+):
+    """Build a sendrecv descriptor using int64 for all fields.
+
+    This descriptor format is used with the FFI API (api_version=4) and is
+    compatible with both CPU and CUDA backends.
+
+    All MPI handles (comm, sendtype, recvtype) should be passed as int64
+    values obtained from to_mpi_handle().
+    """
+    cdef SendrecvDescriptorV2 desc = SendrecvDescriptorV2(
+        sendcount, dest, sendtag, sendtype,
+        recvcount, source, recvtag, recvtype,
+        comm, status
+    )
+    return bytes((<char*> &desc)[:sizeof(SendrecvDescriptorV2)])
+
+
+def get_sendrecv_descriptor_v2_size():
+    """Return the size of SendrecvDescriptorV2 in bytes."""
+    return sizeof(SendrecvDescriptorV2)
 

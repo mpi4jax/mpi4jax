@@ -126,3 +126,20 @@ cdef struct SendrecvDescriptor:
     MPI_Status* status
 
 
+# SendrecvDescriptorV2 - uses int64 for all fields for FFI compatibility
+# This matches the C++ mpi_descriptors.h SendrecvDescriptor struct
+from libc.stdint cimport int64_t
+
+cdef packed struct SendrecvDescriptorV2:
+    int64_t sendcount
+    int64_t dest
+    int64_t sendtag
+    int64_t sendtype     # MPI_Datatype handle as int64
+    int64_t recvcount
+    int64_t source
+    int64_t recvtag
+    int64_t recvtype     # MPI_Datatype handle as int64
+    int64_t comm         # MPI_Comm handle as int64
+    int64_t status       # MPI_Status* pointer as int64
+
+

@@ -13,6 +13,9 @@
 // XLA FFI headers from jaxlib
 #include "xla/ffi/api/ffi.h"
 
+// Shared mpi4jax headers
+#include "mpi_descriptors.h"
+
 namespace py = pybind11;
 namespace ffi = xla::ffi;
 
@@ -956,6 +959,67 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 );
 
 // ============================================================================
+// Descriptor-based FFI handlers
+// These handlers receive parameters via a descriptor buffer instead of
+// individual attributes. This enables code sharing between CPU and CUDA.
+// ============================================================================
+
+// --- Sendrecv Descriptor FFI ---
+// Receives a SendrecvDescriptor buffer containing all parameters
+ffi::Error mpi_sendrecv_desc_ffi_impl(
+    ffi::AnyBuffer sendbuf,
+    ffi::AnyBuffer descriptor,
+    ffi::Token token_in,
+    ffi::Result<ffi::AnyBuffer> recvbuf,
+    ffi::Result<ffi::Token> token_out
+) {
+    // Validate descriptor size
+    auto desc_dims = descriptor.dimensions();
+    size_t desc_size = 1;
+    for (auto d : desc_dims) {
+        desc_size *= d;
+    }
+    if (desc_size != sizeof(SendrecvDescriptor)) {
+        return ffi::Error(ffi::ErrorCode::kInvalidArgument,
+            "SendrecvDescriptor size mismatch: expected " +
+            std::to_string(sizeof(SendrecvDescriptor)) +
+            " bytes, got " + std::to_string(desc_size));
+    }
+
+    const SendrecvDescriptor* desc =
+        static_cast<const SendrecvDescriptor*>(descriptor.untyped_data());
+
+    MPI_Datatype sendtype = from_handle<MPI_Datatype>(desc->sendtype);
+    MPI_Datatype recvtype = from_handle<MPI_Datatype>(desc->recvtype);
+    MPI_Comm comm = from_handle<MPI_Comm>(desc->comm);
+    MPI_Status* status = from_handle<MPI_Status*>(desc->status);
+
+    void* send_data = sendbuf.untyped_data();
+    void* recv_data = recvbuf->untyped_data();
+
+    mpi_sendrecv(
+        send_data, static_cast<int>(desc->sendcount), sendtype,
+        static_cast<int>(desc->dest), static_cast<int>(desc->sendtag),
+        recv_data, static_cast<int>(desc->recvcount), recvtype,
+        static_cast<int>(desc->source), static_cast<int>(desc->recvtag),
+        comm, status
+    );
+
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER_SYMBOL(
+    mpi_sendrecv_desc_ffi,
+    mpi_sendrecv_desc_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::AnyBuffer>()  // sendbuf
+        .Arg<ffi::AnyBuffer>()  // descriptor
+        .Arg<ffi::Token>()      // token_in for ordering
+        .Ret<ffi::AnyBuffer>()  // recvbuf
+        .Ret<ffi::Token>()      // token_out for ordering
+);
+
+// ============================================================================
 // Helper to create PyCapsules for XLA custom call registration
 // ============================================================================
 static py::capsule make_ffi_capsule(void* fn) {
@@ -990,6 +1054,8 @@ PYBIND11_MODULE(mpi_xla_bridge_cpu, m) {
     ffi_targets["mpi_send"] = make_ffi_capsule(reinterpret_cast<void*>(&mpi_send_ffi));
     ffi_targets["mpi_recv"] = make_ffi_capsule(reinterpret_cast<void*>(&mpi_recv_ffi));
     ffi_targets["mpi_sendrecv"] = make_ffi_capsule(reinterpret_cast<void*>(&mpi_sendrecv_ffi));
+    // Descriptor-based FFI targets (for unified CPU/CUDA code path)
+    ffi_targets["mpi_sendrecv_desc"] = make_ffi_capsule(reinterpret_cast<void*>(&mpi_sendrecv_desc_ffi));
     m.attr("ffi_targets") = ffi_targets;
 }
 

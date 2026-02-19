@@ -21,6 +21,7 @@ from mpi4jax._src.utils import (
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
+    as_mhlo_constant_array,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
@@ -37,7 +38,10 @@ from mpi4jax._src.decorators import (
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
 
-from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
+from mpi4jax._src.xla_bridge.device_descriptors import (
+    build_sendrecv_descriptor,
+    build_sendrecv_descriptor_v2,
+)
 
 
 # The Jax primitive
@@ -111,7 +115,7 @@ def sendrecv(
     )
 
 
-# CPU lowering rule using FFI
+# CPU lowering rule using FFI with descriptor buffer
 @translation_rule_cpu
 def mpi_sendrecv_xla_encode_cpu(
     ctx,
@@ -125,6 +129,11 @@ def mpi_sendrecv_xla_encode_cpu(
     status,
     _must_transpose=False,
 ):
+    """CPU lowering using FFI with descriptor buffer.
+
+    This uses the same code path as CUDA, enabling testing of the
+    descriptor-based approach on CPU without a GPU.
+    """
     from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     if _must_transpose:
@@ -162,6 +171,24 @@ def mpi_sendrecv_xla_encode_cpu(
 
     comm_handle = int(to_mpi_handle(comm))
 
+    # Build descriptor as bytes, then convert to numpy array
+    descriptor_bytes = build_sendrecv_descriptor_v2(
+        send_nitems,
+        int(dest),
+        int(sendtag),
+        send_dtype_handle,
+        recv_nitems,
+        int(source),
+        int(recvtag),
+        recv_dtype_handle,
+        comm_handle,
+        status_ptr,
+    )
+    descriptor_array = _np.frombuffer(descriptor_bytes, dtype=_np.uint8)
+
+    # Convert descriptor to MHLO constant
+    descriptor_const = as_mhlo_constant_array(descriptor_array)
+
     token = get_token_effect(ctx, ordered_effect)
 
     out_types = [
@@ -169,34 +196,19 @@ def mpi_sendrecv_xla_encode_cpu(
         token_type(),
     ]
 
-    operands = (sendbuf, token)
+    # Operands: sendbuf, descriptor, token
+    operands = (sendbuf, descriptor_const, token)
 
-    backend_config = {
-        "sendcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), send_nitems),
-        "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
-        "sendtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(sendtag)),
-        "sendtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_signless(64), send_dtype_handle
-        ),
-        "recvcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), recv_nitems),
-        "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
-        "recvtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(recvtag)),
-        "recvtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_signless(64), recv_dtype_handle
-        ),
-        "comm": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), comm_handle),
-        "status": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), status_ptr),
-    }
-
+    # Empty backend_config dict is required for api_version=4 (FFI)
     result_obj = custom_call(
-        b"mpi_sendrecv_ffi",
+        b"mpi_sendrecv_desc_ffi",
         result_types=out_types,
         operands=operands,
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
         has_side_effect=True,
         api_version=4,
-        backend_config=backend_config,
+        backend_config={},
     )
 
     results = list(result_obj.results)
