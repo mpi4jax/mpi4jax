@@ -7,6 +7,7 @@ channels:
 dependencies:
   - python=3.12
   - openmpi-mpicc
+  - openmpi-mpicxx
   - mpi4py
   - numpy
   - cython

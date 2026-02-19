@@ -34,6 +34,7 @@ jobs:
 
     env:
        MPICH_INTERFACE_HOSTNAME: localhost
+       JAX_TRACEBACK_FILTERING: off
 
     steps:
       - uses: actions/checkout@v2

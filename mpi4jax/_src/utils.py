@@ -112,11 +112,15 @@ def to_mpi_handle(mpi_obj):
     the correct MPI handle type.
     """
     handle = _MPI._handleof(mpi_obj)
+    print(handle)
     # Handle negative values from MPICH (which uses signed 32-bit handles)
     # by masking with 0xFFFFFFFFFFFFFFFF to get the unsigned representation
     if handle < 0:
         handle = handle & 0xFFFFFFFFFFFFFFFF
-    return _np.uint64(handle)
+    print(handle)
+    handle = _np.uint64(handle)
+    print(handle)
+    return handle
 
 
 def to_mpi_ptr(mpi_obj):
