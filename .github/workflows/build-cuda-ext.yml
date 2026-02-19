@@ -73,4 +73,5 @@ jobs:
     - name: Build GPU extensions
       run: |
         python setup.py build_ext --inplace
+        ls -l mpi4jax/_src/xla_bridge/
         test -f mpi4jax/_src/xla_bridge/mpi_xla_bridge_cuda*.so

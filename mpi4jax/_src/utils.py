@@ -107,11 +107,25 @@ def to_mpi_handle(mpi_obj):
     - OpenMPI: handles are pointers (64-bit on 64-bit systems)
     - MPICH: handles are signed 32-bit integers
 
-    We pass the handle as-is (which may be negative for MPICH) and use signless
-    integer types in the FFI interface. The C++ side uses memcpy to convert back
-    to the correct MPI handle type.
+    We pass the handle as a signed 64-bit integer in the FFI interface. The C++ side
+    uses memcpy to convert back to the correct MPI handle type.
+
+    For MPICH, the handle is a 32-bit signed integer, but mpi4py's _handleof() returns
+    it as a Python int. When the original value is negative (e.g., -2080374784), it may
+    be sign-extended to appear as a large unsigned value (e.g., 18446744071629176832).
+    We convert this back to a proper signed representation that fits in int64_t.
     """
-    return _MPI._handleof(mpi_obj)
+    handle = _MPI._handleof(mpi_obj)
+    # Convert large unsigned values back to signed interpretation
+    # This handles MPICH's negative handle values that get sign-extended
+    if handle >= (1 << 63):
+        # Interpret as signed 64-bit
+        handle = handle - (1 << 64)
+    int64_info = _np.iinfo(_np.int64)
+    assert (
+        int64_info.min <= handle <= int64_info.max
+    ), f"MPI handle {handle} does not fit in int64_t"
+    return handle
 
 
 def to_mpi_ptr(mpi_obj):
