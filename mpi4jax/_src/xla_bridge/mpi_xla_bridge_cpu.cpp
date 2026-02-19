@@ -9,7 +9,6 @@
 #include <random>
 #include <string>
 #include <type_traits>
-#include <cstring>
 
 // XLA FFI headers from jaxlib
 #include "xla/ffi/api/ffi.h"
@@ -93,15 +92,15 @@ static int abort_on_error(int ierr, MPI_Comm comm, const char* mpi_op) {
 // We use memcpy for type-safe conversion that works for both cases.
 
 template<typename MPI_Handle>
-inline MPI_Handle from_handle(uint64_t handle) {
+inline MPI_Handle from_handle(int64_t handle) {
     MPI_Handle result;
     std::memcpy(&result, &handle, sizeof(result));
     return result;
 }
 
 template<typename MPI_Handle>
-inline uint64_t to_handle(MPI_Handle handle) {
-    uint64_t result = 0;
+inline int64_t to_handle(MPI_Handle handle) {
+    int64_t result = 0;
     std::memcpy(&result, &handle, sizeof(handle));
     return result;
 }
@@ -485,7 +484,7 @@ static void mpi_sendrecv(
 ffi::Error mpi_barrier_ffi_impl(
     ffi::Token token_in,
     ffi::Result<ffi::Token> token_out,
-    uint64_t comm_handle
+    int64_t comm_handle
 ) {
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     mpi_barrier(comm);
@@ -498,7 +497,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     ffi::Ffi::Bind()
         .Arg<ffi::Token>()      // token_in for ordering
         .Ret<ffi::Token>()      // token_out for ordering
-        .Attr<uint64_t>("comm")
+        .Attr<int64_t>("comm")
 );
 
 // --- Allgather FFI ---
@@ -508,10 +507,10 @@ ffi::Error mpi_allgather_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t sendcount,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
-    uint64_t recvtype_handle,
-    uint64_t comm_handle
+    int64_t recvtype_handle,
+    int64_t comm_handle
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -535,10 +534,10 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("sendcount")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
-        .Attr<uint64_t>("recvtype")
-        .Attr<uint64_t>("comm")
+        .Attr<int64_t>("recvtype")
+        .Attr<int64_t>("comm")
 );
 
 // --- Allreduce FFI ---
@@ -548,9 +547,9 @@ ffi::Error mpi_allreduce_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t nitems,
-    uint64_t op_handle,
-    uint64_t comm_handle,
-    uint64_t dtype_handle
+    int64_t op_handle,
+    int64_t comm_handle,
+    int64_t dtype_handle
 ) {
     MPI_Op op = from_handle<MPI_Op>(op_handle);
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
@@ -573,9 +572,9 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("nitems")
-        .Attr<uint64_t>("op")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
+        .Attr<int64_t>("op")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
 );
 
 // --- Alltoall FFI ---
@@ -585,10 +584,10 @@ ffi::Error mpi_alltoall_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t sendcount,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
-    uint64_t recvtype_handle,
-    uint64_t comm_handle
+    int64_t recvtype_handle,
+    int64_t comm_handle
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -612,10 +611,10 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("sendcount")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
-        .Attr<uint64_t>("recvtype")
-        .Attr<uint64_t>("comm")
+        .Attr<int64_t>("recvtype")
+        .Attr<int64_t>("comm")
 );
 
 // --- Bcast FFI ---
@@ -627,8 +626,8 @@ ffi::Error mpi_bcast_ffi_impl(
     ffi::Result<ffi::Token> token_out,
     int64_t nitems,
     int64_t root,
-    uint64_t comm_handle,
-    uint64_t dtype_handle
+    int64_t comm_handle,
+    int64_t dtype_handle
 ) {
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
@@ -659,8 +658,8 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("nitems")
         .Attr<int64_t>("root")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
 );
 
 // --- Gather FFI ---
@@ -670,11 +669,11 @@ ffi::Error mpi_gather_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t sendcount,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
-    uint64_t recvtype_handle,
+    int64_t recvtype_handle,
     int64_t root,
-    uint64_t comm_handle
+    int64_t comm_handle
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -699,11 +698,11 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("sendcount")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
-        .Attr<uint64_t>("recvtype")
+        .Attr<int64_t>("recvtype")
         .Attr<int64_t>("root")
-        .Attr<uint64_t>("comm")
+        .Attr<int64_t>("comm")
 );
 
 // --- Scatter FFI ---
@@ -713,11 +712,11 @@ ffi::Error mpi_scatter_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t sendcount,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
-    uint64_t recvtype_handle,
+    int64_t recvtype_handle,
     int64_t root,
-    uint64_t comm_handle
+    int64_t comm_handle
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -742,11 +741,11 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("sendcount")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
-        .Attr<uint64_t>("recvtype")
+        .Attr<int64_t>("recvtype")
         .Attr<int64_t>("root")
-        .Attr<uint64_t>("comm")
+        .Attr<int64_t>("comm")
 );
 
 // --- Reduce FFI ---
@@ -756,10 +755,10 @@ ffi::Error mpi_reduce_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t nitems,
-    uint64_t op_handle,
+    int64_t op_handle,
     int64_t root,
-    uint64_t comm_handle,
-    uint64_t dtype_handle
+    int64_t comm_handle,
+    int64_t dtype_handle
 ) {
     MPI_Op op = from_handle<MPI_Op>(op_handle);
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
@@ -783,10 +782,10 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("nitems")
-        .Attr<uint64_t>("op")
+        .Attr<int64_t>("op")
         .Attr<int64_t>("root")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
 );
 
 // --- Scan FFI ---
@@ -796,9 +795,9 @@ ffi::Error mpi_scan_ffi_impl(
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
     int64_t nitems,
-    uint64_t op_handle,
-    uint64_t comm_handle,
-    uint64_t dtype_handle
+    int64_t op_handle,
+    int64_t comm_handle,
+    int64_t dtype_handle
 ) {
     MPI_Op op = from_handle<MPI_Op>(op_handle);
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
@@ -821,9 +820,9 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Ret<ffi::AnyBuffer>()  // recvbuf
         .Ret<ffi::Token>()      // token_out for ordering
         .Attr<int64_t>("nitems")
-        .Attr<uint64_t>("op")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
+        .Attr<int64_t>("op")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
 );
 
 // --- Send FFI ---
@@ -835,8 +834,8 @@ ffi::Error mpi_send_ffi_impl(
     int64_t nitems,
     int64_t dest,
     int64_t tag,
-    uint64_t comm_handle,
-    uint64_t dtype_handle
+    int64_t comm_handle,
+    int64_t dtype_handle
 ) {
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
@@ -859,8 +858,8 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Attr<int64_t>("nitems")
         .Attr<int64_t>("dest")
         .Attr<int64_t>("tag")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
 );
 
 // --- Recv FFI ---
@@ -871,9 +870,9 @@ ffi::Error mpi_recv_ffi_impl(
     int64_t nitems,
     int64_t source,
     int64_t tag,
-    uint64_t comm_handle,
-    uint64_t dtype_handle,
-    uint64_t status_ptr
+    int64_t comm_handle,
+    int64_t dtype_handle,
+    int64_t status_ptr
 ) {
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
@@ -897,9 +896,9 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Attr<int64_t>("nitems")
         .Attr<int64_t>("source")
         .Attr<int64_t>("tag")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("dtype")
-        .Attr<uint64_t>("status")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("dtype")
+        .Attr<int64_t>("status")
 );
 
 // --- Sendrecv FFI ---
@@ -911,13 +910,13 @@ ffi::Error mpi_sendrecv_ffi_impl(
     int64_t sendcount,
     int64_t dest,
     int64_t sendtag,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
     int64_t source,
     int64_t recvtag,
-    uint64_t recvtype_handle,
-    uint64_t comm_handle,
-    uint64_t status_ptr
+    int64_t recvtype_handle,
+    int64_t comm_handle,
+    int64_t status_ptr
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -947,13 +946,13 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Attr<int64_t>("sendcount")
         .Attr<int64_t>("dest")
         .Attr<int64_t>("sendtag")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
         .Attr<int64_t>("source")
         .Attr<int64_t>("recvtag")
-        .Attr<uint64_t>("recvtype")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("status")
+        .Attr<int64_t>("recvtype")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("status")
 );
 
 // ============================================================================

@@ -108,13 +108,13 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
     backend_config = {
         "nitems": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), nitems),
         "op": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(op))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(op))
         ),
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
         "dtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_dtype_handle(x_nptype))
+            ir.IntegerType.get_signless(64), int(to_dtype_handle(x_nptype))
         ),
     }
 

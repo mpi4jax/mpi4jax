@@ -73,7 +73,7 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
 
     backend_config = {
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
     }
 

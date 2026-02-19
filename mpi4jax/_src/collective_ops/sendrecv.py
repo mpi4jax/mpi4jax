@@ -176,16 +176,16 @@ def mpi_sendrecv_xla_encode_cpu(
         "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
         "sendtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(sendtag)),
         "sendtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), send_dtype_handle
+            ir.IntegerType.get_signless(64), send_dtype_handle
         ),
         "recvcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), recv_nitems),
         "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
         "recvtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(recvtag)),
         "recvtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), recv_dtype_handle
+            ir.IntegerType.get_signless(64), recv_dtype_handle
         ),
-        "comm": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), comm_handle),
-        "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
+        "comm": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), comm_handle),
+        "status": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), status_ptr),
     }
 
     result_obj = custom_call(
@@ -435,16 +435,16 @@ def mpi_sendrecv_xla_encode_cuda_ffi(
         "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
         "sendtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(sendtag)),
         "sendtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), send_dtype_handle
+            ir.IntegerType.get_signless(64), send_dtype_handle
         ),
         "recvcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), recv_nitems),
         "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
         "recvtag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(recvtag)),
         "recvtype": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), recv_dtype_handle
+            ir.IntegerType.get_signless(64), recv_dtype_handle
         ),
-        "comm": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), comm_handle),
-        "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
+        "comm": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), comm_handle),
+        "status": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), status_ptr),
     }
 
     result_obj = custom_call(

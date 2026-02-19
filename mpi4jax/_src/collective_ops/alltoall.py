@@ -109,13 +109,13 @@ def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
         "sendcount": ir.IntegerAttr.get(
             ir.IntegerType.get_signless(64), nitems_per_proc
         ),
-        "sendtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "sendtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
         "recvcount": ir.IntegerAttr.get(
             ir.IntegerType.get_signless(64), nitems_per_proc
         ),
-        "recvtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "recvtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
     }
 

@@ -116,9 +116,9 @@ def mpi_bcast_xla_encode_cpu(ctx, x, root, comm):
         "nitems": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), nitems),
         "root": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(root)),
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
-        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
     }
 
     result_obj = custom_call(

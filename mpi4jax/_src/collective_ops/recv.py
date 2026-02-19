@@ -128,10 +128,10 @@ def mpi_recv_xla_encode_cpu(ctx, x, source, tag, comm, status):
         "source": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(source)),
         "tag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(tag)),
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
-        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
-        "status": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), status_ptr),
+        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
+        "status": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), status_ptr),
     }
 
     result_obj = custom_call(

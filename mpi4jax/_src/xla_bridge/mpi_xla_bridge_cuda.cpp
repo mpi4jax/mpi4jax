@@ -153,15 +153,15 @@ static void checked_cuda_stream_synchronize(cudaStream_t stream, MPI_Comm comm) 
 // We use memcpy for type-safe conversion that works with both implementations.
 
 template<typename MPI_Handle>
-inline MPI_Handle from_handle(uint64_t handle) {
+inline MPI_Handle from_handle(int64_t handle) {
     MPI_Handle result;
     std::memcpy(&result, &handle, sizeof(result));
     return result;
 }
 
 template<typename MPI_Handle>
-inline uint64_t to_handle(MPI_Handle handle) {
-    uint64_t result = 0;
+inline int64_t to_handle(MPI_Handle handle) {
+    int64_t result = 0;
     std::memcpy(&result, &handle, sizeof(handle));
     return result;
 }
@@ -227,13 +227,13 @@ ffi::Error mpi_sendrecv_ffi_impl(
     int64_t sendcount,
     int64_t dest,
     int64_t sendtag,
-    uint64_t sendtype_handle,
+    int64_t sendtype_handle,
     int64_t recvcount,
     int64_t source,
     int64_t recvtag,
-    uint64_t recvtype_handle,
-    uint64_t comm_handle,
-    uint64_t status_ptr
+    int64_t recvtype_handle,
+    int64_t comm_handle,
+    int64_t status_ptr
 ) {
     MPI_Datatype sendtype = from_handle<MPI_Datatype>(sendtype_handle);
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
@@ -306,13 +306,13 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
         .Attr<int64_t>("sendcount")
         .Attr<int64_t>("dest")
         .Attr<int64_t>("sendtag")
-        .Attr<uint64_t>("sendtype")
+        .Attr<int64_t>("sendtype")
         .Attr<int64_t>("recvcount")
         .Attr<int64_t>("source")
         .Attr<int64_t>("recvtag")
-        .Attr<uint64_t>("recvtype")
-        .Attr<uint64_t>("comm")
-        .Attr<uint64_t>("status")
+        .Attr<int64_t>("recvtype")
+        .Attr<int64_t>("comm")
+        .Attr<int64_t>("status")
 );
 
 // ============================================================================

@@ -100,9 +100,9 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
         "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
         "tag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(tag)),
         "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_unsigned(64), int(to_mpi_handle(comm))
+            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
         ),
-        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_unsigned(64), dtype_handle),
+        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
     }
 
     result_obj = custom_call(
