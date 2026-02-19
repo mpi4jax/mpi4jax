@@ -10,6 +10,7 @@ dependencies:
   - mpi4py
   - numpy
   - cython
+  - pybind11
   - sphinx
   - sphinx_rtd_theme
   - pip
