@@ -35,7 +35,7 @@ else:
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.7.0"
+JAX_MINIMUM_VERSION = "0.6.0"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
@@ -44,7 +44,7 @@ DEV_DEPENDENCIES = [
     "pytest-cov>=2.10.1",
     "coverage[toml]>=5",
     "pre-commit",
-    "black==23.9; python_version >= '3.8.0'",
+    "black==23.9",
     "flake8==3.9.2",
     "tqdm>=4.52",
 ]
@@ -506,7 +506,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    python_requires=">=3.11",
+    python_requires=">=3.10",
     install_requires=BASE_DEPENDENCIES,
     extras_require={
         "dev": DEV_DEPENDENCIES,
