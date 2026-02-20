@@ -26,6 +26,11 @@ jobs:
             python-version: "3.14"
             mpi: intelmpi
             jax-version: "latest"
+          # test default JAX resolution
+          - os: ubuntu-latest
+            python-version: "3.14"
+            mpi: openmpi
+            jax-version: "default"
           # test minimum JAX and Python versions
           - os: ubuntu-latest
             python-version: "3.11"
@@ -55,6 +60,12 @@ jobs:
       - name: Pip install python dependencies
         run: |
           python -m pip install --upgrade pip
+
+          if [ "${{ matrix.jax-version }}" == "default" ]; then
+            # Rely on pip default resolution to pick a JAX version and other build deps
+            pip install .[dev]
+            exit 0
+          fi
 
           # Install build dependencies
           pip install setuptools wheel mpi4py nanobind
