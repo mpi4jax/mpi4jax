@@ -1,12 +1,10 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import typeof
+from jax import core, typeof
 from jax.ffi import ffi_lowering
 from jax.interpreters import ad, batching
 from jax.core import ShapedArray
-
-import jaxlib.mlir.ir as ir
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -16,14 +14,12 @@ from mpi4jax._src.utils import (
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -107,9 +103,7 @@ def sendrecv(
     )
 
 
-# CPU lowering rule using jax.ffi.ffi_lowering
-@translation_rule_cpu
-def mpi_sendrecv_xla_encode_cpu(
+def _mpi_sendrecv_xla_encode(
     ctx,
     sendbuf,
     recvbuf,
@@ -121,12 +115,7 @@ def mpi_sendrecv_xla_encode_cpu(
     status,
     _must_transpose=False,
 ):
-    """CPU lowering using jax.ffi.ffi_lowering.
-
-    The FFI target "mpi_sendrecv_ffi" is registered via jax.ffi.register_ffi_target.
-    Attributes are passed as keyword arguments to ffi_lowering and automatically
-    converted to ir.Attribute via ir_attribute().
-    """
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
     from mpi4jax._src.xla_bridge import MPI_STATUS_IGNORE_ADDR
 
     if _must_transpose:
@@ -143,18 +132,10 @@ def mpi_sendrecv_xla_encode_cpu(
     send_nptype = send_aval.dtype
     recv_nptype = recv_aval.dtype
 
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=_np.int64)
+    send_nitems = _np.prod(send_aval.shape, dtype=_np.int64)
     send_dtype_handle = _np.int64(to_dtype_handle(send_nptype))
 
-    recv_nitems = _np.prod(recv_dims, dtype=_np.int64)
+    recv_nitems = _np.prod(recv_aval.shape, dtype=_np.int64)
     recv_dtype_handle = _np.int64(to_dtype_handle(recv_nptype))
 
     if status is None:
@@ -165,30 +146,22 @@ def mpi_sendrecv_xla_encode_cpu(
     comm_handle = _np.int64(to_mpi_handle(comm))
 
     token = get_token_effect(ctx, ordered_effect)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
-
     operands = (sendbuf, token)
 
-    # Use jax.ffi.ffi_lowering - attributes are passed as kwargs and automatically
-    # converted via ir_attribute()
-    # We use skip_ffi_layout_processing=True because ctx.avals_in/out don't match
-    # our actual operands (we add token) and results (we add token).
-    lowering_rule = ffi_lowering(
-        "mpi_sendrecv_ffi",
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        result_types=out_types,
-        has_side_effect=True,
-        skip_ffi_layout_processing=True,
+    # sendrecv takes (sendbuf, token) but ctx.avals_in has (sendbuf, recvbuf)
+    # Output is (result, token) and ctx.avals_out has (result,)
+    ctx_with_token = ctx.replace(
+        avals_in=(send_aval, core.abstract_token),
+        avals_out=(*ctx.avals_out, core.abstract_token),
     )
 
-    # Call the lowering rule with MPI attributes as keyword arguments
+    lowering_rule = ffi_lowering(
+        "mpi_sendrecv_ffi",
+        has_side_effect=True,
+    )
+
     results = lowering_rule(
-        ctx,
+        ctx_with_token,
         *operands,
         sendcount=send_nitems,
         dest=_np.int64(dest),
@@ -209,186 +182,10 @@ def mpi_sendrecv_xla_encode_cpu(
     return results
 
 
-@translation_rule_xpu
-def mpi_sendrecv_xla_encode_xpu(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    """XPU lowering using jax.ffi.ffi_lowering."""
-    from mpi4jax._src.xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    if _must_transpose:
-        raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
-            "the gradient might be located on a different mpi rank than the "
-            "desired one. Use reverse-mode (jvp) differentiation instead."
-        )
-
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=_np.int64)
-    send_dtype_handle = _np.int64(to_dtype_handle(send_nptype))
-
-    recv_nitems = _np.prod(recv_dims, dtype=_np.int64)
-    recv_dtype_handle = _np.int64(to_dtype_handle(recv_nptype))
-
-    if status is None:
-        status_ptr = _np.int64(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = _np.int64(to_mpi_ptr(status))
-
-    comm_handle = _np.int64(to_mpi_handle(comm))
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
-
-    operands = (sendbuf, token)
-
-    lowering_rule = ffi_lowering(
-        "mpi_sendrecv_ffi",
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        result_types=out_types,
-        has_side_effect=True,
-        skip_ffi_layout_processing=True,
-    )
-
-    results = lowering_rule(
-        ctx,
-        *operands,
-        sendcount=send_nitems,
-        dest=_np.int64(dest),
-        sendtag=_np.int64(sendtag),
-        sendtype=send_dtype_handle,
-        recvcount=recv_nitems,
-        source=_np.int64(source),
-        recvtag=_np.int64(recvtag),
-        recvtype=recv_dtype_handle,
-        comm=comm_handle,
-        status=status_ptr,
-    )
-
-    results = list(results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-@translation_rule_cuda
-def mpi_sendrecv_xla_encode_cuda(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    """CUDA lowering using jax.ffi.ffi_lowering."""
-    from mpi4jax._src.xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    if _must_transpose:
-        raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
-            "the gradient might be located on a different mpi rank than the "
-            "desired one. Use reverse-mode (jvp) differentiation instead."
-        )
-
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=_np.int64)
-    send_dtype_handle = _np.int64(to_dtype_handle(send_nptype))
-
-    recv_nitems = _np.prod(recv_dims, dtype=_np.int64)
-    recv_dtype_handle = _np.int64(to_dtype_handle(recv_nptype))
-
-    if status is None:
-        status_ptr = _np.int64(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = _np.int64(to_mpi_ptr(status))
-
-    comm_handle = _np.int64(to_mpi_handle(comm))
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
-
-    operands = (sendbuf, token)
-
-    lowering_rule = ffi_lowering(
-        "mpi_sendrecv_ffi",
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        result_types=out_types,
-        has_side_effect=True,
-        skip_ffi_layout_processing=True,
-    )
-
-    results = lowering_rule(
-        ctx,
-        *operands,
-        sendcount=send_nitems,
-        dest=_np.int64(dest),
-        sendtag=_np.int64(sendtag),
-        sendtype=send_dtype_handle,
-        recvcount=recv_nitems,
-        source=_np.int64(source),
-        recvtag=_np.int64(recvtag),
-        recvtype=recv_dtype_handle,
-        comm=comm_handle,
-        status=status_ptr,
-    )
-
-    results = list(results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_sendrecv_xla_encode_cpu = translation_rule_cpu(_mpi_sendrecv_xla_encode)
+mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(_mpi_sendrecv_xla_encode)
+mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(_mpi_sendrecv_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

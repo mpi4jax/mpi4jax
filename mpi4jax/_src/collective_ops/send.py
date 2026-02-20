@@ -1,8 +1,8 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
+from jax import core
 from jax.ffi import ffi_lowering
-import jaxlib.mlir.ir as ir
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -11,14 +11,12 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -77,31 +75,24 @@ def _mpi_send_xla_encode(ctx, x, dest, tag, comm):
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
 
-    x_type = ir.RankedTensorType(x.type)
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=_np.int64)
+    nitems = _np.prod(x_aval.shape, dtype=_np.int64)
     dtype_handle = _np.int64(to_dtype_handle(x_nptype))
 
     token = get_token_effect(ctx, ordered_effect)
-
-    # send has no output buffer, but we need token for ordering
-    out_types = [token_type()]
-
     operands = (x, token)
+
+    ctx_with_token = ctx.replace(
+        avals_in=(*ctx.avals_in, core.abstract_token),
+        avals_out=(core.abstract_token,),
+    )
 
     lowering_rule = ffi_lowering(
         "mpi_send_ffi",
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        result_types=out_types,
         has_side_effect=True,
-        skip_ffi_layout_processing=True,
     )
 
     results = lowering_rule(
-        ctx,
+        ctx_with_token,
         *operands,
         nitems=nitems,
         dest=_np.int64(dest),

@@ -5,11 +5,9 @@ from mpi4py import MPI as _MPI
 
 import numpy as _np
 
-from jax.interpreters import xla, mlir
-import jaxlib.mlir.ir as ir
-from jaxlib.mlir.dialects import mhlo
+from jax.interpreters import xla
 
-from .jax_compat import token_type, register_effect, EffectType  # noqa: F401
+from .jax_compat import register_effect, EffectType  # noqa: F401
 
 
 # Sentinel value for default arguments
@@ -57,49 +55,6 @@ ordered_effect = register_effect(OrderedMPIEffect, ordered=True)
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
-
-
-def as_mhlo_constant_array(arr):
-    """Convert a numpy array to an MHLO constant.
-
-    This is useful for passing descriptor buffers to custom calls.
-    The array is embedded as a constant in the HLO graph.
-    """
-    arr = _np.asarray(arr)
-    return mhlo.ConstantOp(
-        ir.DenseElementsAttr.get(arr, type=mlir.dtype_to_ir_type(arr.dtype))
-    ).result
-
-
-def get_default_layouts(operands, order="c"):
-    token = token_type()
-    layouts = []
-
-    if order == "c":
-        default_layout = lambda t: tuple(range(len(t.shape) - 1, -1, -1))
-    elif order == "f":
-        default_layout = lambda t: tuple(range(len(t.shape)))
-    else:
-        raise ValueError(f"Unknown order: {order}")
-
-    for op in operands:
-        if isinstance(op, (ir.Value)):
-            if op.type == token:
-                layouts.append(())
-            else:
-                tensor_type = ir.RankedTensorType(op.type)
-                layouts.append(default_layout(tensor_type))
-
-        elif isinstance(op, ir.RankedTensorType):
-            layouts.append(default_layout(op))
-
-        elif op == token:
-            layouts.append(())
-
-        else:
-            raise ValueError(f"Unknown operand type: {type(op)}")
-
-    return layouts
 
 
 def to_mpi_handle(mpi_obj):

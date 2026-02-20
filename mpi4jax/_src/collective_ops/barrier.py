@@ -1,6 +1,7 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
+from jax import core
 from jax.ffi import ffi_lowering
 from jax.interpreters import batching
 
@@ -10,14 +11,12 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -62,22 +61,20 @@ def _mpi_barrier_xla_encode(ctx, comm):
     comm = unpack_hashable(comm)
 
     token = get_token_effect(ctx, ordered_effect)
-
-    # barrier has no buffer outputs, but we need token for ordering
-    out_types = [token_type()]
     operands = (token,)
+
+    ctx_with_token = ctx.replace(
+        avals_in=(core.abstract_token,),
+        avals_out=(core.abstract_token,),
+    )
 
     lowering_rule = ffi_lowering(
         "mpi_barrier_ffi",
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        result_types=out_types,
         has_side_effect=True,
-        skip_ffi_layout_processing=True,
     )
 
     results = lowering_rule(
-        ctx,
+        ctx_with_token,
         *operands,
         comm=_np.int64(to_mpi_handle(comm)),
     )

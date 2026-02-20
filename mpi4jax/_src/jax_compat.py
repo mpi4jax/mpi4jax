@@ -5,7 +5,7 @@ import warnings
 import jax
 
 from jax.interpreters import mlir
-from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
+from jax.interpreters.mlir import TokenSet
 from jax.extend.core import Primitive  # noqa: F401
 
 
@@ -71,7 +71,6 @@ def register_custom_call_target(name, fn, *, platform: str, api_version: int = 1
     )
 
 
-token_type = jax_token_type
 get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
 set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
     TokenSet({effect: token})
