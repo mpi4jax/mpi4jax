@@ -1,7 +1,8 @@
+import numpy as _np
 from mpi4py import MPI as _MPI
 
+from jax.ffi import ffi_lowering
 from jax.interpreters import batching
-from jax._src.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -28,10 +29,6 @@ from mpi4jax._src.decorators import (
 )
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
-
-from mpi4jax._src.xla_bridge.device_descriptors import build_barrier_descriptor
-
-import jaxlib.mlir.ir as ir
 
 
 # The Jax primitive
@@ -60,9 +57,8 @@ def barrier(*, comm=None, token=NOTSET):
     return mpi_barrier_p.bind(comm=comm)
 
 
-# CPU lowering rule using FFI
-@translation_rule_cpu
-def mpi_barrier_xla_encode_cpu(ctx, comm):
+def _mpi_barrier_xla_encode(ctx, comm):
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
     comm = unpack_hashable(comm)
 
     token = get_token_effect(ctx, ordered_effect)
@@ -71,60 +67,32 @@ def mpi_barrier_xla_encode_cpu(ctx, comm):
     out_types = [token_type()]
     operands = (token,)
 
-    backend_config = {
-        "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
-        ),
-    }
-
-    result_obj = custom_call(
-        b"mpi_barrier_ffi",
-        result_types=out_types,
-        operands=operands,
+    lowering_rule = ffi_lowering(
+        "mpi_barrier_ffi",
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
+        result_types=out_types,
         has_side_effect=True,
-        api_version=4,
-        backend_config=backend_config,
+        skip_ffi_layout_processing=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx,
+        *operands,
+        comm=_np.int64(to_mpi_handle(comm)),
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_barrier_xla_encode_device(ctx, comm):
-    comm = unpack_hashable(comm)
-
-    out_types = [token_type()]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (token,)
-
-    descriptor = build_barrier_descriptor(to_mpi_handle(comm))
-
-    result_obj = custom_call(
-        b"mpi_barrier",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-mpi_barrier_xla_encode_xpu = translation_rule_xpu(mpi_barrier_xla_encode_device)
-mpi_barrier_xla_encode_cuda = translation_rule_cuda(mpi_barrier_xla_encode_device)
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_barrier_xla_encode_cpu = translation_rule_cpu(_mpi_barrier_xla_encode)
+mpi_barrier_xla_encode_cuda = translation_rule_cuda(_mpi_barrier_xla_encode)
+mpi_barrier_xla_encode_xpu = translation_rule_xpu(_mpi_barrier_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

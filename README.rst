@@ -34,7 +34,6 @@ Depending on the different jax backends you want to use, you can install mpi4jax
    $ pip install mpi4jax
 
    # pip install -U 'jax[cuda12]'
-   $ pip install cython
    $ pip install mpi4jax --no-build-isolation
 
    # pip install -U 'jax[cuda12_local]'
@@ -47,7 +46,6 @@ In case your MPI installation is not detected correctly, `it can help to install
 .. code:: bash
 
    # if mpi4py is already installed
-   $ pip install cython
    $ pip install mpi4jax --no-build-isolation
 
 `Our documentation includes some more advanced installation examples. <https://mpi4jax.readthedocs.io/en/latest/installation.html>`_

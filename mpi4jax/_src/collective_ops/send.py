@@ -1,9 +1,8 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-
+from jax.ffi import ffi_lowering
 import jaxlib.mlir.ir as ir
-from jax._src.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -31,8 +30,6 @@ from mpi4jax._src.decorators import (
 )
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
-
-from mpi4jax._src.xla_bridge.device_descriptors import build_send_descriptor
 
 
 # The Jax primitive
@@ -73,9 +70,8 @@ def send(
     return mpi_send_p.bind(x, dest=dest, tag=tag, comm=comm)
 
 
-# CPU lowering rule using FFI
-@translation_rule_cpu
-def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
+def _mpi_send_xla_encode(ctx, x, dest, tag, comm):
+    """Common lowering for all platforms using FFI with attributes."""
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
@@ -85,8 +81,8 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
     dims = x_type.shape
 
     # compute total number of elements in array
-    nitems = int(_np.prod(dims, dtype=int))
-    dtype_handle = int(to_dtype_handle(x_nptype))
+    nitems = _np.prod(dims, dtype=_np.int64)
+    dtype_handle = _np.int64(to_dtype_handle(x_nptype))
 
     token = get_token_effect(ctx, ordered_effect)
 
@@ -95,83 +91,36 @@ def mpi_send_xla_encode_cpu(ctx, x, dest, tag, comm):
 
     operands = (x, token)
 
-    backend_config = {
-        "nitems": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), nitems),
-        "dest": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(dest)),
-        "tag": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), int(tag)),
-        "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
-        ),
-        "dtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
-    }
-
-    result_obj = custom_call(
-        b"mpi_send_ffi",
-        result_types=out_types,
-        operands=operands,
+    lowering_rule = ffi_lowering(
+        "mpi_send_ffi",
         operand_layouts=get_default_layouts(operands),
         result_layouts=get_default_layouts(out_types),
+        result_types=out_types,
         has_side_effect=True,
-        api_version=4,
-        backend_config=backend_config,
+        skip_ffi_layout_processing=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx,
+        *operands,
+        nitems=nitems,
+        dest=_np.int64(dest),
+        tag=_np.int64(tag),
+        comm=_np.int64(to_mpi_handle(comm)),
+        dtype=dtype_handle,
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_send_xla_encode_device(ctx, x, dest, tag, comm):
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = [token_type()]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_send_descriptor(
-        nitems,
-        dest,
-        tag,
-        to_mpi_handle(comm),
-        dtype_handle,
-    )
-
-    result_obj = custom_call(
-        b"mpi_send",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-mpi_send_xla_encode_xpu = translation_rule_xpu(mpi_send_xla_encode_device)
-mpi_send_xla_encode_cuda = translation_rule_cuda(mpi_send_xla_encode_device)
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_send_xla_encode_cpu = translation_rule_cpu(_mpi_send_xla_encode)
+mpi_send_xla_encode_cuda = translation_rule_cuda(_mpi_send_xla_encode)
+mpi_send_xla_encode_xpu = translation_rule_xpu(_mpi_send_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

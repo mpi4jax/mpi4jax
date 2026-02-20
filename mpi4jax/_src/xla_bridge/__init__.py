@@ -1,11 +1,14 @@
 import os
 
 from ..jax_compat import register_custom_call_target
-from . import mpi_xla_bridge
 
 # Import C++ module with FFI support (required for CPU)
 from . import mpi_xla_bridge_cpu
 
+# Re-export MPI_STATUS_IGNORE_ADDR from C++ module
+MPI_STATUS_IGNORE_ADDR = mpi_xla_bridge_cpu.MPI_STATUS_IGNORE_ADDR
+
+# Try to import CUDA C++ extension
 try:
     from . import mpi_xla_bridge_cuda
 except ImportError:
@@ -13,15 +16,9 @@ except ImportError:
 else:
     HAS_CUDA_EXT = True
 
+# Try to import XPU C++ extension
 try:
-    from . import mpi_xla_bridge_cuda_cpp
-except ImportError:
-    HAS_CUDA_CPP_EXT = False
-else:
-    HAS_CUDA_CPP_EXT = True
-
-try:
-    from . import mpi_xla_bridge_xpu  # noqa: F401
+    from . import mpi_xla_bridge_xpu
 except ImportError:
     HAS_XPU_EXT = False
 else:
@@ -35,14 +32,11 @@ def _is_truthy(str_val):
 
 
 _debug_enabled = _is_truthy(os.getenv("MPI4JAX_DEBUG", ""))
-mpi_xla_bridge.set_logging(_debug_enabled)
 mpi_xla_bridge_cpu.set_logging(_debug_enabled)
-if HAS_CUDA_CPP_EXT:
-    mpi_xla_bridge_cuda_cpp.set_logging(_debug_enabled)
 
 
-# List of primitives that use attribute-based FFI (individual params in backend_config)
-_ffi_attr_primitives = {
+# List of all MPI primitives using FFI
+_ffi_primitives = {
     "mpi_barrier",
     "mpi_allgather",
     "mpi_allreduce",
@@ -54,48 +48,33 @@ _ffi_attr_primitives = {
     "mpi_scan",
     "mpi_send",
     "mpi_recv",
+    "mpi_sendrecv",
 }
 
-# Register attribute-based FFI targets for CPU
-for name in _ffi_attr_primitives:
+# Register FFI targets for CPU
+for name in _ffi_primitives:
     register_custom_call_target(
         f"{name}_ffi",
         mpi_xla_bridge_cpu.ffi_targets[name],
         platform="cpu",
     )
 
-# List of primitives that use descriptor-based FFI (params passed as buffer)
-# This enables unified code paths between CPU and CUDA
-_ffi_desc_primitives = {
-    "mpi_sendrecv_desc",
-}
-
-# Register descriptor-based FFI targets for CPU
-for name in _ffi_desc_primitives:
-    register_custom_call_target(
-        f"{name}_ffi",
-        mpi_xla_bridge_cpu.ffi_targets[name],
-        platform="cpu",
-    )
-
+# Register FFI targets for CUDA
 if HAS_CUDA_EXT:
-    for name, fn in mpi_xla_bridge_cuda.custom_call_targets.items():
-        register_custom_call_target(name, fn, platform="CUDA", api_version=0)
-
-# Register C++ FFI-based CUDA custom call targets
-# These are used for primitives that have been ported to the new FFI API
-if HAS_CUDA_CPP_EXT:
-    _cuda_ffi_primitives = {
-        "mpi_sendrecv",
-    }
-    for name in _cuda_ffi_primitives:
-        if name in mpi_xla_bridge_cuda_cpp.ffi_targets:
+    for name in _ffi_primitives:
+        if name in mpi_xla_bridge_cuda.ffi_targets:
             register_custom_call_target(
                 f"{name}_ffi",
-                mpi_xla_bridge_cuda_cpp.ffi_targets[name],
+                mpi_xla_bridge_cuda.ffi_targets[name],
                 platform="CUDA",
             )
 
+# Register FFI targets for XPU/SYCL
 if HAS_XPU_EXT:
-    for name, fn in mpi_xla_bridge_xpu.custom_call_targets.items():
-        register_custom_call_target(name, fn, platform="SYCL", api_version=0)
+    for name in _ffi_primitives:
+        if name in mpi_xla_bridge_xpu.ffi_targets:
+            register_custom_call_target(
+                f"{name}_ffi",
+                mpi_xla_bridge_xpu.ffi_targets[name],
+                platform="SYCL",
+            )

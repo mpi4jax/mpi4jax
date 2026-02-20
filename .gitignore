@@ -3,8 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Built C extensions and Cython remnants
-mpi4jax/_src/xla_bridge/*.c
+# Built C++ extensions
 mpi4jax/_src/xla_bridge/*.so
 
 # OS generated files #

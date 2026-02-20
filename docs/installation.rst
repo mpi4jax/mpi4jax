@@ -43,7 +43,6 @@ installing ``mpi4jax``.
    .. code:: bash
 
       # if mpi4py is already installed
-      $ pip install cython
       $ pip install mpi4jax --no-build-isolation
 
 To check which MPI library both libraries link to, run the following command in your
@@ -78,7 +77,6 @@ the build-time-isolation in order for it to link to the libraries in the nvidia-
 .. code:: bash
 
    # assuming pip install -U 'jax[cuda12]' has been run
-   $ pip install cython
    $ pip install mpi4jax --no-build-isolation
 
 Alternatively, if you want to install ``mpi4jax`` with a locally-installed CUDA version, you can run the following command we need 

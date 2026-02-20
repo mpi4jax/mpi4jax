@@ -1,8 +1,8 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
+from jax.ffi import ffi_lowering
 from jax.core import ShapedArray
-from jax._src.interpreters.mlir import custom_call
 import jaxlib.mlir.ir as ir
 
 from mpi4jax._src.utils import (
@@ -31,8 +31,6 @@ from mpi4jax._src.decorators import (
 )
 from mpi4jax._src.validation import enforce_types
 from mpi4jax._src.comm import get_default_comm
-
-from mpi4jax._src.xla_bridge.device_descriptors import build_allgather_descriptor
 
 
 # The Jax primitive
@@ -78,9 +76,8 @@ def allgather(
     )
 
 
-# CPU lowering rule using FFI
-@translation_rule_cpu
-def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
+def _mpi_allgather_xla_encode(ctx, sendbuf, comm):
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
     comm = unpack_hashable(comm)
 
     sendbuf_aval, *_ = ctx.avals_in
@@ -91,8 +88,8 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
     send_dims = send_type.shape
 
     # compute total number of elements in array
-    send_nitems = int(_np.prod(send_dims, dtype=int))
-    dtype_handle = int(to_dtype_handle(send_nptype))
+    send_nitems = _np.prod(send_dims, dtype=_np.int64)
+    dtype_handle = _np.int64(to_dtype_handle(send_nptype))
 
     size = comm.Get_size()
     out_shape = (size, *send_dims)
@@ -106,90 +103,37 @@ def mpi_allgather_xla_encode_cpu(ctx, sendbuf, comm):
 
     operands = (sendbuf, token)
 
-    backend_config = {
-        "sendcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), send_nitems),
-        "sendtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
-        "recvcount": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), send_nitems),
-        "recvtype": ir.IntegerAttr.get(ir.IntegerType.get_signless(64), dtype_handle),
-        "comm": ir.IntegerAttr.get(
-            ir.IntegerType.get_signless(64), int(to_mpi_handle(comm))
-        ),
-    }
-
-    result_obj = custom_call(
-        b"mpi_allgather_ffi",
-        result_types=out_types,
-        operands=operands,
+    # layout matters here, because the first axis is special
+    lowering_rule = ffi_lowering(
+        "mpi_allgather_ffi",
         operand_layouts=get_default_layouts(operands, order="c"),
         result_layouts=get_default_layouts(out_types, order="c"),
+        result_types=out_types,
         has_side_effect=True,
-        api_version=4,
-        backend_config=backend_config,
+        skip_ffi_layout_processing=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx,
+        *operands,
+        sendcount=send_nitems,
+        sendtype=dtype_handle,
+        recvcount=send_nitems,
+        recvtype=dtype_handle,
+        comm=_np.int64(to_mpi_handle(comm)),
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_allgather_xla_encode_device(ctx, sendbuf, comm):
-    comm = unpack_hashable(comm)
-
-    sendbuf_aval, *_ = ctx.avals_in
-    send_nptype = sendbuf_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dtype = send_type.element_type
-    send_dims = send_type.shape
-
-    # compute total number of elements in send array
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    size = comm.Get_size()
-    out_shape = (size, *send_dims)
-
-    out_types = [
-        ir.RankedTensorType.get(out_shape, send_dtype),
-        token_type(),
-    ]
-
-    descriptor = build_allgather_descriptor(
-        send_nitems,
-        send_dtype_handle,
-        # we only support matching input and output arrays
-        send_nitems,
-        send_dtype_handle,
-        #
-        to_mpi_handle(comm),
-    )
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (sendbuf, token)
-
-    result_obj = custom_call(
-        b"mpi_allgather",
-        result_types=out_types,
-        operands=operands,
-        # layout matters here, because the first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
-        backend_config=descriptor,
-        has_side_effect=True,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-mpi_allgather_xla_encode_xpu = translation_rule_xpu(mpi_allgather_xla_encode_device)
-mpi_allgather_xla_encode_cuda = translation_rule_cuda(mpi_allgather_xla_encode_device)
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_allgather_xla_encode_cpu = translation_rule_cpu(_mpi_allgather_xla_encode)
+mpi_allgather_xla_encode_cuda = translation_rule_cuda(_mpi_allgather_xla_encode)
+mpi_allgather_xla_encode_xpu = translation_rule_xpu(_mpi_allgather_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

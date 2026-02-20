@@ -45,9 +45,8 @@ exclude = '''
 requires = [
   "setuptools>=42",
   "wheel",
-  "cython>=0.21",
   "mpi4py>=3.0.1",
-  "pybind11>=3.0.0",
+  "nanobind>=2.0.0",
   "jax>=0.5.1",
 ]
 build-backend = "setuptools.build_meta"

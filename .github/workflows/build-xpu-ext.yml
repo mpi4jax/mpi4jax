@@ -41,7 +41,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel mpi4py cython pybind11 jax[cpu]
+        pip install setuptools wheel mpi4py nanobind jax[cpu]
 
     - name: Build XPU extensions
       run: |

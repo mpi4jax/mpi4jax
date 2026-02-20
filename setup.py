@@ -18,18 +18,11 @@ sys.path.insert(0, here)
 import versioneer  # noqa: E402
 
 try:
-    from Cython.Build import cythonize
-except ImportError:
-    HAS_CYTHON = False
-else:
-    HAS_CYTHON = True
+    import nanobind  # noqa: F401
 
-try:
-    import pybind11  # noqa: F401
-
-    HAS_PYBIND11 = True
+    HAS_NANOBIND = True
 except ImportError:
-    HAS_PYBIND11 = False
+    HAS_NANOBIND = False
 
 try:
     import mpi4py  # noqa: F401
@@ -56,8 +49,8 @@ DEV_DEPENDENCIES = [
     "tqdm>=4.52",
 ]
 
-CYTHON_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
-CYTHON_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
+CPP_SUBMODULE_NAME = "mpi4jax._src.xla_bridge"
+CPP_SUBMODULE_PATH = "mpi4jax/_src/xla_bridge"
 
 
 #######
@@ -131,10 +124,10 @@ def get_cuda_paths_from_nvidia_pypi():
     # But to be on the safe side, we throw this informative error.
     if mpi4py_spec is None:
         raise RuntimeError(
-            "When building mpi4jax with --no-build-isolation"
-            "you must install the dependencies, such as mpi4py and Cython,"
+            "When building mpi4jax with --no-build-isolation "
+            "you must install the dependencies, such as mpi4py and nanobind, "
             "yourself.\n\n"
-            "Just run ``pip install cython mpi4py`` to fix this error."
+            "Just run ``pip install nanobind mpi4py`` to fix this error."
         )
 
     depot_path = pathlib.Path(os.path.dirname(mpi4py_spec.origin)).parent
@@ -316,80 +309,42 @@ def get_cuda_info():
 #####################
 
 
+def get_nanobind_include_dirs():
+    """Get include directories required for nanobind."""
+    nb_dir = os.path.dirname(nanobind.__file__)
+    return [
+        nanobind.include_dir(),
+        os.path.join(nb_dir, "ext", "robin_map", "include"),
+    ]
+
+
+def get_nanobind_source():
+    """Get the nb_combined.cpp source file path."""
+    return os.path.join(nanobind.source_dir(), "nb_combined.cpp")
+
+
 def get_extensions():
-    cmd = sys.argv[1]
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     require_extensions = any(
         cmd.startswith(subcmd) for subcmd in ("install", "build", "bdist", "develop")
     )
 
-    if not HAS_MPI4PY or not HAS_CYTHON or not HAS_PYBIND11:
+    if not HAS_MPI4PY or not HAS_NANOBIND:
         # this should only happen when using python setup.py
         # or pip install --no-build-isolation
         if require_extensions:
             print_warning(
-                "mpi4py, pybind11, and/or Cython are not installed.",
+                "mpi4py and/or nanobind are not installed.",
                 "When using pip install --no-build-isolation or python setup.py, ",
                 "they MUST be installed BEFORE attempting to install mpi4jax.",
                 "",
-                "To fix this error, install mpi4py, pybind11, and Cython.",
+                "To fix this error, install mpi4py and nanobind.",
             )
-            raise RuntimeError("Building mpi4jax requires Cython, mpi4py, and pybind11")
+            raise RuntimeError("Building mpi4jax requires mpi4py and nanobind")
         else:
             return []
 
-    extensions = [
-        Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.{mod}",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/{mod}.pyx"],
-        )
-        for mod in ("mpi_xla_bridge", "device_descriptors")
-    ]
-
-    sycl_info = get_sycl_info()
-    if sycl_info["compile"] and sycl_info["libdirs"]:
-        extensions.append(
-            Extension(
-                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
-                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_xpu.pyx"],
-                include_dirs=sycl_info["compile"],
-                library_dirs=sycl_info["libdirs"],
-                libraries=sycl_info["libs"],
-                language="c++",
-                # This macro instructs C++ compiler to ignore potential existence of
-                # OpenMPI C++ bindings which are deprecated
-                define_macros=[("OMPI_SKIP_MPICXX", "1")],
-            )
-        )
-    else:
-        print_warning(
-            "SYCL (Intel Basekit) path not found",
-            "(XPU extensions will not be built)",
-        )
-
-    cuda_info = get_cuda_info()
-    if cuda_info["compile"] and cuda_info["libdirs"]:
-        extra_extension_args = {}
-        if len(cuda_info["rpaths"]) > 0:
-            extra_extension_args["runtime_library_dirs"] = cuda_info["rpaths"]
-
-        extensions.append(
-            Extension(
-                name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cuda",
-                sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cuda.pyx"],
-                include_dirs=cuda_info["compile"],
-                library_dirs=cuda_info["libdirs"],
-                libraries=cuda_info["libs"],
-                **extra_extension_args,
-            )
-        )
-    else:
-        print_warning("CUDA path not found", "(GPU extensions will not be built)")
-
-    if HAS_CYTHON:
-        extensions = cythonize(
-            extensions,
-            language_level=3,
-        )
+    extensions = []
 
     # Get jaxlib include directory for XLA FFI headers (required for C++ extensions)
     jaxlib_include = None
@@ -400,16 +355,51 @@ def get_extensions():
     except (ImportError, AttributeError):
         pass
 
-    # Add pybind11-based C++ extension for CUDA with XLA FFI support
+    # Add nanobind-based C++ extension for CPU with XLA FFI support
+    # This is required - fail the build if not available
+    if not jaxlib_include:
+        if require_extensions:
+            raise RuntimeError(
+                "Building mpi4jax requires jax.ffi.include_dir() to be available. "
+                "Please ensure jax >= 0.5.1 is installed."
+            )
+    else:
+        include_dirs = get_nanobind_include_dirs() + [jaxlib_include]
+
+        # On Linux, we need to explicitly link against libstdc++ when using mpicc
+        # as the compiler (which is typically a C compiler wrapper)
+        cpp_libraries = []
+        if sys.platform.startswith("linux"):
+            cpp_libraries = ["stdc++"]
+
+        cpp_extension = Extension(
+            name=f"{CPP_SUBMODULE_NAME}.mpi_xla_bridge_cpu",
+            sources=[
+                f"{CPP_SUBMODULE_PATH}/mpi_xla_bridge_cpu.cpp",
+                get_nanobind_source(),
+            ],
+            include_dirs=include_dirs,
+            libraries=cpp_libraries,
+            language="c++",
+            extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
+            # OMPI_SKIP_MPICXX: ignore deprecated OpenMPI C++ bindings
+            # NB_COMPACT_ASSERTIONS: nanobind compact assertion mode
+            define_macros=[("OMPI_SKIP_MPICXX", "1"), ("NB_COMPACT_ASSERTIONS", "1")],
+        )
+        extensions.append(cpp_extension)
+
+    cuda_info = get_cuda_info()
+
+    # Add nanobind-based C++ extension for CUDA with XLA FFI support
     if (
-        HAS_PYBIND11
+        HAS_NANOBIND
         and jaxlib_include
         and cuda_info["compile"]
         and cuda_info["libdirs"]
     ):
-        cuda_cpp_include_dirs = [pybind11.get_include(), jaxlib_include] + cuda_info[
-            "compile"
-        ]
+        cuda_cpp_include_dirs = (
+            get_nanobind_include_dirs() + [jaxlib_include] + cuda_info["compile"]
+        )
 
         cuda_cpp_extra_args = {}
         if len(cuda_info["rpaths"]) > 0:
@@ -421,49 +411,62 @@ def get_extensions():
             cuda_cpp_libs.append("stdc++")
 
         cuda_cpp_extension = Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cuda_cpp",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cuda.cpp"],
+            name=f"{CPP_SUBMODULE_NAME}.mpi_xla_bridge_cuda",
+            sources=[
+                f"{CPP_SUBMODULE_PATH}/mpi_xla_bridge_cuda.cpp",
+                get_nanobind_source(),
+            ],
             include_dirs=cuda_cpp_include_dirs,
             library_dirs=cuda_info["libdirs"],
             libraries=cuda_cpp_libs,
             language="c++",
             extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
-            # This macro instructs C++ compiler to ignore potential existence of
-            # OpenMPI C++ bindings which are deprecated
-            define_macros=[("OMPI_SKIP_MPICXX", "1")],
+            # OMPI_SKIP_MPICXX: ignore deprecated OpenMPI C++ bindings
+            # NB_COMPACT_ASSERTIONS: nanobind compact assertion mode
+            define_macros=[("OMPI_SKIP_MPICXX", "1"), ("NB_COMPACT_ASSERTIONS", "1")],
             **cuda_cpp_extra_args,
         )
         extensions.append(cuda_cpp_extension)
-
-    # Add pybind11-based C++ extension for CPU with XLA FFI support
-    # This is required - fail the build if not available
-    if not jaxlib_include:
-        if require_extensions:
-            raise RuntimeError(
-                "Building mpi4jax requires jax.ffi.include_dir() to be available. "
-                "Please ensure jax >= 0.5.1 is installed."
-            )
     else:
-        include_dirs = [pybind11.get_include(), jaxlib_include]
+        print_warning("CUDA path not found", "(GPU extensions will not be built)")
 
-        # On Linux, we need to explicitly link against libstdc++ when using mpicc
-        # as the compiler (which is typically a C compiler wrapper)
-        cpp_libraries = []
+    # Add nanobind-based C++ extension for XPU/SYCL with XLA FFI support
+    sycl_info = get_sycl_info()
+    if (
+        HAS_NANOBIND
+        and jaxlib_include
+        and sycl_info["compile"]
+        and sycl_info["libdirs"]
+    ):
+        xpu_cpp_include_dirs = (
+            get_nanobind_include_dirs() + [jaxlib_include] + sycl_info["compile"]
+        )
+
+        xpu_cpp_libs = list(sycl_info["libs"])
         if sys.platform.startswith("linux"):
-            cpp_libraries = ["stdc++"]
+            xpu_cpp_libs.append("stdc++")
 
-        cpp_extension = Extension(
-            name=f"{CYTHON_SUBMODULE_NAME}.mpi_xla_bridge_cpu",
-            sources=[f"{CYTHON_SUBMODULE_PATH}/mpi_xla_bridge_cpu.cpp"],
-            include_dirs=include_dirs,
-            libraries=cpp_libraries,
+        xpu_cpp_extension = Extension(
+            name=f"{CPP_SUBMODULE_NAME}.mpi_xla_bridge_xpu",
+            sources=[
+                f"{CPP_SUBMODULE_PATH}/mpi_xla_bridge_xpu.cpp",
+                get_nanobind_source(),
+            ],
+            include_dirs=xpu_cpp_include_dirs,
+            library_dirs=sycl_info["libdirs"],
+            libraries=xpu_cpp_libs,
             language="c++",
             extra_compile_args=["-std=c++17", "-fvisibility=hidden"],
-            # This macro instructs C++ compiler to ignore potential existence of
-            # OpenMPI C++ bindings which are deprecated
-            define_macros=[("OMPI_SKIP_MPICXX", "1")],
+            # OMPI_SKIP_MPICXX: ignore deprecated OpenMPI C++ bindings
+            # NB_COMPACT_ASSERTIONS: nanobind compact assertion mode
+            define_macros=[("OMPI_SKIP_MPICXX", "1"), ("NB_COMPACT_ASSERTIONS", "1")],
         )
-        extensions.append(cpp_extension)
+        extensions.append(xpu_cpp_extension)
+    else:
+        print_warning(
+            "SYCL (Intel Basekit) path not found",
+            "(XPU extensions will not be built)",
+        )
 
     return extensions
 
@@ -491,7 +494,7 @@ setup(
     cmdclass=cmdclass,
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Cython",
+        "Programming Language :: C++",
         "Development Status :: 3 - Alpha",
         "Environment :: GPU :: NVIDIA CUDA",
         "Intended Audience :: Science/Research",

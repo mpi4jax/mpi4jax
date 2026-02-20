@@ -59,15 +59,9 @@ def setup_cuda_mpi():
         )
         warnings.warn(warn_msg)
 
-    from .xla_bridge import mpi_xla_bridge_cuda, HAS_CUDA_CPP_EXT
+    from .xla_bridge import mpi_xla_bridge_cuda
 
     mpi_xla_bridge_cuda.set_copy_to_host(not has_cuda_mpi)
-
-    # Also configure the C++ FFI-based CUDA module if available
-    if HAS_CUDA_CPP_EXT:
-        from .xla_bridge import mpi_xla_bridge_cuda_cpp
-
-        mpi_xla_bridge_cuda_cpp.set_copy_to_host(not has_cuda_mpi)
 
 
 def setup_sycl_mpi():
