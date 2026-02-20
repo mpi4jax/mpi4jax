@@ -6,7 +6,7 @@ import jax
 
 from jax.interpreters import mlir
 from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
-from jax.extend.core import Primitive, Token  # noqa: F401
+from jax.extend.core import Primitive  # noqa: F401
 
 
 def versiontuple(verstr):

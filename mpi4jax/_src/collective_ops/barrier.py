@@ -28,7 +28,7 @@ from mpi4jax._src.decorators import (
     translation_rule_xpu,
 )
 from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
+from mpi4jax._src.utils import get_default_comm
 
 
 # The Jax primitive

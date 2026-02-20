@@ -12,9 +12,16 @@ from . import xla_bridge  # noqa: E402
 
 # register atexit handler to flush JAX buffers
 import atexit  # noqa: E402
-from . import flush  # noqa: E402
 
-atexit.register(flush.flush)
+
+def flush():
+    """Wait for all pending XLA operations"""
+    import jax
+
+    jax.effects_barrier()
+
+
+atexit.register(flush)
 
 # import public API
 from .collective_ops.allgather import allgather  # noqa: F401, E402

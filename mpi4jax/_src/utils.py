@@ -9,11 +9,24 @@ from jax.interpreters import xla, mlir
 import jaxlib.mlir.ir as ir
 from jaxlib.mlir.dialects import mhlo
 
-from .jax_compat import token_type, register_effect, EffectType
+from .jax_compat import token_type, register_effect, EffectType  # noqa: F401
 
 
 # Sentinel value for default arguments
 NOTSET = object()
+
+# Global variable to hold the default communicator
+_default_comm = None
+
+
+def get_default_comm():
+    global _default_comm
+    if _default_comm is None:
+        from mpi4py import MPI
+
+        _default_comm = MPI.COMM_WORLD.Clone()
+
+    return _default_comm
 
 
 def raise_if_token_is_set(token):
@@ -31,12 +44,6 @@ def raise_if_token_is_set(token):
         )
 
 
-class MPIEffect(EffectType):
-    def __hash__(self):
-        # enforce a constant (known) hash
-        return int(hashlib.md5("I love mpi4jax".encode("utf-8")).hexdigest(), 16)
-
-
 class OrderedMPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
@@ -45,23 +52,11 @@ class OrderedMPIEffect(EffectType):
         )
 
 
-effect = register_effect(MPIEffect)
 ordered_effect = register_effect(OrderedMPIEffect, ordered=True)
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
-
-
-def as_mhlo_constant(val, dtype):
-    if isinstance(val, mhlo.ConstantOp):
-        return val
-
-    return mhlo.ConstantOp(
-        ir.DenseElementsAttr.get(
-            _np.array([val], dtype=dtype), type=mlir.dtype_to_ir_type(_np.dtype(dtype))
-        )
-    ).result
 
 
 def as_mhlo_constant_array(arr):
