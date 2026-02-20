@@ -128,11 +128,13 @@ def test_debug_logging(capsys):
 
     captured = capsys.readouterr().out
     start_msg, end_msg, _ = captured.split("\n")
+    # Device tag (GPU/XPU) is optional - present on GPU/XPU backends, absent on CPU
     assert re.match(
-        rf"r{rank} \| \w{{8}} \| MPI_Allreduce with {arr.size} items", start_msg
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce( \(\w+\))? with {arr.size} items",
+        start_msg,
     )
     assert re.match(
-        rf"r{rank} \| \w{{8}} \| MPI_Allreduce done with code 0 \(\d\.\d{{2}}e[+-]?\d+s\)",
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce( \(\w+\))? done with code 0 \(\d\.\d{{2}}e[+-]?\d+s\)",
         end_msg,
     )
 
