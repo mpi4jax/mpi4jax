@@ -73,11 +73,14 @@ static void checked_cuda_stream_synchronize(cudaStream_t stream, MPI_Comm comm) 
 
 // --- Barrier FFI (GPU) ---
 ffi::Error mpi_barrier_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::Token token_in,
     ffi::Result<ffi::Token> token_out,
     int64_t comm_handle
 ) {
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
+    // Synchronize the stream to ensure all previous GPU work is complete
+    checked_cuda_stream_synchronize(stream, comm);
     mpi_barrier(comm, CUDA_DEVICE_TAG);
     return ffi::Error::Success();
 }
@@ -86,6 +89,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_barrier_ffi,
     mpi_barrier_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::Token>()
         .Ret<ffi::Token>()
         .Attr<int64_t>("comm")
@@ -93,6 +97,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Allgather FFI (GPU) ---
 ffi::Error mpi_allgather_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -107,7 +112,6 @@ ffi::Error mpi_allgather_ffi_cuda_impl(
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -147,6 +151,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_allgather_ffi,
     mpi_allgather_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -160,6 +165,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Allreduce FFI (GPU) ---
 ffi::Error mpi_allreduce_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -173,7 +179,6 @@ ffi::Error mpi_allreduce_ffi_cuda_impl(
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -207,6 +212,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_allreduce_ffi,
     mpi_allreduce_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -219,6 +225,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Alltoall FFI (GPU) ---
 ffi::Error mpi_alltoall_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -233,7 +240,6 @@ ffi::Error mpi_alltoall_ffi_cuda_impl(
     MPI_Datatype recvtype = from_handle<MPI_Datatype>(recvtype_handle);
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -273,6 +279,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_alltoall_ffi,
     mpi_alltoall_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -286,6 +293,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Bcast FFI (GPU) ---
 ffi::Error mpi_bcast_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer buf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> out,
@@ -301,7 +309,6 @@ ffi::Error mpi_bcast_ffi_cuda_impl(
     int rank;
     MPI_Comm_rank(comm, &rank);
 
-    cudaStream_t stream = 0;
     void* in_data = buf.untyped_data();
     void* out_data = out->untyped_data();
 
@@ -347,6 +354,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_bcast_ffi,
     mpi_bcast_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -359,6 +367,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Gather FFI (GPU) ---
 ffi::Error mpi_gather_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -378,7 +387,6 @@ ffi::Error mpi_gather_ffi_cuda_impl(
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -422,6 +430,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_gather_ffi,
     mpi_gather_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -436,6 +445,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Scatter FFI (GPU) ---
 ffi::Error mpi_scatter_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -455,7 +465,6 @@ ffi::Error mpi_scatter_ffi_cuda_impl(
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &comm_size);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -497,6 +506,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_scatter_ffi,
     mpi_scatter_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -511,6 +521,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Reduce FFI (GPU) ---
 ffi::Error mpi_reduce_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -528,7 +539,6 @@ ffi::Error mpi_reduce_ffi_cuda_impl(
     int rank;
     MPI_Comm_rank(comm, &rank);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -564,6 +574,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_reduce_ffi,
     mpi_reduce_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -577,6 +588,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Scan FFI (GPU) ---
 ffi::Error mpi_scan_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -590,7 +602,6 @@ ffi::Error mpi_scan_ffi_cuda_impl(
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -624,6 +635,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_scan_ffi,
     mpi_scan_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
@@ -636,6 +648,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Send FFI (GPU) ---
 ffi::Error mpi_send_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::Token> token_out,
@@ -648,7 +661,6 @@ ffi::Error mpi_send_ffi_cuda_impl(
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
 
     if (COPY_TO_HOST) {
@@ -679,6 +691,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_send_ffi,
     mpi_send_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::Token>()
@@ -691,6 +704,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Recv FFI (GPU) ---
 ffi::Error mpi_recv_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
     ffi::Result<ffi::Token> token_out,
@@ -705,7 +719,6 @@ ffi::Error mpi_recv_ffi_cuda_impl(
     MPI_Datatype dtype = from_handle<MPI_Datatype>(dtype_handle);
     MPI_Status* status = from_handle<MPI_Status*>(status_handle);
 
-    cudaStream_t stream = 0;
     void* recv_data = recvbuf->untyped_data();
 
     if (COPY_TO_HOST) {
@@ -736,6 +749,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_recv_ffi,
     mpi_recv_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
         .Ret<ffi::Token>()
@@ -749,6 +763,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
 
 // --- Sendrecv FFI (GPU) ---
 ffi::Error mpi_sendrecv_ffi_cuda_impl(
+    cudaStream_t stream,
     ffi::AnyBuffer sendbuf,
     ffi::Token token_in,
     ffi::Result<ffi::AnyBuffer> recvbuf,
@@ -769,7 +784,6 @@ ffi::Error mpi_sendrecv_ffi_cuda_impl(
     MPI_Comm comm = from_handle<MPI_Comm>(comm_handle);
     MPI_Status* status = from_handle<MPI_Status*>(status_handle);
 
-    cudaStream_t stream = 0;
     void* send_data = sendbuf.untyped_data();
     void* recv_data = recvbuf->untyped_data();
 
@@ -816,6 +830,7 @@ XLA_FFI_DEFINE_HANDLER_SYMBOL(
     mpi_sendrecv_ffi,
     mpi_sendrecv_ffi_cuda_impl,
     ffi::Ffi::Bind()
+        .Ctx<ffi::PlatformStream<cudaStream_t>>()
         .Arg<ffi::AnyBuffer>()
         .Arg<ffi::Token>()
         .Ret<ffi::AnyBuffer>()
