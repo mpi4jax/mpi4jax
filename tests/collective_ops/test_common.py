@@ -118,7 +118,7 @@ def test_deadlock_on_exit(tmp_path):
 def test_debug_logging(capsys):
     import re
     from mpi4jax import allreduce
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_cpu import set_logging
+    from mpi4jax._src.xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
 
@@ -149,7 +149,7 @@ def test_set_logging_from_envvar():
     import importlib
 
     from mpi4jax._src import xla_bridge
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge_cpu import set_logging, get_logging
+    from mpi4jax._src.xla_bridge import set_logging, get_logging
 
     os.environ["MPI4JAX_DEBUG"] = "1"
     importlib.reload(xla_bridge)

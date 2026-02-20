@@ -92,20 +92,22 @@ inline void* checked_malloc(size_t count, MPI_Comm comm) {
 }
 
 // ============================================================================
-// Global debug logging flag (shared across all backends)
+// Global debug logging flag
 // ============================================================================
-// Only one backend is loaded per process, so a single flag suffices
-inline bool& get_print_debug_flag() {
+// Each backend (CPU, CUDA, XPU) has its own copy of this flag since they are
+// separate shared libraries. The Python side calls set_logging() on each.
+
+inline bool& get_logging_flag() {
     static bool PRINT_DEBUG = false;
     return PRINT_DEBUG;
 }
 
 inline void set_logging(bool enable) {
-    get_print_debug_flag() = enable;
+    get_logging_flag() = enable;
 }
 
 inline bool get_logging() {
-    return get_print_debug_flag();
+    return get_logging_flag();
 }
 
 // ============================================================================
@@ -206,11 +208,11 @@ private:
 // ============================================================================
 // Core MPI wrappers with debug logging
 // ============================================================================
-// These functions call get_print_debug_flag() internally for debug logging.
+// These functions call get_logging() internally for debug logging.
 // The device_tag parameter is used for platform-specific logging (e.g., "GPU", "XPU").
 
 inline void mpi_barrier(MPI_Comm comm, const char* device_tag = "") {
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Barrier", "", device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Barrier", "", device_tag);
     int ierr = MPI_Barrier(comm);
     timer.finish(ierr);
     abort_on_error(ierr, comm, "Barrier");
@@ -223,7 +225,7 @@ inline void mpi_allgather(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items)", sendcount);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Allgather", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Allgather", details, device_tag);
 
     int ierr = MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 
@@ -238,7 +240,7 @@ inline void mpi_allreduce(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "with %d items", count);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Allreduce", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Allreduce", details, device_tag);
 
     int ierr = MPI_Allreduce(sendbuf, recvbuf, count, dtype, op, comm);
 
@@ -253,7 +255,7 @@ inline void mpi_alltoall(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items)", sendcount);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Alltoall", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Alltoall", details, device_tag);
 
     int ierr = MPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm);
 
@@ -267,7 +269,7 @@ inline void mpi_bcast(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items, root=%d)", count, root);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Bcast", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Bcast", details, device_tag);
 
     int ierr = MPI_Bcast(buf, count, dtype, root, comm);
 
@@ -282,7 +284,7 @@ inline void mpi_gather(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items, root=%d)", sendcount, root);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Gather", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Gather", details, device_tag);
 
     int ierr = MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm);
 
@@ -297,7 +299,7 @@ inline void mpi_scatter(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items, root=%d)", sendcount, root);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Scatter", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Scatter", details, device_tag);
 
     int ierr = MPI_Scatter(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, comm);
 
@@ -312,7 +314,7 @@ inline void mpi_reduce(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items, root=%d)", count, root);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Reduce", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Reduce", details, device_tag);
 
     int ierr = MPI_Reduce(sendbuf, recvbuf, count, dtype, op, root, comm);
 
@@ -327,7 +329,7 @@ inline void mpi_scan(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "(%d items)", count);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Scan", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Scan", details, device_tag);
 
     int ierr = MPI_Scan(sendbuf, recvbuf, count, dtype, op, comm);
 
@@ -341,7 +343,7 @@ inline void mpi_send(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "-> %d (tag %d, %d items)", dest, tag, count);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Send", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Send", details, device_tag);
 
     int ierr = MPI_Send(buf, count, dtype, dest, tag, comm);
 
@@ -356,7 +358,7 @@ inline void mpi_recv(
 ) {
     char details[64];
     snprintf(details, sizeof(details), "<- %d (tag %d, %d items)", source, tag, count);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Recv", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Recv", details, device_tag);
 
     int ierr = MPI_Recv(buf, count, dtype, source, tag, comm, status);
 
@@ -374,7 +376,7 @@ inline void mpi_sendrecv(
     snprintf(details, sizeof(details),
              "<- %d (tag %d, %d items) / -> %d (tag %d, %d items)",
              source, recvtag, recvcount, dest, sendtag, sendcount);
-    DebugTimer timer(get_print_debug_flag(), comm, "MPI_Sendrecv", details, device_tag);
+    DebugTimer timer(get_logging(), comm, "MPI_Sendrecv", details, device_tag);
 
     int ierr = MPI_Sendrecv(
         sendbuf, sendcount, sendtype, dest, sendtag,

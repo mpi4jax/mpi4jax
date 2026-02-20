@@ -111,8 +111,22 @@ def _is_truthy(str_val):
     return str_val.lower() in ("true", "1", "on")
 
 
+def set_logging(enable):
+    """Enable or disable debug logging for all backends."""
+    mpi_xla_bridge_cpu.set_logging(enable)
+    if HAS_CUDA_EXT:
+        mpi_xla_bridge_cuda.set_logging(enable)
+    if HAS_XPU_EXT:
+        mpi_xla_bridge_xpu.set_logging(enable)
+
+
+def get_logging():
+    """Get the current debug logging state."""
+    return mpi_xla_bridge_cpu.get_logging()
+
+
 _debug_enabled = _is_truthy(os.getenv("MPI4JAX_DEBUG", ""))
-mpi_xla_bridge_cpu.set_logging(_debug_enabled)
+set_logging(_debug_enabled)
 
 
 # List of all MPI primitives using FFI
