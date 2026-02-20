@@ -4,6 +4,7 @@ from mpi4py import MPI as _MPI
 from jax.ffi import ffi_lowering
 from jax.core import ShapedArray
 import jaxlib.mlir.ir as ir
+from jaxlib.mlir.dialects import mhlo
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -100,9 +101,18 @@ def _mpi_alltoall_xla_encode(ctx, x, comm):
         token_type(),
     ]
 
-    operands = (x, token)
+    # Force a copy to ensure C-contiguous layout (see mpi4jax#176)
+    # XLA can optimize away transposes by just changing layout interpretation,
+    # but alltoall needs data in actual C-order because the first axis determines
+    # which rank each slice goes to. The copy forces XLA to materialize any
+    # pending layout transformations.
+    x_copied = mhlo.CopyOp(x).result
 
-    # force c order because first axis is special
+    operands = (x_copied, token)
+
+    # force c order because first axis is special (see mpi4jax#176)
+    # We must use skip_ffi_layout_processing=True because our operands include
+    # the token which is not in ctx.avals_in
     lowering_rule = ffi_lowering(
         "mpi_alltoall_ffi",
         operand_layouts=get_default_layouts(operands, order="c"),
