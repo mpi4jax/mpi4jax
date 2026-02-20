@@ -47,6 +47,6 @@ requires = [
   "wheel",
   "mpi4py>=3.0.1",
   "nanobind>=2.0.0",
-  "jax>=0.5.1",
+  "jax>=0.7.0",
 ]
 build-backend = "setuptools.build_meta"

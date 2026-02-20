@@ -35,7 +35,7 @@ else:
 ##############
 # Requirements
 
-JAX_MINIMUM_VERSION = "0.5.1"
+JAX_MINIMUM_VERSION = "0.7.0"
 
 BASE_DEPENDENCIES = ["mpi4py>=3.0.1", "numpy", f"jax>={JAX_MINIMUM_VERSION}"]
 
@@ -361,7 +361,7 @@ def get_extensions():
         if require_extensions:
             raise RuntimeError(
                 "Building mpi4jax requires jax.ffi.include_dir() to be available. "
-                "Please ensure jax >= 0.5.1 is installed."
+                f"Please ensure jax >= {JAX_MINIMUM_VERSION} is installed."
             )
     else:
         include_dirs = get_nanobind_include_dirs() + [jaxlib_include]
@@ -506,7 +506,7 @@ setup(
     ],
     packages=find_packages(),
     ext_modules=get_extensions(),
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     install_requires=BASE_DEPENDENCIES,
     extras_require={
         "dev": DEV_DEPENDENCIES,
