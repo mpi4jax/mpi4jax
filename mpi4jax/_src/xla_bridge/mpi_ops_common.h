@@ -387,6 +387,42 @@ inline void mpi_sendrecv(
 }
 
 // ============================================================================
+// MPI ABI information for compatibility checking
+// ============================================================================
+// This struct captures build-time information about the MPI implementation
+// to detect incompatibilities at runtime (e.g., built with OpenMPI but
+// running with MPICH, which have different handle types).
+
+struct MpiAbiInfo {
+    size_t sizeof_comm;      // sizeof(MPI_Comm)
+    size_t sizeof_datatype;  // sizeof(MPI_Datatype)
+    size_t sizeof_op;        // sizeof(MPI_Op)
+    size_t sizeof_status;    // sizeof(MPI_Status)
+    int64_t comm_world_handle;  // MPI_COMM_WORLD as int64
+    const char* mpi_library_version;  // MPI_Get_library_version result
+};
+
+inline MpiAbiInfo get_mpi_abi_info() {
+    static char lib_version[MPI_MAX_LIBRARY_VERSION_STRING] = {0};
+    static bool initialized = false;
+
+    if (!initialized) {
+        int len;
+        MPI_Get_library_version(lib_version, &len);
+        initialized = true;
+    }
+
+    return MpiAbiInfo{
+        sizeof(MPI_Comm),
+        sizeof(MPI_Datatype),
+        sizeof(MPI_Op),
+        sizeof(MPI_Status),
+        to_handle(MPI_COMM_WORLD),
+        lib_version
+    };
+}
+
+// ============================================================================
 // Nanobind helper for registering logging functions
 // ============================================================================
 // Used by all backends (CPU, CUDA, XPU)

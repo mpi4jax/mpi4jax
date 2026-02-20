@@ -521,6 +521,17 @@ NB_MODULE(mpi_xla_bridge_cpu, m) {
     // Register MPI_STATUS_IGNORE address
     m.attr("MPI_STATUS_IGNORE_ADDR") = get_mpi_status_ignore_addr();
 
+    // Register MPI ABI information for compatibility checking
+    auto abi_info = get_mpi_abi_info();
+    nb::dict mpi_abi;
+    mpi_abi["sizeof_comm"] = abi_info.sizeof_comm;
+    mpi_abi["sizeof_datatype"] = abi_info.sizeof_datatype;
+    mpi_abi["sizeof_op"] = abi_info.sizeof_op;
+    mpi_abi["sizeof_status"] = abi_info.sizeof_status;
+    mpi_abi["comm_world_handle"] = abi_info.comm_world_handle;
+    mpi_abi["mpi_library_version"] = abi_info.mpi_library_version;
+    m.attr("MPI_ABI_INFO") = mpi_abi;
+
     // Register FFI targets
     nb::dict ffi_targets;
     ffi_targets["mpi_barrier"] = encapsulate_ffi_handler(mpi_barrier_ffi);
