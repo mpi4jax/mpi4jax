@@ -5,8 +5,8 @@ import warnings
 import jax
 
 from jax.interpreters import mlir
-from jax.interpreters.mlir import token_type as jax_token_type, TokenSet
-from jax.extend.core import Primitive, Token  # noqa: F401
+from jax.interpreters.mlir import TokenSet
+from jax.extend.core import Primitive  # noqa: F401
 
 
 def versiontuple(verstr):
@@ -57,13 +57,20 @@ def register_lowering(prim, rule, platform="cpu"):
         return None
 
 
-def register_custom_call_target(name, fn, *, platform: str, api_version: int):
+def register_custom_call_target(name, fn, *, platform: str, api_version: int = 1):
+    """Register a custom call target with XLA.
+
+    Args:
+        name: Name of the custom call target.
+        fn: PyCapsule containing the function pointer.
+        platform: Platform to register for (e.g., "cpu", "CUDA", "SYCL").
+        api_version: API version (0 for legacy, 1 for new FFI API). Defaults to 1.
+    """
     return jax.ffi.register_ffi_target(
         name, fn, platform=platform, api_version=api_version
     )
 
 
-token_type = jax_token_type
 get_token_effect = lambda ctx, effect: ctx.tokens_in.get(effect)
 set_token_effect = lambda ctx, effect, token: ctx.set_tokens_out(
     TokenSet({effect: token})

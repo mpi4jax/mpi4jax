@@ -1,13 +1,10 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax.core import get_aval
+from jax import core, typeof
+from jax.ffi import ffi_lowering
 from jax.interpreters import ad, batching
 from jax.core import ShapedArray
-
-
-import jaxlib.mlir.ir as ir
-from jax._src.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -17,15 +14,12 @@ from mpi4jax._src.utils import (
     to_mpi_ptr,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -36,10 +30,7 @@ from mpi4jax._src.decorators import (
     translation_rule_xpu,
 )
 from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
-
-from mpi4jax._src.xla_bridge.device_descriptors import build_sendrecv_descriptor
-
+from mpi4jax._src.utils import get_default_comm
 
 # The Jax primitive
 mpi_sendrecv_p = Primitive("sendrecv_mpi")  # Create the primitive
@@ -112,9 +103,7 @@ def sendrecv(
     )
 
 
-# This function compiles the operation
-@translation_rule_cpu
-def mpi_sendrecv_xla_encode_cpu(
+def _mpi_sendrecv_xla_encode(
     ctx,
     sendbuf,
     recvbuf,
@@ -126,13 +115,9 @@ def mpi_sendrecv_xla_encode_cpu(
     status,
     _must_transpose=False,
 ):
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
+    from mpi4jax._src.xla_bridge import MPI_STATUS_IGNORE_ADDR
 
-    # when performing forward diff, the gradient will follow the sent message.
-    # so if you do a sendrecv from rank 0 to 1, the gradient wrt the inputs of rank 0
-    # will end up in rank 1.\
-    # it's maybe possible to fix this by, at the end of the calculation, bringing back
-    # the gradient to the correct rank, but that would require some study.
     if _must_transpose:
         raise RuntimeError(
             "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
@@ -147,204 +132,60 @@ def mpi_sendrecv_xla_encode_cpu(
     send_nptype = send_aval.dtype
     recv_nptype = recv_aval.dtype
 
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
+    send_nitems = _np.prod(send_aval.shape, dtype=_np.int64)
+    send_dtype_handle = _np.int64(to_dtype_handle(send_nptype))
 
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
+    recv_nitems = _np.prod(recv_aval.shape, dtype=_np.int64)
+    recv_dtype_handle = _np.int64(to_dtype_handle(recv_nptype))
 
     if status is None:
-        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
+        status_ptr = _np.int64(MPI_STATUS_IGNORE_ADDR)
     else:
-        status_ptr = to_mpi_ptr(status)
+        status_ptr = _np.int64(to_mpi_ptr(status))
+
+    comm_handle = _np.int64(to_mpi_handle(comm))
 
     token = get_token_effect(ctx, ordered_effect)
+    operands = (sendbuf, token)
 
-    operands = (
-        as_mhlo_constant(send_nitems, _np.intc),
-        sendbuf,
-        as_mhlo_constant(dest, _np.intc),
-        as_mhlo_constant(sendtag, _np.intc),
-        as_mhlo_constant(send_dtype_handle, _np.uintp),
-        as_mhlo_constant(recv_nitems, _np.intc),
-        as_mhlo_constant(source, _np.intc),
-        as_mhlo_constant(recvtag, _np.intc),
-        as_mhlo_constant(recv_dtype_handle, _np.uintp),
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(status_ptr, _np.uintp),
-        token,
+    # sendrecv takes (sendbuf, token) but ctx.avals_in has (sendbuf, recvbuf)
+    # Output is (result, token) and ctx.avals_out has (result,)
+    ctx_with_token = ctx.replace(
+        avals_in=(send_aval, core.abstract_token),
+        avals_out=(*ctx.avals_out, core.abstract_token),
     )
 
-    result_obj = custom_call(
-        b"mpi_sendrecv",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
+    lowering_rule = ffi_lowering(
+        "mpi_sendrecv_ffi",
         has_side_effect=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx_with_token,
+        *operands,
+        sendcount=send_nitems,
+        dest=_np.int64(dest),
+        sendtag=_np.int64(sendtag),
+        sendtype=send_dtype_handle,
+        recvcount=recv_nitems,
+        source=_np.int64(source),
+        recvtag=_np.int64(recvtag),
+        recvtype=recv_dtype_handle,
+        comm=comm_handle,
+        status=status_ptr,
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_sendrecv_xla_encode_device(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose,
-):
-    if _must_transpose:
-        raise RuntimeError(
-            "sendrecv cannot be used with forward-mode (vjp) autodiff, because "
-            "the gradient might be located on a different mpi rank than the "
-            "desired one. Use reverse-mode (jvp) differentiation instead."
-        )
-
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import MPI_STATUS_IGNORE_ADDR
-
-    comm = unpack_hashable(comm)
-    status = unpack_hashable(status)
-
-    send_aval, recv_aval, *_ = ctx.avals_in
-    send_nptype = send_aval.dtype
-    recv_nptype = recv_aval.dtype
-
-    send_type = ir.RankedTensorType(sendbuf.type)
-    send_dims = send_type.shape
-
-    recv_type = ir.RankedTensorType(recvbuf.type)
-    recv_dtype = recv_type.element_type
-    recv_dims = recv_type.shape
-
-    # compute total number of elements in arrays
-    send_nitems = _np.prod(send_dims, dtype=int)
-    send_dtype_handle = to_dtype_handle(send_nptype)
-
-    recv_nitems = _np.prod(recv_dims, dtype=int)
-    recv_dtype_handle = to_dtype_handle(recv_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(recv_dims, recv_dtype),
-        token_type(),
-    ]
-
-    if status is None:
-        status_ptr = _np.uintp(MPI_STATUS_IGNORE_ADDR)
-    else:
-        status_ptr = to_mpi_ptr(status)
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        sendbuf,
-        token,
-    )
-
-    descriptor = build_sendrecv_descriptor(
-        send_nitems,
-        dest,
-        sendtag,
-        send_dtype_handle,
-        recv_nitems,
-        source,
-        recvtag,
-        recv_dtype_handle,
-        to_mpi_handle(comm),
-        status_ptr,
-    )
-
-    result_obj = custom_call(
-        b"mpi_sendrecv",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-@translation_rule_xpu
-def mpi_sendrecv_xla_encode_xpu(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
-
-
-@translation_rule_cuda
-def mpi_sendrecv_xla_encode_cuda(
-    ctx,
-    sendbuf,
-    recvbuf,
-    source,
-    dest,
-    sendtag,
-    recvtag,
-    comm,
-    status,
-    _must_transpose=False,
-):
-    return mpi_sendrecv_xla_encode_device(
-        ctx,
-        sendbuf,
-        recvbuf,
-        source,
-        dest,
-        sendtag,
-        recvtag,
-        comm,
-        status,
-        _must_transpose,
-    )
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_sendrecv_xla_encode_cpu = translation_rule_cpu(_mpi_sendrecv_xla_encode)
+mpi_sendrecv_xla_encode_cuda = translation_rule_cuda(_mpi_sendrecv_xla_encode)
+mpi_sendrecv_xla_encode_xpu = translation_rule_xpu(_mpi_sendrecv_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction
@@ -448,7 +289,7 @@ def mpi_sendrecv_transpose_rule(
         status=status,
         _must_transpose=not _must_transpose,
     )
-    return (res, ad.Zero(get_aval(res)))
+    return (res, ad.Zero(typeof(res)))
 
 
 mpi_sendrecv_p.def_impl(mpi_sendrecv_impl)

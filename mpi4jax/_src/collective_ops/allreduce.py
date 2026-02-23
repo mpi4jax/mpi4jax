@@ -1,12 +1,10 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
+from jax import core
+from jax.ffi import ffi_lowering
 from jax.interpreters import ad, batching
 from jax.core import ShapedArray
-
-
-import jaxlib.mlir.ir as ir
-from jax._src.interpreters.mlir import custom_call
 
 from mpi4jax._src.utils import (
     HashableMPIType,
@@ -15,15 +13,12 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -34,9 +29,8 @@ from mpi4jax._src.decorators import (
     translation_rule_xpu,
 )
 from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
+from mpi4jax._src.utils import get_default_comm
 
-from mpi4jax._src.xla_bridge.device_descriptors import build_allreduce_descriptor
 
 # The Jax primitive
 mpi_allreduce_p = Primitive("allreduce_mpi")  # Create the primitive
@@ -76,11 +70,8 @@ def allreduce(x, op, *, comm=None, token=NOTSET):
     return mpi_allreduce_p.bind(x, op=op, comm=comm, transpose=False)
 
 
-# This function compiles the operation
-# transpose is a boolean flag that signals whever this is the forward pass
-# performing the MPI reduction, or the transposed pass, which is trivial
-@translation_rule_cpu
-def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
+def _mpi_allreduce_xla_encode(ctx, x, op, comm, transpose):
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
     op = unpack_hashable(op)
     comm = unpack_hashable(comm)
 
@@ -91,101 +82,41 @@ def mpi_allreduce_xla_encode_cpu(ctx, x, op, comm, transpose):
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
 
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        token_type(),
-    ]
+    nitems = _np.prod(x_aval.shape, dtype=_np.int64)
 
     token = get_token_effect(ctx, ordered_effect)
+    operands = (x, token)
 
-    operands = (
-        as_mhlo_constant(nitems, _np.intc),
-        x,
-        as_mhlo_constant(to_mpi_handle(op), _np.uintp),
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        as_mhlo_constant(to_dtype_handle(x_nptype), _np.uintp),
-        token,
+    ctx_with_token = ctx.replace(
+        avals_in=(*ctx.avals_in, core.abstract_token),
+        avals_out=(*ctx.avals_out, core.abstract_token),
     )
 
-    result_obj = custom_call(
-        b"mpi_allreduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
+    lowering_rule = ffi_lowering(
+        "mpi_allreduce_ffi",
         has_side_effect=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx_with_token,
+        *operands,
+        nitems=nitems,
+        op=_np.int64(to_mpi_handle(op)),
+        comm=_np.int64(to_mpi_handle(comm)),
+        dtype=_np.int64(to_dtype_handle(x_nptype)),
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_allreduce_xla_encode_device(ctx, x, op, comm, transpose):
-    op = unpack_hashable(op)
-    comm = unpack_hashable(comm)
-
-    if transpose:
-        assert op == _MPI.SUM
-        return [x]
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    nitems = _np.prod(dims, dtype=int)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        token_type(),
-    ]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_allreduce_descriptor(
-        _np.intc(nitems),
-        to_mpi_handle(op),
-        to_mpi_handle(comm),
-        to_dtype_handle(x_nptype),
-    )
-
-    result_obj = custom_call(
-        b"mpi_allreduce",
-        result_types=out_types,
-        operands=operands,
-        operand_layouts=get_default_layouts(operands),
-        result_layouts=get_default_layouts(out_types),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-
-    return results
-
-
-mpi_allreduce_xla_encode_xpu = translation_rule_xpu(mpi_allreduce_xla_encode_device)
-mpi_allreduce_xla_encode_cuda = translation_rule_cuda(mpi_allreduce_xla_encode_device)
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_allreduce_xla_encode_cpu = translation_rule_cpu(_mpi_allreduce_xla_encode)
+mpi_allreduce_xla_encode_cuda = translation_rule_cuda(_mpi_allreduce_xla_encode)
+mpi_allreduce_xla_encode_xpu = translation_rule_xpu(_mpi_allreduce_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

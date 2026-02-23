@@ -5,15 +5,26 @@ from mpi4py import MPI as _MPI
 
 import numpy as _np
 
-from jax.interpreters import xla, mlir
-import jaxlib.mlir.ir as ir
-from jaxlib.mlir.dialects import mhlo
+from jax.interpreters import xla
 
-from .jax_compat import token_type, register_effect, EffectType
+from .jax_compat import register_effect, EffectType  # noqa: F401
 
 
 # Sentinel value for default arguments
 NOTSET = object()
+
+# Global variable to hold the default communicator
+_default_comm = None
+
+
+def get_default_comm():
+    global _default_comm
+    if _default_comm is None:
+        from mpi4py import MPI
+
+        _default_comm = MPI.COMM_WORLD.Clone()
+
+    return _default_comm
 
 
 def raise_if_token_is_set(token):
@@ -31,12 +42,6 @@ def raise_if_token_is_set(token):
         )
 
 
-class MPIEffect(EffectType):
-    def __hash__(self):
-        # enforce a constant (known) hash
-        return int(hashlib.md5("I love mpi4jax".encode("utf-8")).hexdigest(), 16)
-
-
 class OrderedMPIEffect(EffectType):
     def __hash__(self):
         # enforce a constant (known) hash
@@ -45,54 +50,11 @@ class OrderedMPIEffect(EffectType):
         )
 
 
-effect = register_effect(MPIEffect)
 ordered_effect = register_effect(OrderedMPIEffect, ordered=True)
 
 
 def default_primitive_impl(primitive):
     return functools.partial(xla.apply_primitive, primitive)
-
-
-def as_mhlo_constant(val, dtype):
-    if isinstance(val, mhlo.ConstantOp):
-        return val
-
-    return mhlo.ConstantOp(
-        ir.DenseElementsAttr.get(
-            _np.array([val], dtype=dtype), type=mlir.dtype_to_ir_type(_np.dtype(dtype))
-        )
-    ).result
-
-
-def get_default_layouts(operands, order="c"):
-    token = token_type()
-    layouts = []
-
-    if order == "c":
-        default_layout = lambda t: tuple(range(len(t.shape) - 1, -1, -1))
-    elif order == "f":
-        default_layout = lambda t: tuple(range(len(t.shape)))
-    else:
-        raise ValueError(f"Unknown order: {order}")
-
-    for op in operands:
-        if isinstance(op, (ir.Value)):
-            if op.type == token:
-                layouts.append(())
-            else:
-                tensor_type = ir.RankedTensorType(op.type)
-                layouts.append(default_layout(tensor_type))
-
-        elif isinstance(op, ir.RankedTensorType):
-            layouts.append(default_layout(op))
-
-        elif op == token:
-            layouts.append(())
-
-        else:
-            raise ValueError(f"Unknown operand type: {type(op)}")
-
-    return layouts
 
 
 def to_mpi_handle(mpi_obj):
@@ -103,8 +65,29 @@ def to_mpi_handle(mpi_obj):
     otherwise.
 
     Note: This is not a pointer, but the actual C integer representation of the object.
+    MPI implementations differ in handle types:
+    - OpenMPI: handles are pointers (64-bit on 64-bit systems)
+    - MPICH: handles are signed 32-bit integers
+
+    We pass the handle as a signed 64-bit integer in the FFI interface. The C++ side
+    uses memcpy to convert back to the correct MPI handle type.
+
+    For MPICH, the handle is a 32-bit signed integer, but mpi4py's _handleof() returns
+    it as a Python int. When the original value is negative (e.g., -2080374784), it may
+    be sign-extended to appear as a large unsigned value (e.g., 18446744071629176832).
+    We convert this back to a proper signed representation that fits in int64_t.
     """
-    return _np.uintp(_MPI._handleof(mpi_obj))
+    handle = _MPI._handleof(mpi_obj)
+    # Convert large unsigned values back to signed interpretation
+    # This handles MPICH's negative handle values that get sign-extended
+    if handle >= (1 << 63):
+        # Interpret as signed 64-bit
+        handle = handle - (1 << 64)
+    int64_info = _np.iinfo(_np.int64)
+    assert (
+        int64_info.min <= handle <= int64_info.max
+    ), f"MPI handle {handle} does not fit in int64_t"
+    return handle
 
 
 def to_mpi_ptr(mpi_obj):

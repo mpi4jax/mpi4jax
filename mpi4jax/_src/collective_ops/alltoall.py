@@ -1,8 +1,8 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-import jaxlib.mlir.ir as ir
-from jax._src.interpreters.mlir import custom_call
+from jax import core
+from jax.ffi import ffi_lowering
 from jax.core import ShapedArray
 
 from mpi4jax._src.utils import (
@@ -12,15 +12,12 @@ from mpi4jax._src.utils import (
     to_mpi_handle,
     unpack_hashable,
     wrap_as_hashable,
-    as_mhlo_constant,
-    get_default_layouts,
     ordered_effect,
     NOTSET,
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
     register_lowering,
-    token_type,
     get_token_effect,
     set_token_effect,
     Primitive,
@@ -31,9 +28,7 @@ from mpi4jax._src.decorators import (
     translation_rule_xpu,
 )
 from mpi4jax._src.validation import enforce_types
-from mpi4jax._src.comm import get_default_comm
-
-from mpi4jax._src.xla_bridge.device_descriptors import build_alltoall_descriptor
+from mpi4jax._src.utils import get_default_comm
 
 
 # The Jax primitive
@@ -79,117 +74,57 @@ def alltoall(
     )
 
 
-# This function compiles the operation
-@translation_rule_cpu
-def mpi_alltoall_xla_encode_cpu(ctx, x, comm):
+def _mpi_alltoall_xla_encode(ctx, x, comm):
+    """Common lowering for all platforms using jax.ffi.ffi_lowering."""
     comm = unpack_hashable(comm)
 
     x_aval, *_ = ctx.avals_in
     x_nptype = x_aval.dtype
 
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
     # compute total number of elements in array
     size = comm.Get_size()
-    assert dims[0] == size
-    nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        token_type(),
-    ]
+    assert x_aval.shape[0] == size
+    nitems_per_proc = _np.prod(x_aval.shape[1:], dtype=_np.int64)
+    dtype_handle = _np.int64(to_dtype_handle(x_nptype))
 
     token = get_token_effect(ctx, ordered_effect)
+    operands = (x, token)
 
-    operands = (
-        as_mhlo_constant(nitems_per_proc, _np.intc),
-        x,
-        as_mhlo_constant(dtype_handle, _np.uintp),
-        # we only support matching input and output arrays
-        as_mhlo_constant(nitems_per_proc, _np.intc),
-        as_mhlo_constant(dtype_handle, _np.uintp),
-        #
-        as_mhlo_constant(to_mpi_handle(comm), _np.uintp),
-        token,
+    # Extend ctx to include token in avals (needed for ffi_lowering to derive
+    # correct layouts and result types from abstract values)
+    ctx_with_token = ctx.replace(
+        avals_in=(*ctx.avals_in, core.abstract_token),
+        avals_out=(*ctx.avals_out, core.abstract_token),
     )
 
-    result_obj = custom_call(
-        b"mpi_alltoall",
-        result_types=out_types,
-        operands=operands,
-        # force c order because first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
+    # ffi_lowering will derive operand_layouts, result_layouts, and result_types
+    # from ctx_with_token.avals_in/out automatically
+    lowering_rule = ffi_lowering(
+        "mpi_alltoall_ffi",
         has_side_effect=True,
     )
 
-    results = list(result_obj.results)
+    results = lowering_rule(
+        ctx_with_token,
+        *operands,
+        sendcount=nitems_per_proc,
+        sendtype=dtype_handle,
+        recvcount=nitems_per_proc,
+        recvtype=dtype_handle,
+        comm=_np.int64(to_mpi_handle(comm)),
+    )
+
+    results = list(results)
     token = results.pop(-1)
     set_token_effect(ctx, ordered_effect, token)
 
     return results
 
 
-def mpi_alltoall_xla_encode_device(ctx, x, comm):
-    comm = unpack_hashable(comm)
-
-    x_aval, *_ = ctx.avals_in
-    x_nptype = x_aval.dtype
-
-    x_type = ir.RankedTensorType(x.type)
-    dtype = x_type.element_type
-    dims = x_type.shape
-
-    # compute total number of elements in array
-    size = comm.Get_size()
-    assert dims[0] == size
-    nitems_per_proc = _np.prod(dims[1:], dtype=int)
-    dtype_handle = to_dtype_handle(x_nptype)
-
-    out_types = [
-        ir.RankedTensorType.get(dims, dtype),
-        token_type(),
-    ]
-
-    token = get_token_effect(ctx, ordered_effect)
-
-    operands = (
-        x,
-        token,
-    )
-
-    descriptor = build_alltoall_descriptor(
-        nitems_per_proc,
-        dtype_handle,
-        # we only support matching input and output arrays
-        nitems_per_proc,
-        dtype_handle,
-        #
-        to_mpi_handle(comm),
-    )
-
-    result_obj = custom_call(
-        b"mpi_alltoall",
-        result_types=out_types,
-        operands=operands,
-        # force c order because first axis is special
-        operand_layouts=get_default_layouts(operands, order="c"),
-        result_layouts=get_default_layouts(out_types, order="c"),
-        has_side_effect=True,
-        backend_config=descriptor,
-    )
-
-    results = list(result_obj.results)
-    token = results.pop(-1)
-    set_token_effect(ctx, ordered_effect, token)
-    return results
-
-
-mpi_alltoall_xla_encode_xpu = translation_rule_xpu(mpi_alltoall_xla_encode_device)
-mpi_alltoall_xla_encode_cuda = translation_rule_cuda(mpi_alltoall_xla_encode_device)
+# Platform-specific lowering rules (all use the same FFI implementation)
+mpi_alltoall_xla_encode_cpu = translation_rule_cpu(_mpi_alltoall_xla_encode)
+mpi_alltoall_xla_encode_cuda = translation_rule_cuda(_mpi_alltoall_xla_encode)
+mpi_alltoall_xla_encode_xpu = translation_rule_xpu(_mpi_alltoall_xla_encode)
 
 
 # This function evaluates only the shapes during AST construction

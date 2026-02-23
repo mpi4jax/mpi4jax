@@ -3,34 +3,58 @@
 from mpi4py import MPI
 
 # check version of JAX and jaxlib
-from . import jax_compat
+from .jax_compat import check_jax_version
 
-jax_compat.check_jax_version()  # noqa: F401
+check_jax_version()
 
 # this registers our custom XLA functions
 from . import xla_bridge  # noqa: E402
 
 # register atexit handler to flush JAX buffers
 import atexit  # noqa: E402
-from . import flush  # noqa: E402
 
-atexit.register(flush.flush)
+
+def flush():
+    """Wait for all pending XLA operations"""
+    import jax
+
+    jax.effects_barrier()
+
+
+atexit.register(flush)
 
 # import public API
-from .collective_ops.allgather import allgather  # noqa: F401, E402
-from .collective_ops.allreduce import allreduce  # noqa: F401, E402
-from .collective_ops.alltoall import alltoall  # noqa: F401, E402
-from .collective_ops.barrier import barrier  # noqa: F401, E402
-from .collective_ops.bcast import bcast  # noqa: F401, E402
-from .collective_ops.gather import gather  # noqa: F401, E402
-from .collective_ops.recv import recv  # noqa: F401, E402
-from .collective_ops.reduce import reduce  # noqa: F401, E402
-from .collective_ops.scan import scan  # noqa: F401, E402
-from .collective_ops.scatter import scatter  # noqa: F401, E402
-from .collective_ops.send import send  # noqa: F401, E402
-from .collective_ops.sendrecv import sendrecv  # noqa: F401, E402
+from .collective_ops.allgather import allgather  # noqa: E402
+from .collective_ops.allreduce import allreduce  # noqa: E402
+from .collective_ops.alltoall import alltoall  # noqa: E402
+from .collective_ops.barrier import barrier  # noqa: E402
+from .collective_ops.bcast import bcast  # noqa: E402
+from .collective_ops.gather import gather  # noqa: E402
+from .collective_ops.recv import recv  # noqa: E402
+from .collective_ops.reduce import reduce  # noqa: E402
+from .collective_ops.scan import scan  # noqa: E402
+from .collective_ops.scatter import scatter  # noqa: E402
+from .collective_ops.send import send  # noqa: E402
+from .collective_ops.sendrecv import sendrecv  # noqa: E402
 
-from .utils import has_cuda_support, has_sycl_support  # noqa: F401, E402
+from .utils import has_cuda_support, has_sycl_support  # noqa: E402
 
 # sanitize namespace
-del jax_compat, xla_bridge, MPI, atexit, flush
+del check_jax_version, xla_bridge, MPI, atexit, flush
+
+__all__ = [
+    "allgather",
+    "allreduce",
+    "alltoall",
+    "barrier",
+    "bcast",
+    "gather",
+    "recv",
+    "reduce",
+    "scan",
+    "scatter",
+    "send",
+    "sendrecv",
+    "has_cuda_support",
+    "has_sycl_support",
+]

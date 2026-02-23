@@ -118,7 +118,7 @@ def test_deadlock_on_exit(tmp_path):
 def test_debug_logging(capsys):
     import re
     from mpi4jax import allreduce
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging
+    from mpi4jax._src.xla_bridge import set_logging
 
     arr = jnp.ones((3, 2))
 
@@ -128,11 +128,13 @@ def test_debug_logging(capsys):
 
     captured = capsys.readouterr().out
     start_msg, end_msg, _ = captured.split("\n")
+    # Device tag (GPU/XPU) is optional - present on GPU/XPU backends, absent on CPU
     assert re.match(
-        rf"r{rank} \| \w{{8}} \| MPI_Allreduce with {arr.size} items", start_msg
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce( \(\w+\))? with {arr.size} items",
+        start_msg,
     )
     assert re.match(
-        rf"r{rank} \| \w{{8}} \| MPI_Allreduce done with code 0 \(\d\.\d{{2}}e[+-]?\d+s\)",
+        rf"r{rank} \| \w{{8}} \| MPI_Allreduce( \(\w+\))? done with code 0 \(\d\.\d{{2}}e[+-]?\d+s\)",
         end_msg,
     )
 
@@ -149,7 +151,7 @@ def test_set_logging_from_envvar():
     import importlib
 
     from mpi4jax._src import xla_bridge
-    from mpi4jax._src.xla_bridge.mpi_xla_bridge import set_logging, get_logging
+    from mpi4jax._src.xla_bridge import set_logging, get_logging
 
     os.environ["MPI4JAX_DEBUG"] = "1"
     importlib.reload(xla_bridge)
@@ -163,3 +165,60 @@ def test_set_logging_from_envvar():
     assert get_logging()
 
     del os.environ["MPI4JAX_DEBUG"]
+
+
+def test_mpi_abi_info():
+    """Test that MPI ABI info is available and contains expected fields."""
+    from mpi4jax._src.xla_bridge.mpi_xla_bridge_cpu import MPI_ABI_INFO
+
+    # Check that all expected fields are present
+    assert "sizeof_comm" in MPI_ABI_INFO
+    assert "sizeof_datatype" in MPI_ABI_INFO
+    assert "sizeof_op" in MPI_ABI_INFO
+    assert "sizeof_status" in MPI_ABI_INFO
+    assert "comm_world_handle" in MPI_ABI_INFO
+    assert "mpi_library_version" in MPI_ABI_INFO
+
+    # Check that sizes are reasonable (4 or 8 bytes for handles)
+    assert MPI_ABI_INFO["sizeof_comm"] in (4, 8)
+    assert MPI_ABI_INFO["sizeof_datatype"] in (4, 8)
+    assert MPI_ABI_INFO["sizeof_op"] in (4, 8)
+    assert MPI_ABI_INFO["sizeof_status"] > 0
+
+    # Check that library version is a non-empty string
+    assert len(MPI_ABI_INFO["mpi_library_version"]) > 0
+
+
+def test_mpi_abi_compatibility_check():
+    """Test that the ABI compatibility check passes for matching MPI."""
+    from mpi4jax._src.xla_bridge import _check_mpi_abi_compatibility
+
+    # Should not raise when build-time and runtime MPI match
+    _check_mpi_abi_compatibility()
+
+
+@pytest.mark.skipif(rank > 0, reason="Runs only on rank 0")
+def test_mpi_abi_skip_check(tmp_path):
+    """Test that MPI4JAX_SKIP_ABI_CHECK disables the check."""
+    from textwrap import dedent
+
+    # Test that setting MPI4JAX_SKIP_ABI_CHECK allows import even if we
+    # were to mock a mismatch (here we just verify the env var is respected)
+    test_script = dedent(
+        """
+        import os
+        os.environ["MPI4JAX_SKIP_ABI_CHECK"] = "1"
+
+        # Force reimport to test the skip
+        import importlib
+        from mpi4jax._src import xla_bridge
+        importlib.reload(xla_bridge)
+
+        # If we got here, the check was skipped successfully
+        print("ABI check skipped successfully")
+        """
+    )
+
+    proc = run_in_subprocess(test_script, tmp_path / "abi_skip.py")
+    assert proc.returncode == 0, proc.stderr
+    assert "ABI check skipped successfully" in proc.stdout

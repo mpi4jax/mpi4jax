@@ -34,7 +34,7 @@ Depending on the different jax backends you want to use, you can install mpi4jax
    $ pip install mpi4jax
 
    # pip install -U 'jax[cuda12]'
-   $ pip install cython
+   $ pip install nanobind
    $ pip install mpi4jax --no-build-isolation
 
    # pip install -U 'jax[cuda12_local]'

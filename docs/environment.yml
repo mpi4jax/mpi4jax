@@ -7,9 +7,10 @@ channels:
 dependencies:
   - python=3.12
   - openmpi-mpicc
+  - openmpi-mpicxx
   - mpi4py
   - numpy
-  - cython
+  - nanobind
   - sphinx
   - sphinx_rtd_theme
   - pip
