@@ -43,7 +43,7 @@ exclude = '''
 
 [build-system]
 requires = [
-  "setuptools>=42",
+  "setuptools>=82.0.1",
   "wheel",
   "mpi4py>=3.0.1",
   "nanobind>=2.0.0",
