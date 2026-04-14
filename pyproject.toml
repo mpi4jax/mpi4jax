@@ -45,7 +45,7 @@ exclude = '''
 requires = [
   "setuptools>=82.0.1",
   "wheel",
-  "mpi4py>=3.0.1",
+  "mpi4py>=4.1.1",
   "nanobind>=2.0.0",
   "jax>=0.6.0",
 ]
