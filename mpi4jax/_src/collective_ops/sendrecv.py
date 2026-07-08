@@ -1,7 +1,7 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core, typeof
+from jax import typeof
 from jax.ffi import ffi_lowering
 from jax.interpreters import ad, batching
 from jax.core import ShapedArray
@@ -19,6 +19,7 @@ from mpi4jax._src.utils import (
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
+    abstract_token,
     register_lowering,
     get_token_effect,
     set_token_effect,
@@ -151,8 +152,8 @@ def _mpi_sendrecv_xla_encode(
     # sendrecv takes (sendbuf, token) but ctx.avals_in has (sendbuf, recvbuf)
     # Output is (result, token) and ctx.avals_out has (result,)
     ctx_with_token = ctx.replace(
-        avals_in=(send_aval, core.abstract_token),
-        avals_out=(*ctx.avals_out, core.abstract_token),
+        avals_in=(send_aval, abstract_token),
+        avals_out=(*ctx.avals_out, abstract_token),
     )
 
     lowering_rule = ffi_lowering(
