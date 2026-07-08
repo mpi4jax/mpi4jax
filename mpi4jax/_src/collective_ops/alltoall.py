@@ -1,7 +1,6 @@
 import numpy as _np
 from mpi4py import MPI as _MPI
 
-from jax import core
 from jax.ffi import ffi_lowering
 from jax.core import ShapedArray
 
@@ -17,6 +16,7 @@ from mpi4jax._src.utils import (
     raise_if_token_is_set,
 )
 from mpi4jax._src.jax_compat import (
+    abstract_token,
     register_lowering,
     get_token_effect,
     set_token_effect,
@@ -93,8 +93,8 @@ def _mpi_alltoall_xla_encode(ctx, x, comm):
     # Extend ctx to include token in avals (needed for ffi_lowering to derive
     # correct layouts and result types from abstract values)
     ctx_with_token = ctx.replace(
-        avals_in=(*ctx.avals_in, core.abstract_token),
-        avals_out=(*ctx.avals_out, core.abstract_token),
+        avals_in=(*ctx.avals_in, abstract_token),
+        avals_out=(*ctx.avals_out, abstract_token),
     )
 
     # ffi_lowering will derive operand_layouts, result_layouts, and result_types

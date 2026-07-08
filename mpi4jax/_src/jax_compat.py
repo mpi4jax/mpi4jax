@@ -98,3 +98,10 @@ def register_effect(EffectType, ordered=False):
     # custom_vjp. See google/jax#11916
     custom_derivatives_allowed_effects.add_type(EffectType)
     return effect
+
+
+if versiontuple(jax.__version__) >= (0, 10, 0):
+    # the public jax.core.abstract_token is deprecated.
+    from jax._src.core import abstract_token  # noqa: F401
+else:
+    from jax.core import abstract_token  # noqa: F401
