@@ -27,11 +27,10 @@ jobs:
             cuda: "pypi"
 
     steps:
+    # fetch-depth: 0 gets full history and tags so versioneer can compute a version
     - uses: actions/checkout@v4
-
-    # make sure tags are fetched so we can get a version
-    - run: |
-        git fetch --prune --unshallow --tags
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5

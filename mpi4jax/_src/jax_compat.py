@@ -100,8 +100,16 @@ def register_effect(EffectType, ordered=False):
     return effect
 
 
-if versiontuple(jax.__version__) >= (0, 10, 0):
-    # the public jax.core.abstract_token is deprecated.
+if versiontuple(jax.__version__) >= (0, 11, 0):
+    # jax >= 0.11.0 re-exposes the public singleton here (jax.core.abstract_token
+    # was deprecated in 0.10.0 and removed in 0.11.0).
+    from jax.ffi import abstract_token  # noqa: F401
+elif versiontuple(jax.__version__) >= (0, 10, 0):
+    # jax 0.10.x: the public jax.core.abstract_token is deprecated. Use the
+    # private singleton to avoid a DeprecationWarning. We must reuse the
+    # singleton rather than constructing a fresh AbstractToken(): JAX identifies
+    # tokens via `aval is core.abstract_token` in its lowering code, so a new
+    # instance would fail those checks.
     from jax._src.core import abstract_token  # noqa: F401
 else:
     from jax.core import abstract_token  # noqa: F401
