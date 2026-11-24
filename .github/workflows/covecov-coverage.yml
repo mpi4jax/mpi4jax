@@ -50,7 +50,7 @@ jobs:
 
       - name: Mpirun-executed test with pytest and coverage
         run: |
-          mpirun -host localhost:2 -v -np 2 coverage run
+          mpirun -host localhost:2 -np 2 coverage run
 
       - name: Combine multiple coverage results
         run: |
