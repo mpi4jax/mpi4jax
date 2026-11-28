@@ -1,0 +1,5 @@
+# Used by the 'Add to Buildkite' button in the readme
+name: "Python Docker Example"
+steps:
+  - label: ":pipeline:"
+    command: "buildkite-agent pipeline upload"
